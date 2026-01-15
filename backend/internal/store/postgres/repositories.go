@@ -103,10 +103,7 @@ func (r *BookingRepository) FindOverlapping(ctx context.Context, roomID uuid.UUI
 		FROM bookings
 		WHERE room_id = $1
 		  AND status NOT IN ('cancelled', 'completed')
-		  AND (
-			(check_in < $3 AND check_out > $2) OR
-			(check_in >= $2 AND check_in < $3)
-		  )
+		  AND NOT (check_out <= $2 OR check_in >= $3)
 	`
 	rows, err := r.db.Query(ctx, query, roomID, checkIn, checkOut)
 	if err != nil {
