@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: ollerod-pms-db
+    environment:
+      POSTGRES_USER: pms_user
+      POSTGRES_PASSWORD: pms_password
+      POSTGRES_DB: pms_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pms_user -d pms_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
