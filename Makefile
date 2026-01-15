@@ -11,14 +11,14 @@ setup: ## Run setup script to initialize project
 	./setup.sh
 
 db-up: ## Start database with Docker Compose
-	docker-compose up -d postgres
+	docker compose up -d postgres
 
 db-down: ## Stop database
-	docker-compose down
+	docker compose down
 
 db-reset: ## Reset database (stop, remove volumes, and start fresh)
-	docker-compose down -v
-	docker-compose up -d postgres
+	docker compose down -v
+	docker compose up -d postgres
 
 build-backend: ## Build backend binary
 	cd backend && go build -o ../bin/api ./cmd/api

@@ -48,9 +48,9 @@ cd ..
 
 # Setup Database
 echo -e "${BLUE}Setting up Database...${NC}"
-if command -v docker-compose &> /dev/null || command -v docker &> /dev/null; then
+if command -v docker &> /dev/null; then
     echo "Starting PostgreSQL container..."
-    docker-compose up -d postgres
+    docker compose up -d postgres
     
     echo "Waiting for PostgreSQL to be ready..."
     sleep 5
