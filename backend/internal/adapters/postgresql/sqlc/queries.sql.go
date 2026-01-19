@@ -85,6 +85,15 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteLicence = `-- name: DeleteLicence :exec
+DELETE FROM licences WHERE id = $1
+`
+
+func (q *Queries) DeleteLicence(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteLicence, id)
+	return err
+}
+
 const deleteUser = `-- name: DeleteUser :exec
 DELETE FROM users WHERE id = $1
 `
@@ -156,6 +165,42 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getUsersByLicenceID = `-- name: GetUsersByLicenceID :many
+SELECT id, licence_id, username, email, password_hash, first_name, last_name, role, is_active, created_at, updated_at FROM users WHERE licence_id = $1
+`
+
+func (q *Queries) GetUsersByLicenceID(ctx context.Context, licenceID pgtype.UUID) ([]User, error) {
+	rows, err := q.db.Query(ctx, getUsersByLicenceID, licenceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.LicenceID,
+			&i.Username,
+			&i.Email,
+			&i.PasswordHash,
+			&i.FirstName,
+			&i.LastName,
+			&i.Role,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listLicences = `-- name: ListLicences :many
@@ -261,6 +306,45 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
+const updateLicence = `-- name: UpdateLicence :one
+UPDATE licences 
+SET organisation_name = COALESCE($2, organisation_name),
+    licence_key = COALESCE($3, licence_key),
+    contact_email = COALESCE($4, contact_email),
+    licence_notes = COALESCE($5, licence_notes),
+    updated_at = NOW()
+WHERE id = $1 RETURNING id, licence_key, organisation_name, contact_email, licence_notes, created_at, updated_at
+`
+
+type UpdateLicenceParams struct {
+	ID               pgtype.UUID `json:"id"`
+	OrganisationName string      `json:"organisation_name"`
+	LicenceKey       string      `json:"licence_key"`
+	ContactEmail     string      `json:"contact_email"`
+	LicenceNotes     pgtype.Text `json:"licence_notes"`
+}
+
+func (q *Queries) UpdateLicence(ctx context.Context, arg UpdateLicenceParams) (Licence, error) {
+	row := q.db.QueryRow(ctx, updateLicence,
+		arg.ID,
+		arg.OrganisationName,
+		arg.LicenceKey,
+		arg.ContactEmail,
+		arg.LicenceNotes,
+	)
+	var i Licence
+	err := row.Scan(
+		&i.ID,
+		&i.LicenceKey,
+		&i.OrganisationName,
+		&i.ContactEmail,
+		&i.LicenceNotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateUser = `-- name: UpdateUser :one
 UPDATE users 
 SET username = COALESCE($2, username),
@@ -269,7 +353,8 @@ SET username = COALESCE($2, username),
     first_name = COALESCE($5, first_name),
     last_name = COALESCE($6, last_name),
     role = COALESCE($7, role),
-    is_active = COALESCE($8, is_active)
+    is_active = COALESCE($8, is_active),
+    updated_at = NOW()
 WHERE id = $1
 RETURNING id, licence_id, username, email, password_hash, first_name, last_name, role, is_active, created_at, updated_at
 `

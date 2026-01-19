@@ -13,13 +13,16 @@ import (
 type Querier interface {
 	CreateLicence(ctx context.Context, arg CreateLicenceParams) (Licence, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteLicence(ctx context.Context, id pgtype.UUID) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	GetLicenceByID(ctx context.Context, id pgtype.UUID) (Licence, error)
 	GetLicenceByUserID(ctx context.Context, id pgtype.UUID) (Licence, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
+	GetUsersByLicenceID(ctx context.Context, licenceID pgtype.UUID) ([]User, error)
 	ListLicences(ctx context.Context) ([]Licence, error)
 	ListRooms(ctx context.Context) ([]Room, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	UpdateLicence(ctx context.Context, arg UpdateLicenceParams) (Licence, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }
 

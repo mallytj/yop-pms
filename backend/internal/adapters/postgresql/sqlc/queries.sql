@@ -19,7 +19,8 @@ SET username = COALESCE($2, username),
     first_name = COALESCE($5, first_name),
     last_name = COALESCE($6, last_name),
     role = COALESCE($7, role),
-    is_active = COALESCE($8, is_active)
+    is_active = COALESCE($8, is_active),
+    updated_at = NOW()
 WHERE id = $1
 RETURNING *;
 
@@ -41,3 +42,18 @@ SELECT * FROM licences WHERE id = $1;
 -- name: CreateLicence :one
 INSERT INTO licences (licence_key, organisation_name, contact_email, licence_notes) 
 VALUES ($1, $2, $3, $4) RETURNING *;
+
+-- name: UpdateLicence :one
+UPDATE licences 
+SET organisation_name = COALESCE($2, organisation_name),
+    licence_key = COALESCE($3, licence_key),
+    contact_email = COALESCE($4, contact_email),
+    licence_notes = COALESCE($5, licence_notes),
+    updated_at = NOW()
+WHERE id = $1 RETURNING *;
+
+-- name: DeleteLicence :exec
+DELETE FROM licences WHERE id = $1;
+
+-- name: GetUsersByLicenceID :many
+SELECT * FROM users WHERE licence_id = $1;

@@ -67,3 +67,19 @@ func validateCreateLicenceParams(params repo.CreateLicenceParams) error {
 	}
 	return nil
 }
+
+// validateUpdateLicenceParams validates all parameters required to update a licence.
+func validateUpdateLicenceParams(params repo.UpdateLicenceParams) error {
+	if params.OrganisationName != "" && !validateOrganisationName(params.OrganisationName) {
+			return ErrInvalidOrganisationName
+	}
+
+	if params.ContactEmail != "" && !validateContactEmail(params.ContactEmail) {
+		return ErrInvalidContactEmail
+	}
+
+	if params.LicenceNotes.Valid && !validateLicenceNotes(params.LicenceNotes.String) {
+		return ErrInvalidLicenceNotes
+	}
+	return nil
+}

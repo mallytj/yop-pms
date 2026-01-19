@@ -1,8 +1,14 @@
 package helpers
 
 import (
+	"errors"
 	"regexp"
 	"unicode/utf8"
+)
+
+var (
+	ErrStartingTx  = errors.New("error starting transaction")
+	ErrCommitingTx = errors.New("error committing transaction")
 )
 
 // StringCharCount returns the number of characters in a string, accounting for multi-byte characters.
