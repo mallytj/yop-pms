@@ -1,15 +1,24 @@
 package helpers
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	repo "ollerod-pms/internal/adapters/postgresql/sqlc"
+	"ollerod-pms/internal/types"
+
 	"regexp"
+	"testing"
 	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -91,4 +100,77 @@ func ExtractAndParseUUIDParam(r *http.Request, param string) (uuid.UUID, error) 
 
 	// Return the parsed UUID
 	return userID, nil
+}
+
+// BuildAndServeHttpRequest is a helper function to build and serve an HTTP request.
+// method: HTTP method (GET, POST, etc.)
+// url: Request URL
+// body: Request body (can be nil)
+// r: chi.Mux router to serve the request
+// Returns the ResponseRecorder
+// Example: BuildAndServeHttpRequest("POST", "/users", params, r) => *httptest.ResponseRecorder
+func BuildAndServeHttpRequest(method string, url string, body interface{}, r *chi.Mux) *httptest.ResponseRecorder {
+	var reqBody *bytes.Reader
+	if body != nil {
+		jsonBody, _ := json.Marshal(body)
+		reqBody = bytes.NewReader(jsonBody)
+	} else {
+		reqBody = bytes.NewReader([]byte{})
+	}
+	req := httptest.NewRequest(method, url, reqBody)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	r.ServeHTTP(rr, req)
+	return rr
+}
+
+// CreateTestLicence is a helper function to create a test licence with the given licence key.
+// Returns the created licence.
+// licenceKey: Must be in the format "XXX-YYYY" where X is uppercase letter and Y is digit.
+// Example: CreateTestLicence(t, "TEST-1234") = repo.Licence{...}
+func CreateTestLicence(t *testing.T, licenceKey string, testQueries *repo.Queries) repo.Licence {
+	ctx := context.Background()
+	lic, err := testQueries.CreateLicence(ctx, repo.CreateLicenceParams{
+		LicenceKey:       licenceKey,
+		OrganisationName: "Test Organisation",
+		ContactEmail:     "test@example.com",
+	})
+	require.NoError(t, err)
+	return lic
+}
+
+// CreateTestUser is a helper function to create a test user with the given parameters.
+// Returns the created user.
+// params: Parameters required to create the user.
+// testQueries: Database queries interface for executing SQL commands.
+// Example: CreateTestUser(t, params, testQueries) = repo.User{...}
+func CreateTestUser(t *testing.T, params types.CreateUserParams, testQueries *repo.Queries) repo.User {
+	ctx := context.Background()
+
+	// Go service route to create first user directly
+	user, err := testQueries.CreateUser(ctx, repo.CreateUserParams{
+		LicenceID:    ToPgUUID(&params.LicenceID),
+		Username:     params.Username,
+		Email:        params.Email,
+		PasswordHash: params.Password,
+		FirstName:    params.FirstName,
+		LastName:     params.LastName,
+		Role:         string(params.Role),
+		IsActive:     ToPgBool(&params.IsActive),
+	})
+
+	// Ensure no error occurred during first user creation
+	require.NoError(t, err, fmt.Sprintf("failed to create test user: %v", err))
+
+	return user
+}
+
+// ParamIsProvided checks if a string pointer parameter is provided (not nil and not empty).
+// Example usage: ParamIsProvided(helpers.Ptr("value")) => true
+// Example usage: ParamIsProvided(helpers.Ptr("")) => false
+// Example usage: ParamIsProvided(nil) => false
+// Returns true if the parameter is provided, false otherwise.
+func ParamIsProvided(param *string) bool {
+	return param != nil && *param != ""
 }
