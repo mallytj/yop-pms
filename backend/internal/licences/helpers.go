@@ -54,15 +54,15 @@ func validateCreateLicenceParams(params repo.CreateLicenceParams) error {
 		return ErrInvalidLicenceKey
 	}
 
-	if !validateOrganisationName(params.OrganisationName) {
+	if helpers.ParamIsProvided(&params.OrganisationName) && !validateOrganisationName(params.OrganisationName) {
 		return ErrInvalidOrganisationName
 	}
 
-	if !validateContactEmail(params.ContactEmail) {
+	if helpers.ParamIsProvided(&params.ContactEmail) && !validateContactEmail(params.ContactEmail) {
 		return ErrInvalidContactEmail
 	}
 
-	if !validateLicenceNotes(params.LicenceNotes.String) {
+	if helpers.ParamIsProvided(&params.LicenceNotes.String) && !validateLicenceNotes(params.LicenceNotes.String) {
 		return ErrInvalidLicenceNotes
 	}
 	return nil
@@ -73,15 +73,15 @@ func validateUpdateLicenceParams(params repo.UpdateLicenceParams) error {
 	if params == (repo.UpdateLicenceParams{}) {
 		return nil // No fields to update
 	}
-	if params.OrganisationName != "" && !validateOrganisationName(params.OrganisationName) {
+	if helpers.ParamIsProvided(&params.OrganisationName) && !validateOrganisationName(params.OrganisationName) {
 		return ErrInvalidOrganisationName
 	}
 
-	if params.ContactEmail != "" && !validateContactEmail(params.ContactEmail) {
+	if helpers.ParamIsProvided(&params.ContactEmail) && !validateContactEmail(params.ContactEmail) {
 		return ErrInvalidContactEmail
 	}
 
-	if params.LicenceNotes.Valid && !validateLicenceNotes(params.LicenceNotes.String) {
+	if helpers.ParamIsProvided(&params.LicenceNotes.String) && !validateLicenceNotes(params.LicenceNotes.String) {
 		return ErrInvalidLicenceNotes
 	}
 	return nil

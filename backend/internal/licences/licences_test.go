@@ -1,25 +1,25 @@
 package licences
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
 	repo "ollerod-pms/internal/adapters/postgresql/sqlc"
+	"ollerod-pms/internal/types"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	hf "ollerod-pms/internal/helpers"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pressly/goose/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,283 +90,327 @@ func TestLicenceFlow(t *testing.T) {
 	h := NewHandler(svc)
 
 	t.Run("Create Licence - Success", func(t *testing.T) {
+		t.Parallel() // Run this test in parallel
+
+		// Define valid parameters
 		params := repo.CreateLicenceParams{
 			LicenceKey:       "ABC-1234",
 			OrganisationName: "The Grand London",
 			ContactEmail:     "admin@grandlondon.com",
-			LicenceNotes:     pgtype.Text{String: "Standard Licence", Valid: true},
+			LicenceNotes:     hf.ToPgText(hf.Ptr("Standard Licence")),
 		}
 
-		body, _ := json.Marshal(params)
-		req := httptest.NewRequest(http.MethodPost, "/licences", bytes.NewReader(body))
-		rr := httptest.NewRecorder()
+		// Create router
+		r := chi.NewRouter()
 
-		h.CreateLicence(rr, req)
+		// Build route and handler
+		r.Post("/licences", h.CreateLicence)
 
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/licences", params, r)
+
+		// Assert response status code is 201 Created
 		assert.Equal(t, http.StatusCreated, rr.Code)
 
+		// Parse response body into Licence struct
 		var created repo.Licence
 		err := json.Unmarshal(rr.Body.Bytes(), &created)
+
+		// Assert no error and correct LicenceKey
 		require.NoError(t, err)
+
+		// Assert that the created licence has the expected LicenceKey
 		assert.Equal(t, "ABC-1234", created.LicenceKey)
+
+		// Verify in DB
+		dbLicence, err := testQueries.GetLicenceByID(ctx, created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "The Grand London", dbLicence.OrganisationName)
 	})
 
 	t.Run("Create Licence - Invalid Format (Regex Fail)", func(t *testing.T) {
+		// Define invalid parameters
 		params := repo.CreateLicenceParams{
 			LicenceKey:       "invalid-key", // Should fail XXX-YYYY
 			OrganisationName: "Hotel",
 			ContactEmail:     "test@test.com",
 		}
 
-		body, _ := json.Marshal(params)
-		req := httptest.NewRequest(http.MethodPost, "/licences", bytes.NewReader(body))
-		rr := httptest.NewRecorder()
+		// Create router
+		r := chi.NewRouter()
 
-		h.CreateLicence(rr, req)
+		// Build route and handler
+		r.Post("/licences", h.CreateLicence)
 
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/licences", params, r)
+
+		// Assert response status code is 400 Bad Request
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 	})
 
 	t.Run("Create Licence - Key Already Exists", func(t *testing.T) {
 		// First, create a licence with a specific key
-		_, err := testQueries.CreateLicence(ctx, repo.CreateLicenceParams{
-			LicenceKey:       "DUP-0001",
-			OrganisationName: "Duplicate Hotel",
-			ContactEmail:     "duplicate@hotel.com",
-		})
-		require.NoError(t, err)
+		hf.CreateTestLicence(t, "DUP-0001", testQueries)
 
 		// Now, attempt to create another with the same key
 		params := repo.CreateLicenceParams{
-			LicenceKey:       "DUP-0001", // Duplicate key
-			OrganisationName: "Another Hotel",
-			ContactEmail:     "another@hotel.com",
+			LicenceKey: "DUP-0001", // Duplicate key
 		}
 
-		body, _ := json.Marshal(params)
-		req := httptest.NewRequest(http.MethodPost, "/licences", bytes.NewReader(body))
-		rr := httptest.NewRecorder()
+		// Define router
+		r := chi.NewRouter()
 
-		h.CreateLicence(rr, req)
+		// Build route and handler
+		r.Post("/licences", h.CreateLicence)
 
-		assert.Equal(t, http.StatusInternalServerError, rr.Code)
-		// assert.Contains(t, rr.Body.String(), "duplicate key value violates unique constraint")
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/licences", params, r)
+
+		// Assert response status code is 409 Conflict due to duplicate key
+		assert.Equal(t, http.StatusConflict, rr.Code)
 	})
 
 	t.Run("Get Licence By ID", func(t *testing.T) {
 		// Setup: Create a seed licence directly via Repo
-		lic, err := testQueries.CreateLicence(ctx, repo.CreateLicenceParams{
-			LicenceKey:       "GET-9999",
-			OrganisationName: "Getter Hotel",
-			ContactEmail:     "get@hotel.com",
-		})
-		require.NoError(t, err)
+		lic := hf.CreateTestLicence(t, "GET-9999", testQueries)
 
 		// Create Chi router to handle URL params
 		r := chi.NewRouter()
+
+		// Build route and handler
 		r.Get("/licences/{licenceID}", h.GetLicenceById)
 
-		req := httptest.NewRequest(http.MethodGet, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), nil)
-		rr := httptest.NewRecorder()
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/licences/"+lic.ID.String(), nil, r)
 
-		r.ServeHTTP(rr, req)
-
+		// Assert that we get a 200 OK
 		assert.Equal(t, http.StatusOK, rr.Code)
+
+		// Unmarshal into Licence struct
 		var found repo.Licence
 		json.Unmarshal(rr.Body.Bytes(), &found)
+
+		// Verify that the found licence matches the created one
 		assert.Equal(t, lic.LicenceKey, found.LicenceKey)
 	})
 
 	t.Run("Get Licence By ID - Not Found", func(t *testing.T) {
 		// Create Chi router to handle URL params
 		r := chi.NewRouter()
+
+		// Build route and handler
 		r.Get("/licences/{licenceID}", h.GetLicenceById)
 
+		// Use a random UUID that does not exist
 		nonExistentID := uuid.New()
-		req := httptest.NewRequest(http.MethodGet, "/licences/"+nonExistentID.String(), nil)
-		rr := httptest.NewRecorder()
 
-		r.ServeHTTP(rr, req)
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/licences/"+nonExistentID.String(), nil, r)
 
-		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+		// Assert that we get a 404 Not Found
+		assert.Equal(t, http.StatusNotFound, rr.Code)
 	})
 
 	t.Run("Get Users By Licence ID", func(t *testing.T) {
-		// Setup: Create a seed licence and user directly via Repo
-		lic, err := testQueries.CreateLicence(ctx, repo.CreateLicenceParams{
-			LicenceKey:       "USER-1234",
-			OrganisationName: "User Hotel",
-			ContactEmail:     "user@hotel.com",
-		})
+		// Create a licence
+		lic := hf.CreateTestLicence(t, "GET-6969", testQueries)
 
-		require.NoError(t, err)
-
-		_, err = testQueries.CreateUser(ctx, repo.CreateUserParams{
-			LicenceID:    lic.ID,
-			Username:     "testuser",
-			Email:        "testuser@hotel.com",
-			PasswordHash: "hashedpassword",
-			FirstName:    "Test",
-			LastName:     "User",
-			Role:         "user",
-			IsActive:     pgtype.Bool{Bool: true, Valid: true},
-		})
-
-		require.NoError(t, err)
+		// Create a user associated with that licence
+		hf.CreateTestUser(t, types.CreateUserParams{
+			LicenceID: uuid.MustParse(lic.ID.String()),
+			Username:  "testuser",
+			Email:     "testuser@hotel.com",
+			Password:  "hashedpassword",
+			FirstName: "Test",
+			LastName:  "User",
+			Role:      "user",
+			IsActive:  true,
+		}, testQueries)
 
 		// Create Chi router to handle URL params
 		r := chi.NewRouter()
+
+		// Build route and handler
 		r.Get("/licences/{licenceID}/users", h.GetUsersByID)
 
-		req := httptest.NewRequest(http.MethodGet, "/licences/"+uuid.UUID(lic.ID.Bytes).String()+"/users", nil)
-		rr := httptest.NewRecorder()
-
-		r.ServeHTTP(rr, req)
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/licences/"+uuid.UUID(lic.ID.Bytes).String()+"/users", nil, r)
 
 		// Assert that we get a 200 OK and the correct user data
 		assert.Equal(t, http.StatusOK, rr.Code)
 
-		// Parse response
+		// Unmarshal into slice of Users structs
 		var users []repo.User
 		json.Unmarshal(rr.Body.Bytes(), &users)
 
-		// Verify we got the expected user
+		// Verify we a single user returned
 		assert.Len(t, users, 1)
+
+		// Verify username matches
 		assert.Equal(t, "testuser", users[0].Username)
+	})
+
+	t.Run("Get Users By Licence ID - No Users", func(t *testing.T) {
+		// Create a licence with no users
+		lic := hf.CreateTestLicence(t, "GET-0000", testQueries)
+
+		// Create Chi router to handle URL params
+		r := chi.NewRouter()
+
+		// Build route and handler
+		r.Get("/licences/{licenceID}/users", h.GetUsersByID)
+
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/licences/"+uuid.UUID(lic.ID.Bytes).String()+"/users", nil, r)
+
+		// Assert that we get a 200 OK
+		assert.Equal(t, http.StatusOK, rr.Code)
+
+		// Unmarshal into slice of Users structs
+		var users []repo.User
+		json.Unmarshal(rr.Body.Bytes(), &users)
+
+		// Verify we have zero users returned
+		assert.Len(t, users, 0)
 	})
 
 	t.Run("Update Licence", func(t *testing.T) {
 		// Setup
-		lic, _ := testQueries.CreateLicence(ctx, repo.CreateLicenceParams{
-			LicenceKey:       "UPD-1111",
-			OrganisationName: "Old Name",
-			ContactEmail:     "old@email.com",
-		})
+		lic := hf.CreateTestLicence(t, "UPD-2222", testQueries)
 
+		// Define update parameters
 		updateParams := repo.UpdateLicenceParams{
 			OrganisationName: "New Improved Name",
 			ContactEmail:     "new@email.com",
 		}
 
-		body, _ := json.Marshal(updateParams)
-
+		// Create router
 		r := chi.NewRouter()
+
+		// Build route and handler
 		r.Put("/licences/{licenceID}", h.UpdateLicence)
 
-		req := httptest.NewRequest(http.MethodPut, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), bytes.NewReader(body))
-		rr := httptest.NewRecorder()
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), updateParams, r)
 
-		r.ServeHTTP(rr, req)
-
+		// Assert response status code is 200 OK
 		assert.Equal(t, http.StatusOK, rr.Code)
 
 		// Verify in DB
 		updated, _ := testQueries.GetLicenceByID(ctx, lic.ID)
+
+		// Assert that the organisation name was updated
 		assert.Equal(t, "New Improved Name", updated.OrganisationName)
+
+		// Assert that the contact email was updated
+		assert.Equal(t, "new@email.com", updated.ContactEmail)
+
 	})
 
 	t.Run("Update Licence - Not Found", func(t *testing.T) {
+		// Define update parameters for a non-existent licence
 		updateParams := repo.UpdateLicenceParams{
 			OrganisationName: "Non Existent",
 			ContactEmail:     "nonexistent@email.com",
 		}
 
-		body, _ := json.Marshal(updateParams)
-
+		// Create router
 		r := chi.NewRouter()
+
+		// Build route and handler
 		r.Put("/licences/{licenceID}", h.UpdateLicence)
 
-		req := httptest.NewRequest(http.MethodPut, "/licences/"+uuid.New().String(), bytes.NewReader(body))
-		rr := httptest.NewRecorder()
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/licences/"+uuid.New().String(), updateParams, r)
 
-		r.ServeHTTP(rr, req)
-
-		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+		// Assert response status code is 404 Not Found
+		assert.Equal(t, http.StatusNotFound, rr.Code)
 	})
 
 	t.Run("Update Licence - Invalid Params", func(t *testing.T) {
-		// Setup
-		lic, _ := testQueries.CreateLicence(ctx, repo.CreateLicenceParams{
-			LicenceKey:       "UPD-3333",
-			OrganisationName: "Valid Name",
-			ContactEmail:     "valid@email.com",
-		})
+		// Create a licence
+		lic := hf.CreateTestLicence(t, "UPD-3333", testQueries)
 
+		// Invalid update params
 		updateParams := repo.UpdateLicenceParams{
 			OrganisationName: "",            // Invalid: empty name
 			ContactEmail:     "alsoinvalid", // Invalid email format
 		}
 
-		body, _ := json.Marshal(updateParams)
-
+		// Create router
 		r := chi.NewRouter()
+
+		// Build route and handler
 		r.Put("/licences/{licenceID}", h.UpdateLicence)
 
-		req := httptest.NewRequest(http.MethodPut, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), bytes.NewReader(body))
-		rr := httptest.NewRecorder()
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), updateParams, r)
 
-		r.ServeHTTP(rr, req)
-
+		// Assert response status code is 400 Bad Request
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+		// Check in DB that no changes were made
+		dbLicence, _ := testQueries.GetLicenceByID(ctx, lic.ID)
+		assert.Equal(t, lic.OrganisationName, dbLicence.OrganisationName)
+		assert.Equal(t, lic.ContactEmail, dbLicence.ContactEmail)
 	})
 
 	t.Run("Update Licence - No Fields", func(t *testing.T) {
-		// Setup
-		lic, _ := testQueries.CreateLicence(ctx, repo.CreateLicenceParams{
-			LicenceKey:       "UPD-4444",
-			OrganisationName: "Another Valid Name",
-			ContactEmail:     "anothervalid@email.com",
-		})
+		// Create a licence
+		lic := hf.CreateTestLicence(t, "UPD-4444", testQueries)
 
+		// Empty update params
 		updateParams := repo.UpdateLicenceParams{}
 
-		body, _ := json.Marshal(updateParams)
-
+		// Create route
 		r := chi.NewRouter()
 
+		// Build route and handler
 		r.Put("/licences/{licenceID}", h.UpdateLicence)
 
-		req := httptest.NewRequest(http.MethodPut, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), bytes.NewReader(body))
-		rr := httptest.NewRecorder()
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), updateParams, r)
 
-		r.ServeHTTP(rr, req)
-
+		// Assert response status code is 200 OK (no changes made)
 		assert.Equal(t, http.StatusOK, rr.Code)
 	})
 
 	t.Run("Delete Licence", func(t *testing.T) {
-		// Setup
-		lic, _ := testQueries.CreateLicence(ctx, repo.CreateLicenceParams{
-			LicenceKey:       "DEL-2222",
-			OrganisationName: "To Be Deleted",
-			ContactEmail:     "delete@email.com",
-		})
+		// Create a licence
+		lic := hf.CreateTestLicence(t, "DEL-2222", testQueries)
 
+		// Create router
 		r := chi.NewRouter()
+
+		// Build route and handler
 		r.Delete("/licences/{licenceID}", h.DeleteLicence)
 
-		req := httptest.NewRequest(http.MethodDelete, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), nil)
-		rr := httptest.NewRecorder()
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodDelete, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), nil, r)
 
-		r.ServeHTTP(rr, req)
-
+		// Assert response status code is 204 No Content
 		assert.Equal(t, http.StatusNoContent, rr.Code)
 
-		// Verify Deletion
+		// Verify Deletion in DB
 		_, err := testQueries.GetLicenceByID(ctx, lic.ID)
 		assert.Error(t, err)
 	})
 
 	t.Run("Delete Licence - Not Found", func(t *testing.T) {
+		// Create router
 		r := chi.NewRouter()
+
+		// Build route and handler
 		r.Delete("/licences/{licenceID}", h.DeleteLicence)
 
+		// Use a random UUID that does not exist
 		nonExistentID := uuid.New()
-		req := httptest.NewRequest(http.MethodDelete, "/licences/"+nonExistentID.String(), nil)
-		rr := httptest.NewRecorder()
 
-		r.ServeHTTP(rr, req)
+		// Build and serve the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodDelete, "/licences/"+nonExistentID.String(), nil, r)
 
+		// Assert response status code is 404 Not Found
 		assert.Equal(t, http.StatusNotFound, rr.Code)
 	})
 }

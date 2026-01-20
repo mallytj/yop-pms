@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -24,6 +24,13 @@ var (
 	ErrListingLicencesFailed         = errors.New("listing licences failed")
 	ErrDeletingLicenceFailed         = errors.New("deleting licence failed")
 	ErrGettingUsersByLicenceIDFailed = errors.New("getting users by licence ID failed")
+	ErrDuplicatedField               = errors.New("duplicated field error")
+)
+
+// PostgreSQL error codes
+const (
+	uniqueViolationCode     = "23505"
+	foreignKeyViolationCode = "23503"
 )
 
 type svc struct {
@@ -65,27 +72,39 @@ func (s *svc) CreateLicence(ctx context.Context, params repo.CreateLicenceParams
 	// Use transaction for repo operations
 	qtx := s.repo.WithTx(tx)
 
+	// Perform the create operation
 	licence, err := qtx.CreateLicence(ctx, params)
 
 	if err != nil {
-		return repo.Licence{}, fmt.Errorf("%w: %v", ErrCreatingLicenceFailed, err)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			// Handle unique violation error for licence key
+			if pgErr.Code == uniqueViolationCode {
+				return repo.Licence{}, ErrDuplicatedField
+			}
+		}
+		return repo.Licence{}, err
 	}
 
+	// Commit the transaction
 	if err := tx.Commit(ctx); err != nil {
-		return repo.Licence{}, fmt.Errorf("%w: %v", helpers.ErrCommitingTx, err)
+		return repo.Licence{}, err
 	}
 
+	// Return the created licence
 	return licence, nil
 }
 
 // ListLicences retrieves all licences from the database. (CRUD - Read)
 func (s *svc) ListLicences(ctx context.Context) ([]repo.Licence, error) {
+	// Perform the list operation
 	licences, err := s.repo.ListLicences(ctx)
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("%w: %v", ErrListingLicencesFailed, err)
+		return nil, err
 	}
 
 	return licences, nil
@@ -93,26 +112,35 @@ func (s *svc) ListLicences(ctx context.Context) ([]repo.Licence, error) {
 
 // GetLicenceById retrieves a licence by its ID from the database. (CRUD - Read)
 func (s *svc) GetLicenceById(ctx context.Context, licenceID uuid.UUID) (repo.Licence, error) {
-	licence, err := s.repo.GetLicenceByID(ctx, pgtype.UUID{Bytes: licenceID, Valid: true})
+	// Perform the get operation
+	licence, err := s.repo.GetLicenceByID(ctx, helpers.ToPgUUID(&licenceID))
 
 	if err != nil {
-		return repo.Licence{}, fmt.Errorf("%w: %v", ErrLicenceNotFound, err)
+		// Handle not found error
+		if errors.Is(err, pgx.ErrNoRows) {
+			return repo.Licence{}, ErrLicenceNotFound
+		}
+		return repo.Licence{}, err
 	}
 
+	// Return the retrieved licence
 	return licence, nil
 }
 
 // GetUsersByID retrieves all users associated with a given licence ID. (CRUD - Read)
 func (s *svc) GetUsersByID(ctx context.Context, licenceID uuid.UUID) ([]repo.User, error) {
-	users, err := s.repo.GetUsersByLicenceID(ctx, pgtype.UUID{Bytes: licenceID, Valid: true})
+	// Perform the get users by licence ID operation
+	users, err := s.repo.GetUsersByLicenceID(ctx, helpers.ToPgUUID(&licenceID))
 	if err != nil {
+		// Handle not found error
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
-
-		return nil, fmt.Errorf("%w: %v", ErrGettingUsersByLicenceIDFailed, err)
+		// For other errors, return the error
+		return nil, err
 	}
 
+	// Return the list of users
 	return users, nil
 }
 
@@ -120,9 +148,10 @@ func (s *svc) GetUsersByID(ctx context.Context, licenceID uuid.UUID) ([]repo.Use
 func (s *svc) UpdateLicence(ctx context.Context, licenceID uuid.UUID, params repo.UpdateLicenceParams) (repo.Licence, error) {
 	// Validate parameters
 	if err := validateUpdateLicenceParams(params); err != nil {
-		return repo.Licence{}, fmt.Errorf("invalid update licence parameters: %w", err)
+		return repo.Licence{}, err
 	}
 
+	// Check if there is anything to update
 	if params == (repo.UpdateLicenceParams{}) {
 		return repo.Licence{}, nil // No fields to update
 	}
@@ -130,7 +159,7 @@ func (s *svc) UpdateLicence(ctx context.Context, licenceID uuid.UUID, params rep
 	// Start transaction for updating licence
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return repo.Licence{}, fmt.Errorf("%w: %v", helpers.ErrStartingTx, err)
+		return repo.Licence{}, err
 	}
 
 	// Ensure the transaction is rolled back if not committed
@@ -140,17 +169,20 @@ func (s *svc) UpdateLicence(ctx context.Context, licenceID uuid.UUID, params rep
 	qtx := s.repo.WithTx(tx)
 
 	// Set the ID for the update operation
-	params.ID = pgtype.UUID{Bytes: licenceID, Valid: true}
+	params.ID = helpers.ToPgUUID(&licenceID)
 
 	// Perform the update
 	licence, err := qtx.UpdateLicence(ctx, params)
 
 	if err != nil {
-		return repo.Licence{}, fmt.Errorf("%w: %v", ErrUpdatingLicence, err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return repo.Licence{}, ErrLicenceNotFound
+		}
+		return repo.Licence{}, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return repo.Licence{}, fmt.Errorf("%w: %v", helpers.ErrCommitingTx, err)
+		return repo.Licence{}, err
 	}
 
 	return licence, nil
@@ -161,7 +193,7 @@ func (s *svc) DeleteLicence(ctx context.Context, licenceID uuid.UUID) error {
 	// Start transaction for deleting licence
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("%w: %v", helpers.ErrStartingTx, err)
+		return err
 	}
 	// Ensure the transaction is rolled back if not committed
 	defer tx.Rollback(ctx)
@@ -170,10 +202,9 @@ func (s *svc) DeleteLicence(ctx context.Context, licenceID uuid.UUID) error {
 	qtx := s.repo.WithTx(tx)
 
 	// Perform the delete operation
-	res, err := qtx.DeleteLicence(ctx, pgtype.UUID{Bytes: licenceID, Valid: true})
+	res, err := qtx.DeleteLicence(ctx, helpers.ToPgUUID(&licenceID))
 	if err != nil {
-
-		return fmt.Errorf("%w: %v", ErrDeletingLicenceFailed, err)
+		return err
 	}
 
 	if res.RowsAffected() == 0 {
@@ -181,7 +212,7 @@ func (s *svc) DeleteLicence(ctx context.Context, licenceID uuid.UUID) error {
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("%w: %v", helpers.ErrCommitingTx, err)
+		return err
 	}
 
 	return nil
