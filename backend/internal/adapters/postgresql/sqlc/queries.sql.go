@@ -12,6 +12,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const checkLicenceExists = `-- name: CheckLicenceExists :one
+SELECT EXISTS(SELECT 1 FROM licences WHERE id = $1) AS exists
+`
+
+func (q *Queries) CheckLicenceExists(ctx context.Context, id pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, checkLicenceExists, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createLicence = `-- name: CreateLicence :one
 INSERT INTO licences (licence_key, organisation_name, contact_email, licence_notes) 
 VALUES ($1, $2, $3, $4) RETURNING id, licence_key, organisation_name, contact_email, licence_notes, created_at, updated_at
@@ -96,13 +107,12 @@ func (q *Queries) DeleteLicence(ctx context.Context, id pgtype.UUID) (pgconn.Com
 	return q.db.Exec(ctx, deleteLicence, id)
 }
 
-const deleteUser = `-- name: DeleteUser :exec
+const deleteUser = `-- name: DeleteUser :execresult
 DELETE FROM users WHERE id = $1
 `
 
-func (q *Queries) DeleteUser(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, deleteUser, id)
-	return err
+func (q *Queries) DeleteUser(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, deleteUser, id)
 }
 
 const getLicenceByID = `-- name: GetLicenceByID :one
@@ -349,12 +359,13 @@ func (q *Queries) UpdateLicence(ctx context.Context, arg UpdateLicenceParams) (L
 
 const updateUser = `-- name: UpdateUser :one
 UPDATE users 
-SET username = COALESCE($2, username),
+SET 
+    username = COALESCE($2, username),
     email = COALESCE($3, email),
     password_hash = COALESCE($4, password_hash),
-    first_name = COALESCE($5, first_name),
-    last_name = COALESCE($6, last_name),
-    licence_id = COALESCE($7, licence_id),
+    licence_id = COALESCE($5, licence_id),
+    first_name = COALESCE($6, first_name),
+    last_name = COALESCE($7, last_name),
     is_active = COALESCE($8, is_active),
     role = COALESCE($9, role),
     updated_at = NOW()
@@ -364,14 +375,14 @@ RETURNING id, licence_id, username, email, password_hash, first_name, last_name,
 
 type UpdateUserParams struct {
 	ID           pgtype.UUID `json:"id"`
-	Username     string      `json:"username"`
-	Email        string      `json:"email"`
-	PasswordHash string      `json:"password_hash"`
-	FirstName    string      `json:"first_name"`
-	LastName     string      `json:"last_name"`
+	Username     pgtype.Text `json:"username"`
+	Email        pgtype.Text `json:"email"`
+	PasswordHash pgtype.Text `json:"password_hash"`
 	LicenceID    pgtype.UUID `json:"licence_id"`
+	FirstName    pgtype.Text `json:"first_name"`
+	LastName     pgtype.Text `json:"last_name"`
 	IsActive     pgtype.Bool `json:"is_active"`
-	Role         string      `json:"role"`
+	Role         pgtype.Text `json:"role"`
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
@@ -380,9 +391,9 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		arg.Username,
 		arg.Email,
 		arg.PasswordHash,
+		arg.LicenceID,
 		arg.FirstName,
 		arg.LastName,
-		arg.LicenceID,
 		arg.IsActive,
 		arg.Role,
 	)

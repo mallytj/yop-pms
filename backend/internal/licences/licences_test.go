@@ -14,11 +14,11 @@ import (
 
 	repo "ollerod-pms/internal/adapters/postgresql/sqlc"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pressly/goose/v3"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	testDB      *pgx.Conn
+	testDB      *pgxpool.Pool
 	testQueries *repo.Queries
 )
 
@@ -71,7 +71,7 @@ func TestMain(m *testing.M) {
 	db.Close()
 
 	// 3. Setup global test connection
-	testDB, err = pgx.Connect(ctx, connStr)
+	testDB, err = pgxpool.New(ctx, connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	testDB.Close(ctx)
+	testDB.Close()
 	pgContainer.Terminate(ctx)
 	os.Exit(code)
 }

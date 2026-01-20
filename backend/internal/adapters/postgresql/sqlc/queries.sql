@@ -13,19 +13,20 @@ SELECT * FROM users WHERE id = $1;
 
 -- name: UpdateUser :one
 UPDATE users 
-SET username = COALESCE($2, username),
-    email = COALESCE($3, email),
-    password_hash = COALESCE($4, password_hash),
-    first_name = COALESCE($5, first_name),
-    last_name = COALESCE($6, last_name),
-    licence_id = COALESCE($7, licence_id),
-    is_active = COALESCE($8, is_active),
-    role = COALESCE($9, role),
+SET 
+    username = COALESCE(sqlc.narg('username'), username),
+    email = COALESCE(sqlc.narg('email'), email),
+    password_hash = COALESCE(sqlc.narg('password_hash'), password_hash),
+    licence_id = COALESCE(sqlc.narg('licence_id'), licence_id),
+    first_name = COALESCE(sqlc.narg('first_name'), first_name),
+    last_name = COALESCE(sqlc.narg('last_name'), last_name),
+    is_active = COALESCE(sqlc.narg('is_active'), is_active),
+    role = COALESCE(sqlc.narg('role'), role),
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;
 
--- name: DeleteUser :exec
+-- name: DeleteUser :execresult
 DELETE FROM users WHERE id = $1;
 
 -- name: ListLicences :many
@@ -58,3 +59,6 @@ DELETE FROM licences WHERE id = $1;
 
 -- name: GetUsersByLicenceID :many
 SELECT * FROM users WHERE licence_id = $1;
+
+-- name: CheckLicenceExists :one
+SELECT EXISTS(SELECT 1 FROM licences WHERE id = $1) AS exists;

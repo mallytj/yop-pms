@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
@@ -27,7 +28,7 @@ var (
 
 type svc struct {
 	repo repo.Queries
-	db   *pgx.Conn
+	db   *pgxpool.Pool
 }
 
 type Service interface {
@@ -39,7 +40,7 @@ type Service interface {
 	DeleteLicence(ctx context.Context, licenceID uuid.UUID) error
 }
 
-func NewService(r repo.Queries, db *pgx.Conn) Service {
+func NewService(r repo.Queries, db *pgxpool.Pool) Service {
 	return &svc{
 		repo: r,
 		db:   db,

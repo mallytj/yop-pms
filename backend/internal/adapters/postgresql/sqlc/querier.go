@@ -12,10 +12,11 @@ import (
 )
 
 type Querier interface {
+	CheckLicenceExists(ctx context.Context, id pgtype.UUID) (bool, error)
 	CreateLicence(ctx context.Context, arg CreateLicenceParams) (Licence, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteLicence(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error)
-	DeleteUser(ctx context.Context, id pgtype.UUID) error
+	DeleteUser(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error)
 	GetLicenceByID(ctx context.Context, id pgtype.UUID) (Licence, error)
 	GetLicenceByUserID(ctx context.Context, id pgtype.UUID) (Licence, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
