@@ -8,6 +8,7 @@ package repo
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -44,8 +45,8 @@ func (q *Queries) CreateLicence(ctx context.Context, arg CreateLicenceParams) (L
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (username, email, password_hash, first_name, last_name, role, is_active) 
-VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, licence_id, username, email, password_hash, first_name, last_name, role, is_active, created_at, updated_at
+INSERT INTO users (username, email, password_hash, first_name, last_name, is_active, licence_id, role) 
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, licence_id, username, email, password_hash, first_name, last_name, role, is_active, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -54,8 +55,9 @@ type CreateUserParams struct {
 	PasswordHash string      `json:"password_hash"`
 	FirstName    string      `json:"first_name"`
 	LastName     string      `json:"last_name"`
-	Role         string      `json:"role"`
 	IsActive     pgtype.Bool `json:"is_active"`
+	LicenceID    pgtype.UUID `json:"licence_id"`
+	Role         string      `json:"role"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -65,8 +67,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.PasswordHash,
 		arg.FirstName,
 		arg.LastName,
-		arg.Role,
 		arg.IsActive,
+		arg.LicenceID,
+		arg.Role,
 	)
 	var i User
 	err := row.Scan(
@@ -85,13 +88,12 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
-const deleteLicence = `-- name: DeleteLicence :exec
+const deleteLicence = `-- name: DeleteLicence :execresult
 DELETE FROM licences WHERE id = $1
 `
 
-func (q *Queries) DeleteLicence(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, deleteLicence, id)
-	return err
+func (q *Queries) DeleteLicence(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, deleteLicence, id)
 }
 
 const deleteUser = `-- name: DeleteUser :exec
@@ -352,8 +354,9 @@ SET username = COALESCE($2, username),
     password_hash = COALESCE($4, password_hash),
     first_name = COALESCE($5, first_name),
     last_name = COALESCE($6, last_name),
-    role = COALESCE($7, role),
+    licence_id = COALESCE($7, licence_id),
     is_active = COALESCE($8, is_active),
+    role = COALESCE($9, role),
     updated_at = NOW()
 WHERE id = $1
 RETURNING id, licence_id, username, email, password_hash, first_name, last_name, role, is_active, created_at, updated_at
@@ -366,8 +369,9 @@ type UpdateUserParams struct {
 	PasswordHash string      `json:"password_hash"`
 	FirstName    string      `json:"first_name"`
 	LastName     string      `json:"last_name"`
-	Role         string      `json:"role"`
+	LicenceID    pgtype.UUID `json:"licence_id"`
 	IsActive     pgtype.Bool `json:"is_active"`
+	Role         string      `json:"role"`
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
@@ -378,8 +382,9 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		arg.PasswordHash,
 		arg.FirstName,
 		arg.LastName,
-		arg.Role,
+		arg.LicenceID,
 		arg.IsActive,
+		arg.Role,
 	)
 	var i User
 	err := row.Scan(

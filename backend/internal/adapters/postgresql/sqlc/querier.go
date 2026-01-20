@@ -7,13 +7,14 @@ package repo
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
 	CreateLicence(ctx context.Context, arg CreateLicenceParams) (Licence, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
-	DeleteLicence(ctx context.Context, id pgtype.UUID) error
+	DeleteLicence(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error)
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	GetLicenceByID(ctx context.Context, id pgtype.UUID) (Licence, error)
 	GetLicenceByUserID(ctx context.Context, id pgtype.UUID) (Licence, error)

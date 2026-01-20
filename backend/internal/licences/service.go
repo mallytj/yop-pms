@@ -17,7 +17,7 @@ import (
 var (
 	ErrUserNotFound                  = errors.New("user not found")
 	ErrLicenceNotFound               = errors.New("licence not found")
-	ErrUpdatingLicence               = errors.New("error updating licence")
+	ErrUpdatingLicence               = errors.New("error updating licence in database")
 	ErrCreatingLicenceFailed         = errors.New("creating licence failed")
 	ErrInvalidCreateLicenceParams    = errors.New("invalid create licence parameters")
 	ErrListingLicencesFailed         = errors.New("listing licences failed")
@@ -122,11 +122,16 @@ func (s *svc) UpdateLicence(ctx context.Context, licenceID uuid.UUID, params rep
 		return repo.Licence{}, fmt.Errorf("invalid update licence parameters: %w", err)
 	}
 
+	if params == (repo.UpdateLicenceParams{}) {
+		return repo.Licence{}, nil // No fields to update
+	}
+
 	// Start transaction for updating licence
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return repo.Licence{}, fmt.Errorf("%w: %v", helpers.ErrStartingTx, err)
 	}
+
 	// Ensure the transaction is rolled back if not committed
 	defer tx.Rollback(ctx)
 
@@ -164,12 +169,14 @@ func (s *svc) DeleteLicence(ctx context.Context, licenceID uuid.UUID) error {
 	qtx := s.repo.WithTx(tx)
 
 	// Perform the delete operation
-	err = qtx.DeleteLicence(ctx, pgtype.UUID{Bytes: licenceID, Valid: true})
+	res, err := qtx.DeleteLicence(ctx, pgtype.UUID{Bytes: licenceID, Valid: true})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("%w", ErrLicenceNotFound)
-		}
+
 		return fmt.Errorf("%w: %v", ErrDeletingLicenceFailed, err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return ErrLicenceNotFound
 	}
 
 	if err := tx.Commit(ctx); err != nil {

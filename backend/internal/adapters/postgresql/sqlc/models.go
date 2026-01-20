@@ -9,14 +9,13 @@ import (
 )
 
 type AuditLog struct {
-	ID         pgtype.UUID        `json:"id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	UserRoleID pgtype.UUID        `json:"user_role_id"`
-	Action     string             `json:"action"`
-	Entity     string             `json:"entity"`
-	EntityID   pgtype.UUID        `json:"entity_id"`
-	Changes    []byte             `json:"changes"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Action    string             `json:"action"`
+	Entity    string             `json:"entity"`
+	EntityID  pgtype.UUID        `json:"entity_id"`
+	Changes   []byte             `json:"changes"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type DailyAvailability struct {

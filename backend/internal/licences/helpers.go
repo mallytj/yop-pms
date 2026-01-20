@@ -70,8 +70,11 @@ func validateCreateLicenceParams(params repo.CreateLicenceParams) error {
 
 // validateUpdateLicenceParams validates all parameters required to update a licence.
 func validateUpdateLicenceParams(params repo.UpdateLicenceParams) error {
+	if params == (repo.UpdateLicenceParams{}) {
+		return nil // No fields to update
+	}
 	if params.OrganisationName != "" && !validateOrganisationName(params.OrganisationName) {
-			return ErrInvalidOrganisationName
+		return ErrInvalidOrganisationName
 	}
 
 	if params.ContactEmail != "" && !validateContactEmail(params.ContactEmail) {

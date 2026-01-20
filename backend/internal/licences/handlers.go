@@ -79,7 +79,6 @@ func (h *handler) GetLicenceById(w http.ResponseWriter, r *http.Request) {
 	json.Write(w, http.StatusOK, licence)
 }
 
-// 
 func (h *handler) GetUsersByID(w http.ResponseWriter, r *http.Request) {
 	licenceID := uuid.MustParse(chi.URLParam(r, "licenceID"))
 	if licenceID == uuid.Nil {
@@ -144,6 +143,10 @@ func (h *handler) DeleteLicence(w http.ResponseWriter, r *http.Request) {
 
 	err := h.service.DeleteLicence(r.Context(), licenceID)
 	if err != nil {
+		if err == ErrLicenceNotFound {
+			http.Error(w, "licence not found", http.StatusNotFound)
+			return
+		}
 		log.Printf("error deleting licence: %v", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

@@ -5,8 +5,8 @@ SELECT * FROM rooms;
 SELECT * FROM users;
 
 -- name: CreateUser :one
-INSERT INTO users (username, email, password_hash, first_name, last_name, role, is_active) 
-VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
+INSERT INTO users (username, email, password_hash, first_name, last_name, is_active, licence_id, role) 
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
 
 -- name: GetUserByID :one
 SELECT * FROM users WHERE id = $1;
@@ -18,8 +18,9 @@ SET username = COALESCE($2, username),
     password_hash = COALESCE($4, password_hash),
     first_name = COALESCE($5, first_name),
     last_name = COALESCE($6, last_name),
-    role = COALESCE($7, role),
+    licence_id = COALESCE($7, licence_id),
     is_active = COALESCE($8, is_active),
+    role = COALESCE($9, role),
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;
@@ -52,7 +53,7 @@ SET organisation_name = COALESCE($2, organisation_name),
     updated_at = NOW()
 WHERE id = $1 RETURNING *;
 
--- name: DeleteLicence :exec
+-- name: DeleteLicence :execresult
 DELETE FROM licences WHERE id = $1;
 
 -- name: GetUsersByLicenceID :many
