@@ -174,8 +174,15 @@ func (h *handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 		// If the error is ErrDuplicatedField, return a 409 Conflict response
 		if err == ErrDuplicatedField {
-			log.Println("duplicated user error:", err)
+			log.Println("duplicated field error:", err)
 			json.Write(w, http.StatusConflict, err)
+			return
+		}
+
+		// If the error is ErrLicenceNotFound, return a 400 Bad Request response
+		if err == ErrLicenceNotFound {
+			log.Println("licence not found for user update:", err)
+			json.Write(w, http.StatusBadRequest, err)
 			return
 		}
 

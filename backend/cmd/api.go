@@ -13,6 +13,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	mw "ollerod-pms/internal/middleware"
 )
 
 func (app *application) mount() http.Handler {
@@ -43,6 +45,8 @@ func (app *application) mount() http.Handler {
 	userService := users.NewService(*repo.New(app.db), app.db)
 	userHandler := users.NewHandler(userService)
 	r.Route("/users", func(r chi.Router) {
+		r.Use(mw.UserCtx) // Middleware to extract userID from URL and add to context
+
 		// Create a new user (using form data)
 		r.Post("/", userHandler.CreateUser)
 
@@ -73,6 +77,8 @@ func (app *application) mount() http.Handler {
 	licenceService := licences.NewService(*repo.New(app.db), app.db)
 	licenceHandler := licences.NewHandler(licenceService)
 	r.Route("/licences", func(r chi.Router) {
+		r.Use(mw.LicenceCtx) // Middleware to extract licenceID from URL and add to context
+
 		// Create a new licence (using form data)
 		r.Post("/", licenceHandler.CreateLicence)
 
@@ -82,14 +88,68 @@ func (app *application) mount() http.Handler {
 		// Get a single licence by ID
 		r.Get("/{licenceID}", licenceHandler.GetLicenceById)
 
-		// Get all users by licence ID
-		r.Get("/{licenceID}/users", licenceHandler.GetUsersByID)
-
 		// Update an existing licence by ID (using form data)
 		r.Put("/{licenceID}", licenceHandler.UpdateLicence)
 
 		// Delete a licence by ID
 		r.Delete("/{licenceID}", licenceHandler.DeleteLicence)
+
+		// Users by licence ID
+		r.Route("/{licenceID}/users", func(r chi.Router) {
+			r.Use(mw.UserCtx) // Middleware to extract userID from URL and add to context
+			// Get all users by licence ID
+			r.Get("/", licenceHandler.GetUsersByID)
+		})
+	})
+
+	/*
+	  ____                            _   _
+	 |  _ \ _ __ ___  _ __   ___ _ __| |_(_) ___  ___
+	 | |_) | '__/ _ \| '_ \ / _ \ '__| __| |/ _ \/ __|
+	 |  __/| | | (_) | |_) |  __/ |  | |_| |  __/\__ \
+	 |_|   |_|  \___/| .__/ \___|_|   \__|_|\___||___/
+	                 |_|
+	*/
+	r.Route("/properties", func(r chi.Router) {
+		// Create a new property
+		// r.Post("/", propertyHandler.CreateProperty)
+
+		// Get all properties
+		// r.Get("/", propertyHandler.ListProperties)
+
+		// Get a single property by ID
+		// r.Get("/{propertyID}", propertyHandler.GetPropertyById)
+
+		// Update an existing property by ID
+		// r.Put("/{propertyID}", propertyHandler.UpdateProperty)
+
+		// Delete a property by ID
+		// r.Delete("/{propertyID}", propertyHandler.DeleteProperty)
+
+		// Get properties licence by propertyID
+		// r.Get("/{propertyID}/licence", propertyHandler.GetLicence)
+
+		// Get properties room types by propertyID
+		// r.Get("/{propertyID}/roomtypes", propertyHandler.GetRoomTypes)
+
+		// Get properties amenities by propertyID
+		// r.Get("/{propertyID}/amenities", propertyHandler.GetAmenities)
+
+		// Get property reservations by propertyID
+		// r.Get("/{propertyID}/reservations", propertyHandler.GetReservations)
+
+		// Get property rooms by propertyID
+		// r.Get("/{propertyID}/rooms", propertyHandler.GetRooms)
+
+		// Get property rate plans by propertyID
+		// r.Get("/{propertyID}/rateplans", propertyHandler.GetRatePlans)
+
+		// Get property guests by propertyID
+		// r.Get("/{propertyID}/guests", propertyHandler.GetGuests)
+
+		// Get property daily availability by propertyID
+		// Returns availability matrix for the next 365 days
+		// r.Get("/{propertyID}/availability", propertyHandler.GetDailyAvailability)
 	})
 
 	return r

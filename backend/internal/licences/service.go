@@ -9,7 +9,6 @@ import (
 
 	"ollerod-pms/internal/helpers"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -40,11 +39,11 @@ type svc struct {
 
 type Service interface {
 	ListLicences(ctx context.Context) ([]repo.Licence, error)
-	GetLicenceById(ctx context.Context, licenceID uuid.UUID) (repo.Licence, error)
-	GetUsersByID(ctx context.Context, licenceID uuid.UUID) ([]repo.User, error)
+	GetLicenceById(ctx context.Context) (repo.Licence, error)
+	GetUsersByID(ctx context.Context) ([]repo.User, error)
 	CreateLicence(ctx context.Context, params repo.CreateLicenceParams) (repo.Licence, error)
-	UpdateLicence(ctx context.Context, licenceID uuid.UUID, params repo.UpdateLicenceParams) (repo.Licence, error)
-	DeleteLicence(ctx context.Context, licenceID uuid.UUID) error
+	UpdateLicence(ctx context.Context, params repo.UpdateLicenceParams) (repo.Licence, error)
+	DeleteLicence(ctx context.Context) error
 }
 
 func NewService(r repo.Queries, db *pgxpool.Pool) Service {
@@ -111,7 +110,10 @@ func (s *svc) ListLicences(ctx context.Context) ([]repo.Licence, error) {
 }
 
 // GetLicenceById retrieves a licence by its ID from the database. (CRUD - Read)
-func (s *svc) GetLicenceById(ctx context.Context, licenceID uuid.UUID) (repo.Licence, error) {
+func (s *svc) GetLicenceById(ctx context.Context) (repo.Licence, error) {
+	// Extract licence ID from context
+	licenceID := helpers.GetLicenceID(ctx)
+
 	// Perform the get operation
 	licence, err := s.repo.GetLicenceByID(ctx, helpers.ToPgUUID(&licenceID))
 
@@ -128,7 +130,10 @@ func (s *svc) GetLicenceById(ctx context.Context, licenceID uuid.UUID) (repo.Lic
 }
 
 // GetUsersByID retrieves all users associated with a given licence ID. (CRUD - Read)
-func (s *svc) GetUsersByID(ctx context.Context, licenceID uuid.UUID) ([]repo.User, error) {
+func (s *svc) GetUsersByID(ctx context.Context) ([]repo.User, error) {
+	// Extract licence ID from context
+	licenceID := helpers.GetLicenceID(ctx)
+
 	// Perform the get users by licence ID operation
 	users, err := s.repo.GetUsersByLicenceID(ctx, helpers.ToPgUUID(&licenceID))
 	if err != nil {
@@ -145,7 +150,10 @@ func (s *svc) GetUsersByID(ctx context.Context, licenceID uuid.UUID) ([]repo.Use
 }
 
 // UpdateLicence updates an existing licence in the database. (CRUD - Update)
-func (s *svc) UpdateLicence(ctx context.Context, licenceID uuid.UUID, params repo.UpdateLicenceParams) (repo.Licence, error) {
+func (s *svc) UpdateLicence(ctx context.Context, params repo.UpdateLicenceParams) (repo.Licence, error) {
+	// Extract licence ID from context
+	licenceID := helpers.GetLicenceID(ctx)
+
 	// Validate parameters
 	if err := validateUpdateLicenceParams(params); err != nil {
 		return repo.Licence{}, err
@@ -189,7 +197,10 @@ func (s *svc) UpdateLicence(ctx context.Context, licenceID uuid.UUID, params rep
 }
 
 // DeleteLicence deletes a licence from the database. (CRUD - Delete)
-func (s *svc) DeleteLicence(ctx context.Context, licenceID uuid.UUID) error {
+func (s *svc) DeleteLicence(ctx context.Context) error {
+	// Extract licence ID from context
+	licenceID := helpers.GetLicenceID(ctx)
+
 	// Start transaction for deleting licence
 	tx, err := s.db.Begin(ctx)
 	if err != nil {

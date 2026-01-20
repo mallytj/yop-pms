@@ -55,6 +55,41 @@ func (q *Queries) CreateLicence(ctx context.Context, arg CreateLicenceParams) (L
 	return i, err
 }
 
+const createProperty = `-- name: CreateProperty :one
+INSERT INTO properties (address, name, timezone, licence_id, property_notes) 
+VALUES ($1, $2, $3, $4, $5) RETURNING id, licence_id, name, address, property_notes, timezone, created_at, updated_at
+`
+
+type CreatePropertyParams struct {
+	Address       string      `json:"address"`
+	Name          string      `json:"name"`
+	Timezone      string      `json:"timezone"`
+	LicenceID     pgtype.UUID `json:"licence_id"`
+	PropertyNotes pgtype.Text `json:"property_notes"`
+}
+
+func (q *Queries) CreateProperty(ctx context.Context, arg CreatePropertyParams) (Property, error) {
+	row := q.db.QueryRow(ctx, createProperty,
+		arg.Address,
+		arg.Name,
+		arg.Timezone,
+		arg.LicenceID,
+		arg.PropertyNotes,
+	)
+	var i Property
+	err := row.Scan(
+		&i.ID,
+		&i.LicenceID,
+		&i.Name,
+		&i.Address,
+		&i.PropertyNotes,
+		&i.Timezone,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (username, email, password_hash, first_name, last_name, is_active, licence_id, role) 
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, licence_id, username, email, password_hash, first_name, last_name, role, is_active, created_at, updated_at
@@ -107,6 +142,14 @@ func (q *Queries) DeleteLicence(ctx context.Context, id pgtype.UUID) (pgconn.Com
 	return q.db.Exec(ctx, deleteLicence, id)
 }
 
+const deleteProperty = `-- name: DeleteProperty :execresult
+DELETE FROM properties WHERE id = $1
+`
+
+func (q *Queries) DeleteProperty(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, deleteProperty, id)
+}
+
 const deleteUser = `-- name: DeleteUser :execresult
 DELETE FROM users WHERE id = $1
 `
@@ -121,6 +164,28 @@ SELECT id, licence_key, organisation_name, contact_email, licence_notes, created
 
 func (q *Queries) GetLicenceByID(ctx context.Context, id pgtype.UUID) (Licence, error) {
 	row := q.db.QueryRow(ctx, getLicenceByID, id)
+	var i Licence
+	err := row.Scan(
+		&i.ID,
+		&i.LicenceKey,
+		&i.OrganisationName,
+		&i.ContactEmail,
+		&i.LicenceNotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getLicenceByPropertyID = `-- name: GetLicenceByPropertyID :one
+SELECT l.id, l.licence_key, l.organisation_name, l.contact_email, l.licence_notes, l.created_at, l.updated_at
+FROM licences l
+JOIN properties p ON l.id = p.licence_id
+WHERE p.id = $1 LIMIT 1
+`
+
+func (q *Queries) GetLicenceByPropertyID(ctx context.Context, id pgtype.UUID) (Licence, error) {
+	row := q.db.QueryRow(ctx, getLicenceByPropertyID, id)
 	var i Licence
 	err := row.Scan(
 		&i.ID,
@@ -150,6 +215,59 @@ func (q *Queries) GetLicenceByUserID(ctx context.Context, id pgtype.UUID) (Licen
 		&i.OrganisationName,
 		&i.ContactEmail,
 		&i.LicenceNotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPropertiesByLicenceID = `-- name: GetPropertiesByLicenceID :many
+SELECT id, licence_id, name, address, property_notes, timezone, created_at, updated_at FROM properties WHERE licence_id = $1
+`
+
+func (q *Queries) GetPropertiesByLicenceID(ctx context.Context, licenceID pgtype.UUID) ([]Property, error) {
+	rows, err := q.db.Query(ctx, getPropertiesByLicenceID, licenceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Property
+	for rows.Next() {
+		var i Property
+		if err := rows.Scan(
+			&i.ID,
+			&i.LicenceID,
+			&i.Name,
+			&i.Address,
+			&i.PropertyNotes,
+			&i.Timezone,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getPropertyByID = `-- name: GetPropertyByID :one
+SELECT id, licence_id, name, address, property_notes, timezone, created_at, updated_at FROM properties WHERE id = $1
+`
+
+func (q *Queries) GetPropertyByID(ctx context.Context, id pgtype.UUID) (Property, error) {
+	row := q.db.QueryRow(ctx, getPropertyByID, id)
+	var i Property
+	err := row.Scan(
+		&i.ID,
+		&i.LicenceID,
+		&i.Name,
+		&i.Address,
+		&i.PropertyNotes,
+		&i.Timezone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -234,6 +352,39 @@ func (q *Queries) ListLicences(ctx context.Context) ([]Licence, error) {
 			&i.OrganisationName,
 			&i.ContactEmail,
 			&i.LicenceNotes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProperties = `-- name: ListProperties :many
+SELECT id, licence_id, name, address, property_notes, timezone, created_at, updated_at FROM properties WHERE licence_id = $1
+`
+
+func (q *Queries) ListProperties(ctx context.Context, licenceID pgtype.UUID) ([]Property, error) {
+	rows, err := q.db.Query(ctx, listProperties, licenceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Property
+	for rows.Next() {
+		var i Property
+		if err := rows.Scan(
+			&i.ID,
+			&i.LicenceID,
+			&i.Name,
+			&i.Address,
+			&i.PropertyNotes,
+			&i.Timezone,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -351,6 +502,47 @@ func (q *Queries) UpdateLicence(ctx context.Context, arg UpdateLicenceParams) (L
 		&i.OrganisationName,
 		&i.ContactEmail,
 		&i.LicenceNotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateProperty = `-- name: UpdateProperty :one
+UPDATE properties 
+SET 
+    name = COALESCE($2, name),
+    address = COALESCE($3, address),
+    timezone = COALESCE($4, timezone),
+    property_notes = COALESCE($5, property_notes),
+    updated_at = NOW()
+WHERE id = $1 RETURNING id, licence_id, name, address, property_notes, timezone, created_at, updated_at
+`
+
+type UpdatePropertyParams struct {
+	ID            pgtype.UUID `json:"id"`
+	Name          pgtype.Text `json:"name"`
+	Address       pgtype.Text `json:"address"`
+	Timezone      pgtype.Text `json:"timezone"`
+	PropertyNotes pgtype.Text `json:"property_notes"`
+}
+
+func (q *Queries) UpdateProperty(ctx context.Context, arg UpdatePropertyParams) (Property, error) {
+	row := q.db.QueryRow(ctx, updateProperty,
+		arg.ID,
+		arg.Name,
+		arg.Address,
+		arg.Timezone,
+		arg.PropertyNotes,
+	)
+	var i Property
+	err := row.Scan(
+		&i.ID,
+		&i.LicenceID,
+		&i.Name,
+		&i.Address,
+		&i.PropertyNotes,
+		&i.Timezone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

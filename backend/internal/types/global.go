@@ -18,3 +18,7 @@ type CreateUserParams struct {
 	LastName  string    `json:"last_name"`
 	IsActive  bool      `json:"is_active"`
 }
+
+// contextKey is a custom type for context keys to avoid collisions.
+// It helps prevent conflicts when storing and retrieving values from context.
+type ContextKey string

@@ -6,9 +6,6 @@ import (
 
 	repo "ollerod-pms/internal/adapters/postgresql/sqlc"
 	"ollerod-pms/internal/json"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
 type handler struct {
@@ -69,6 +66,7 @@ func (h *handler) CreateLicence(w http.ResponseWriter, r *http.Request) {
 // ListLicences handles listing all licences. (CRUD - Read)
 func (h *handler) ListLicences(w http.ResponseWriter, r *http.Request) {
 	licences, err := h.service.ListLicences(r.Context())
+
 	if err != nil {
 		log.Printf("error listing licences: %v", err)
 		json.Write(w, http.StatusInternalServerError, "internal server error")
@@ -80,15 +78,9 @@ func (h *handler) ListLicences(w http.ResponseWriter, r *http.Request) {
 
 // GetLicenceById handles retrieving a licence by its ID. (CRUD - Read)
 func (h *handler) GetLicenceById(w http.ResponseWriter, r *http.Request) {
-	licenceID := uuid.MustParse(chi.URLParam(r, "licenceID"))
+	// Get the licence from the service
+	licence, err := h.service.GetLicenceById(r.Context())
 
-	if licenceID == uuid.Nil {
-		log.Println("invalid licence ID")
-		json.Write(w, http.StatusBadRequest, "invalid licence ID")
-		return
-	}
-
-	licence, err := h.service.GetLicenceById(r.Context(), licenceID)
 	if err != nil {
 		if err == ErrLicenceNotFound {
 			json.Write(w, http.StatusNotFound, ErrLicenceNotFound.Error())
@@ -103,14 +95,9 @@ func (h *handler) GetLicenceById(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) GetUsersByID(w http.ResponseWriter, r *http.Request) {
-	licenceID := uuid.MustParse(chi.URLParam(r, "licenceID"))
-	if licenceID == uuid.Nil {
-		log.Println("invalid licence ID")
-		json.Write(w, http.StatusBadRequest, "invalid licence ID")
-		return
-	}
+	// Get users associated with the licence from the service
+	users, err := h.service.GetUsersByID(r.Context())
 
-	users, err := h.service.GetUsersByID(r.Context(), licenceID)
 	if err != nil {
 		log.Printf("error getting users by licence ID: %v", err)
 		json.Write(w, http.StatusInternalServerError, "internal server error")
@@ -122,14 +109,6 @@ func (h *handler) GetUsersByID(w http.ResponseWriter, r *http.Request) {
 
 // UpdateLicence handles updating an existing licence. (CRUD - Update)
 func (h *handler) UpdateLicence(w http.ResponseWriter, r *http.Request) {
-	licenceID := uuid.MustParse(chi.URLParam(r, "licenceID"))
-
-	if licenceID == uuid.Nil {
-		log.Println("invalid licence ID")
-		json.Write(w, http.StatusBadRequest, "invalid licence ID")
-		return
-	}
-
 	var tempLicence repo.UpdateLicenceParams
 
 	if err := json.Read(r, &tempLicence); err != nil {
@@ -144,7 +123,7 @@ func (h *handler) UpdateLicence(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	licence, err := h.service.UpdateLicence(r.Context(), licenceID, tempLicence)
+	licence, err := h.service.UpdateLicence(r.Context(), tempLicence)
 	if err != nil {
 		if err == ErrLicenceNotFound {
 			json.Write(w, http.StatusNotFound, "licence not found")
@@ -160,15 +139,8 @@ func (h *handler) UpdateLicence(w http.ResponseWriter, r *http.Request) {
 
 // DeleteLicence handles deleting a licence. (CRUD - Delete)
 func (h *handler) DeleteLicence(w http.ResponseWriter, r *http.Request) {
-	licenceID := uuid.MustParse(chi.URLParam(r, "licenceID"))
-
-	if licenceID == uuid.Nil {
-		log.Println("invalid licence ID")
-		json.Write(w, http.StatusBadRequest, "invalid licence ID")
-		return
-	}
-
-	err := h.service.DeleteLicence(r.Context(), licenceID)
+	// Call the service to delete the licence
+	err := h.service.DeleteLicence(r.Context())
 	if err != nil {
 		if err == ErrLicenceNotFound {
 			json.Write(w, http.StatusNotFound, "licence not found")

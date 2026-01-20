@@ -17,6 +17,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	hf "ollerod-pms/internal/helpers"
+	mw "ollerod-pms/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -88,6 +89,20 @@ func TestLicenceFlow(t *testing.T) {
 	ctx := context.Background()
 	svc := NewService(*testQueries, testDB)
 	h := NewHandler(svc)
+	r := chi.NewRouter()
+
+	r.Route("/licences", func(r chi.Router) {
+		r.Post("/", h.CreateLicence)
+	})
+
+	// Routes that require licenceID in URL
+	r.Route("/licences/{licenceID}", func(r chi.Router) {
+		r.Use(mw.LicenceCtx) // Middleware to extract licenceID from URL and add to context
+		r.Get("/", h.GetLicenceById)
+		r.Put("/", h.UpdateLicence)
+		r.Delete("/", h.DeleteLicence)
+		r.Get("/users", h.GetUsersByID)
+	})
 
 	t.Run("Create Licence - Success", func(t *testing.T) {
 		t.Parallel() // Run this test in parallel
@@ -99,12 +114,6 @@ func TestLicenceFlow(t *testing.T) {
 			ContactEmail:     "admin@grandlondon.com",
 			LicenceNotes:     hf.ToPgText(hf.Ptr("Standard Licence")),
 		}
-
-		// Create router
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Post("/licences", h.CreateLicence)
 
 		// Build and serve the HTTP request
 		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/licences", params, r)
@@ -136,12 +145,6 @@ func TestLicenceFlow(t *testing.T) {
 			ContactEmail:     "test@test.com",
 		}
 
-		// Create router
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Post("/licences", h.CreateLicence)
-
 		// Build and serve the HTTP request
 		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/licences", params, r)
 
@@ -158,12 +161,6 @@ func TestLicenceFlow(t *testing.T) {
 			LicenceKey: "DUP-0001", // Duplicate key
 		}
 
-		// Define router
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Post("/licences", h.CreateLicence)
-
 		// Build and serve the HTTP request
 		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/licences", params, r)
 
@@ -174,12 +171,6 @@ func TestLicenceFlow(t *testing.T) {
 	t.Run("Get Licence By ID", func(t *testing.T) {
 		// Setup: Create a seed licence directly via Repo
 		lic := hf.CreateTestLicence(t, "GET-9999", testQueries)
-
-		// Create Chi router to handle URL params
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Get("/licences/{licenceID}", h.GetLicenceById)
 
 		// Build and serve the HTTP request
 		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/licences/"+lic.ID.String(), nil, r)
@@ -196,12 +187,6 @@ func TestLicenceFlow(t *testing.T) {
 	})
 
 	t.Run("Get Licence By ID - Not Found", func(t *testing.T) {
-		// Create Chi router to handle URL params
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Get("/licences/{licenceID}", h.GetLicenceById)
-
 		// Use a random UUID that does not exist
 		nonExistentID := uuid.New()
 
@@ -216,9 +201,11 @@ func TestLicenceFlow(t *testing.T) {
 		// Create a licence
 		lic := hf.CreateTestLicence(t, "GET-6969", testQueries)
 
+		// Parse licence ID to uuid.UUID
+		licenceID := uuid.MustParse(lic.ID.String())
 		// Create a user associated with that licence
 		hf.CreateTestUser(t, types.CreateUserParams{
-			LicenceID: uuid.MustParse(lic.ID.String()),
+			LicenceID: licenceID,
 			Username:  "testuser",
 			Email:     "testuser@hotel.com",
 			Password:  "hashedpassword",
@@ -228,14 +215,8 @@ func TestLicenceFlow(t *testing.T) {
 			IsActive:  true,
 		}, testQueries)
 
-		// Create Chi router to handle URL params
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Get("/licences/{licenceID}/users", h.GetUsersByID)
-
 		// Build and serve the HTTP request
-		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/licences/"+uuid.UUID(lic.ID.Bytes).String()+"/users", nil, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/licences/"+licenceID.String()+"/users", nil, r)
 
 		// Assert that we get a 200 OK and the correct user data
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -254,12 +235,6 @@ func TestLicenceFlow(t *testing.T) {
 	t.Run("Get Users By Licence ID - No Users", func(t *testing.T) {
 		// Create a licence with no users
 		lic := hf.CreateTestLicence(t, "GET-0000", testQueries)
-
-		// Create Chi router to handle URL params
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Get("/licences/{licenceID}/users", h.GetUsersByID)
 
 		// Build and serve the HTTP request
 		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/licences/"+uuid.UUID(lic.ID.Bytes).String()+"/users", nil, r)
@@ -285,12 +260,6 @@ func TestLicenceFlow(t *testing.T) {
 			ContactEmail:     "new@email.com",
 		}
 
-		// Create router
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Put("/licences/{licenceID}", h.UpdateLicence)
-
 		// Build and serve the HTTP request
 		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), updateParams, r)
 
@@ -315,12 +284,6 @@ func TestLicenceFlow(t *testing.T) {
 			ContactEmail:     "nonexistent@email.com",
 		}
 
-		// Create router
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Put("/licences/{licenceID}", h.UpdateLicence)
-
 		// Build and serve the HTTP request
 		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/licences/"+uuid.New().String(), updateParams, r)
 
@@ -337,12 +300,6 @@ func TestLicenceFlow(t *testing.T) {
 			OrganisationName: "",            // Invalid: empty name
 			ContactEmail:     "alsoinvalid", // Invalid email format
 		}
-
-		// Create router
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Put("/licences/{licenceID}", h.UpdateLicence)
 
 		// Build and serve the HTTP request
 		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), updateParams, r)
@@ -363,12 +320,6 @@ func TestLicenceFlow(t *testing.T) {
 		// Empty update params
 		updateParams := repo.UpdateLicenceParams{}
 
-		// Create route
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Put("/licences/{licenceID}", h.UpdateLicence)
-
 		// Build and serve the HTTP request
 		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), updateParams, r)
 
@@ -379,12 +330,6 @@ func TestLicenceFlow(t *testing.T) {
 	t.Run("Delete Licence", func(t *testing.T) {
 		// Create a licence
 		lic := hf.CreateTestLicence(t, "DEL-2222", testQueries)
-
-		// Create router
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Delete("/licences/{licenceID}", h.DeleteLicence)
 
 		// Build and serve the HTTP request
 		rr := hf.BuildAndServeHttpRequest(http.MethodDelete, "/licences/"+uuid.UUID(lic.ID.Bytes).String(), nil, r)
@@ -398,12 +343,6 @@ func TestLicenceFlow(t *testing.T) {
 	})
 
 	t.Run("Delete Licence - Not Found", func(t *testing.T) {
-		// Create router
-		r := chi.NewRouter()
-
-		// Build route and handler
-		r.Delete("/licences/{licenceID}", h.DeleteLicence)
-
 		// Use a random UUID that does not exist
 		nonExistentID := uuid.New()
 

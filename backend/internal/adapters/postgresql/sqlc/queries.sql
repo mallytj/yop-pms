@@ -62,3 +62,35 @@ SELECT * FROM users WHERE licence_id = $1;
 
 -- name: CheckLicenceExists :one
 SELECT EXISTS(SELECT 1 FROM licences WHERE id = $1) AS exists;
+
+-- name: CreateProperty :one
+INSERT INTO properties (address, name, timezone, licence_id, property_notes) 
+VALUES ($1, $2, $3, $4, $5) RETURNING *;
+
+-- name: ListProperties :many
+SELECT * FROM properties WHERE licence_id = $1;
+
+-- name: GetPropertyByID :one
+SELECT * FROM properties WHERE id = $1;
+
+-- name: UpdateProperty :one
+UPDATE properties 
+SET 
+    name = COALESCE(sqlc.narg('name'), name),
+    address = COALESCE(sqlc.narg('address'), address),
+    timezone = COALESCE(sqlc.narg('timezone'), timezone),
+    property_notes = COALESCE(sqlc.narg('property_notes'), property_notes),
+    updated_at = NOW()
+WHERE id = $1 RETURNING *;
+
+-- name: DeleteProperty :execresult
+DELETE FROM properties WHERE id = $1;
+
+-- name: GetLicenceByPropertyID :one
+SELECT l.*
+FROM licences l
+JOIN properties p ON l.id = p.licence_id
+WHERE p.id = $1 LIMIT 1; 
+
+-- name: GetPropertiesByLicenceID :many
+SELECT * FROM properties WHERE licence_id = $1;

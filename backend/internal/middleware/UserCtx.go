@@ -1,32 +1,13 @@
 package middleware
 
 import (
-	"context"
-	"ollerod-pms/internal/json"
-
 	"net/http"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
+// UserCtx is a middleware that extracts the userID from the URL parameters,
+// converts it to a UUID, and stores it in the request context for downstream handlers to use.
+// It expects the URL parameter to be named "userID".
+// If the userID is missing or invalid, it responds with a 400 Bad Request.
 func UserCtx(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 1. Get the userID from url parameters
-		idStr := chi.URLParam(r, "userID")
-
-		// 2. Convert to UUID
-		id, err := uuid.Parse(idStr)
-		if err != nil {
-			json.Write(w, http.StatusBadRequest, "invalid user ID")
-			return
-		}
-
-		// 3. Store the userID in the request context
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, "userID", id)
-
-		// 4. Call the next handler with the updated context
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+	return genericIDExtractor("userID", next)
 }
