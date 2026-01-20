@@ -3,7 +3,6 @@ package users
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	repo "ollerod-pms/internal/adapters/postgresql/sqlc"
 	"ollerod-pms/internal/helpers"
@@ -30,7 +29,7 @@ var (
 	ErrInvalidUpdateParams = errors.New("invalid update user parameters")
 	ErrUpdatingUser        = errors.New("updating user failed")
 	ErrDeletingUser        = errors.New("deleting user failed")
-	ErrGettingLicence     = errors.New("getting licence failed")
+	ErrGettingLicence      = errors.New("getting licence failed")
 )
 
 // PostgreSQL error codes
@@ -46,7 +45,7 @@ type svc struct {
 
 type Service interface {
 	ListUsers(ctx context.Context) ([]repo.User, error)
-	CreateUser(ctx context.Context, params createUserParams) (repo.User, error)
+	CreateUser(ctx context.Context, params CreateUserParams) (repo.User, error)
 	GetUserById(ctx context.Context, userID uuid.UUID) (repo.User, error)
 	UpdateUser(ctx context.Context, userID uuid.UUID, params updateUserParams) (repo.User, error)
 	DeleteUser(ctx context.Context, userID uuid.UUID) error
@@ -75,7 +74,7 @@ func (s *svc) ListUsers(ctx context.Context) ([]repo.User, error) {
 		}
 
 		// For other errors, wrap and return the error with context
-		return nil, fmt.Errorf("%w: %v", ErrListingUsers, err)
+		return nil, err
 	}
 
 	// If no users are found, return an empty slice
@@ -100,7 +99,7 @@ func (s *svc) GetUserById(ctx context.Context, userID uuid.UUID) (repo.User, err
 		}
 
 		// For other errors, wrap and return the error with context
-		return repo.User{}, fmt.Errorf("%w: %v", ErrGettingUser, err)
+		return repo.User{}, err
 	}
 
 	// Return the retrieved user
@@ -109,17 +108,17 @@ func (s *svc) GetUserById(ctx context.Context, userID uuid.UUID) (repo.User, err
 
 // CreateUser creates a new user in the database. (CRUD - Create)
 // Returns the created User object with its assigned ID or an error.
-func (s *svc) CreateUser(ctx context.Context, params createUserParams) (repo.User, error) {
+func (s *svc) CreateUser(ctx context.Context, params CreateUserParams) (repo.User, error) {
 	// Validate parameters, return error if invalid
 	if err := validateCreateUserParams(&params); err != nil {
-		return repo.User{}, fmt.Errorf("%w: %v", ErrInvalidCreateParams, err)
+		return repo.User{}, err
 	}
 
 	// Start transaction for creating user
 	tx, err := s.db.Begin(ctx)
 
 	if err != nil {
-		return repo.User{}, fmt.Errorf("%w: %v", ErrStartingTx, err)
+		return repo.User{}, err
 	}
 	// Ensure the transaction is rolled back if not committed
 	defer tx.Rollback(ctx)
@@ -132,7 +131,7 @@ func (s *svc) CreateUser(ctx context.Context, params createUserParams) (repo.Use
 
 	// Handle password hashing error
 	if err != nil {
-		return repo.User{}, fmt.Errorf("%w: %v", ErrHashingPw, err)
+		return repo.User{}, err
 	}
 
 	// Create the user in the database within the transaction
@@ -154,20 +153,20 @@ func (s *svc) CreateUser(ctx context.Context, params createUserParams) (repo.Use
 		// Check for specific PostgreSQL errors
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == uniqueViolationCode {
-				return repo.User{}, fmt.Errorf("%w: %v", ErrDuplicatedField, err)
+				return repo.User{}, ErrDuplicatedField
 			}
 			if pgErr.Code == foreignKeyViolationCode {
-				return repo.User{}, fmt.Errorf("%w: %v", ErrLicenceNotFound, err)
+				return repo.User{}, ErrLicenceNotFound
 			}
 		}
 
 		// For other errors, wrap and return the error with context
-		return repo.User{}, fmt.Errorf("%w: %v", ErrCreatingUser, err)
+		return repo.User{}, err
 	}
 
 	// Commit the transaction
 	if err := tx.Commit(ctx); err != nil {
-		return repo.User{}, fmt.Errorf("%w: %v", ErrCommittingTx, err)
+		return repo.User{}, err
 	}
 
 	// Return the created user
@@ -177,9 +176,13 @@ func (s *svc) CreateUser(ctx context.Context, params createUserParams) (repo.Use
 // UpdateUser updates an existing user in the database. (CRUD - Update)
 // Returns the updated User object or an error if the user is not found.
 func (s *svc) UpdateUser(ctx context.Context, userID uuid.UUID, params updateUserParams) (repo.User, error) {
+	if params == (updateUserParams{}) {
+		return repo.User{}, nil // No fields to update
+	}
+
 	// Validate parameters
 	if err := validateUpdateUserParams(&params); err != nil {
-		return repo.User{}, fmt.Errorf("%w: %v", ErrInvalidUpdateParams, err)
+		return repo.User{}, err
 	}
 
 	// Start transaction for updating user
@@ -187,7 +190,7 @@ func (s *svc) UpdateUser(ctx context.Context, userID uuid.UUID, params updateUse
 
 	// Ensure the transaction is rolled back if not committed
 	if err != nil {
-		return repo.User{}, fmt.Errorf("%w: %v", ErrStartingTx, err)
+		return repo.User{}, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -199,7 +202,7 @@ func (s *svc) UpdateUser(ctx context.Context, userID uuid.UUID, params updateUse
 	if params.Password != nil {
 		encryptedPassword, err = hashPassword(*params.Password)
 		if err != nil {
-			return repo.User{}, fmt.Errorf("%w: %v", ErrHashingPw, err)
+			return repo.User{}, err
 		}
 	}
 
@@ -229,20 +232,20 @@ func (s *svc) UpdateUser(ctx context.Context, userID uuid.UUID, params updateUse
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			if pgErr.Code == uniqueViolationCode {
-				return repo.User{}, fmt.Errorf("%w: %v", ErrDuplicatedField, err)
+				return repo.User{}, ErrDuplicatedField
 			}
 
 			if pgErr.Code == foreignKeyViolationCode {
-				return repo.User{}, fmt.Errorf("%w: %v", ErrLicenceNotFound, err)
+				return repo.User{}, ErrLicenceNotFound
 			}
 		}
 		// For other errors, wrap and return the error with context
-		return repo.User{}, fmt.Errorf("%w: %v", ErrUpdatingUser, err)
+		return repo.User{}, err
 	}
 
 	// Commit the transaction
 	if err := tx.Commit(ctx); err != nil {
-		return repo.User{}, fmt.Errorf("%w: %v", ErrCommittingTx, err)
+		return repo.User{}, err
 	}
 
 	// Return the updated user
@@ -257,7 +260,7 @@ func (s *svc) DeleteUser(ctx context.Context, userID uuid.UUID) error {
 
 	// Ensure the transaction is rolled back if not committed
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrStartingTx, err)
+		return err
 	}
 	defer tx.Rollback(ctx)
 
@@ -268,17 +271,17 @@ func (s *svc) DeleteUser(ctx context.Context, userID uuid.UUID) error {
 	res, err := qtx.DeleteUser(ctx, pgtype.UUID{Bytes: userID, Valid: true})
 
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrDeletingUser, err)
+		return err
 	}
 
 	// Check if any rows were affected (i.e., if the user existed)
 	if res.RowsAffected() == 0 {
-		return fmt.Errorf("%w: %v", ErrUserNotFound, err)
+		return ErrUserNotFound
 	}
 
 	// Commit the transaction
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("%w: %v", ErrCommittingTx, err)
+		return err
 	}
 
 	// Return nil if deletion was successful
@@ -296,7 +299,7 @@ func (s *svc) GetLicence(ctx context.Context, userID uuid.UUID) (repo.Licence, e
 		if errors.Is(err, pgx.ErrNoRows) {
 			return repo.Licence{}, ErrLicenceNotFound
 		}
-		return repo.Licence{}, fmt.Errorf("%w: %v", ErrGettingLicence, err)
+		return repo.Licence{}, err
 	}
 
 	return licence, nil

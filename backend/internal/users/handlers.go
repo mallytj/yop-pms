@@ -40,7 +40,7 @@ func (h *handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 // CreateUser handles the creation of a new user. (CRUD - Create)
 func (h *handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body into a temporary createUserParams struct
-	var tempUser createUserParams
+	var tempUser CreateUserParams
 
 	// json.Read will decode the JSON body into the createUserParams struct
 	if err := json.Read(r, &tempUser); err != nil {
@@ -162,6 +162,8 @@ func (h *handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Call the service to update the user
 	user, err := h.service.UpdateUser(r.Context(), params.UserID, *params)
+
+	// Handle potential errors
 	if err != nil {
 		// If the error is ErrUserNotFound, return a 404 Not Found response
 		if err == ErrUserNotFound {
@@ -170,11 +172,13 @@ func (h *handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// If the error is ErrDuplicatedField, return a 409 Conflict response
 		if err == ErrDuplicatedField {
 			log.Println("duplicated user error:", err)
 			json.Write(w, http.StatusConflict, err)
 			return
 		}
+
 		// Log the error and return a 500 Internal Server Error response
 		log.Println("error updating user:", err)
 		json.Write(w, http.StatusInternalServerError, err)
@@ -187,8 +191,9 @@ func (h *handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 // DeleteUser handles deleting a user by their ID. (CRUD - Delete)
 func (h *handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	// Extract userID from URL parameters and parse it
+	// Extract userID from URL parameters and parse it to UUID
 	userID, err := helpers.ExtractAndParseUUIDParam(r, "userID")
+
 	if err != nil {
 		// If conversion fails, return a 400 Bad Request response
 		log.Println("invalid user ID format:", err)
@@ -221,6 +226,7 @@ func (h *handler) GetLicence(w http.ResponseWriter, r *http.Request) {
 	// Extract userID from URL parameters and parse it
 	userID, err := helpers.ExtractAndParseUUIDParam(r, "userID")
 	if err != nil {
+		// If conversion fails, return a 400 Bad Request response
 		log.Println("invalid user ID format:", err)
 		json.Write(w, http.StatusBadRequest, err)
 		return
@@ -228,6 +234,7 @@ func (h *handler) GetLicence(w http.ResponseWriter, r *http.Request) {
 
 	// Call the service to get the user's licence
 	licences, err := h.service.GetLicence(r.Context(), userID)
+
 	if err != nil {
 		// If the error is ErrLicenceNotFound, return a 404 Not Found response
 		if err == ErrLicenceNotFound {

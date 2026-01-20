@@ -91,7 +91,7 @@ func validateLastName(lastName string) bool {
 
 // validateCreateUserParams validates all parameters required to create a user.
 // Returns an error if any parameter is invalid.
-func validateCreateUserParams(params *createUserParams) error {
+func validateCreateUserParams(params *CreateUserParams) error {
 	// Check for nil params
 	if params == nil {
 		return errors.New("create user parameters cannot be nil")
@@ -139,15 +139,6 @@ func validateCreateUserParams(params *createUserParams) error {
 	return nil
 }
 
-// ParamIsProvided checks if a string pointer parameter is provided (not nil and not empty).
-// Example usage: ParamIsProvided(helpers.Ptr("value")) => true
-// Example usage: ParamIsProvided(helpers.Ptr("")) => false
-// Example usage: ParamIsProvided(nil) => false
-// Returns true if the parameter is provided, false otherwise.
-func ParamIsProvided(param *string) bool {
-	return param != nil && *param != ""
-}
-
 // validateUpdateUserParams validates all parameters required to update a user.
 // Returns an error if any parameter is invalid.
 // Note: All fields except UserID are optional for updates.
@@ -163,17 +154,17 @@ func validateUpdateUserParams(params *updateUserParams) error {
 	}
 
 	// Username is optional, but if provided, validate it
-	if username := params.Username; ParamIsProvided(username) && !validateUsername(*username) {
+	if username := params.Username; helpers.ParamIsProvided(username) && !validateUsername(*username) {
 		return ErrInvalidUsername
 	}
 
 	// Email is optional, but if provided, validate it
-	if email := params.Email; ParamIsProvided(email) && !validateEmail(*email) {
+	if email := params.Email; helpers.ParamIsProvided(email) && !validateEmail(*email) {
 		return ErrInvalidEmail
 	}
 
 	// Password is optional, but if provided, validate it
-	if password := params.Password; ParamIsProvided(password) && !validatePassword(*password) {
+	if password := params.Password; helpers.ParamIsProvided(password) && !validatePassword(*password) {
 		return ErrInvalidPassword
 	}
 
@@ -184,16 +175,16 @@ func validateUpdateUserParams(params *updateUserParams) error {
 	}
 
 	// Role is optional, but if provided, validate it
-	if role := params.Role; ParamIsProvided(role) && !validateRole(Role(*role)) {
+	if role := params.Role; helpers.ParamIsProvided(role) && !validateRole(Role(*role)) {
 		return ErrInvalidRole
 	}
 	// First name is optional, but if provided, validate it
-	if firstName := params.FirstName; ParamIsProvided(firstName) && !validateFirstName(*firstName) {
+	if firstName := params.FirstName; helpers.ParamIsProvided(firstName) && !validateFirstName(*firstName) {
 		return ErrInvalidFirstName
 	}
 
 	// Last name is optional, but if provided, validate it
-	if lastName := params.LastName; ParamIsProvided(lastName) && !validateLastName(*lastName) {
+	if lastName := params.LastName; helpers.ParamIsProvided(lastName) && !validateLastName(*lastName) {
 		return ErrInvalidLastName
 	}
 

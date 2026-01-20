@@ -2,22 +2,12 @@ package users
 
 import (
 	"github.com/google/uuid"
+	"ollerod-pms/internal/types"
 )
 
-type Role string
+type CreateUserParams = types.CreateUserParams
 
-// CreateUserParams holds parameters for creating a new user.
-// Can't just use repo.CreateUserParams because the password needs to be plain text here.
-type createUserParams struct {
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	Password  string    `json:"password"`
-	LicenceID uuid.UUID `json:"licence_id"`
-	Role      Role      `json:"role"`
-	FirstName string    `json:"first_name"`
-	LastName  string    `json:"last_name"`
-	IsActive  bool      `json:"is_active"`
-}
+type Role = types.Role
 
 // GetUsersParams holds parameters for retrieving users based on filters.
 type GetUsersParams struct {

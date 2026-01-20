@@ -1,16 +1,14 @@
 package users
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"net/http/httptest"
 	repo "ollerod-pms/internal/adapters/postgresql/sqlc"
 	"ollerod-pms/internal/helpers"
+	hf "ollerod-pms/internal/helpers"
 	"os"
 	"testing"
 	"time"
@@ -88,69 +86,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// createTestLicence is a helper function to create a test licence with the given licence key.
-// Returns the created licence.
-// licenceKey: Must be in the format "XXX-YYYY" where X is uppercase letter and Y is digit.
-// Example: createTestLicence(t, "TEST-1234") = repo.Licence{...}
-func createTestLicence(t *testing.T, licenceKey string) repo.Licence {
-	ctx := context.Background()
-	lic, err := testQueries.CreateLicence(ctx, repo.CreateLicenceParams{
-		LicenceKey:       licenceKey,
-		OrganisationName: "Test Organisation",
-		ContactEmail:     "test@example.com",
-	})
-	require.NoError(t, err)
-	return lic
-}
-
-// buildAndServeHttpRequest is a helper function to build and serve an HTTP request.
-// method: HTTP method (GET, POST, etc.)
-// url: Request URL
-// body: Request body (can be nil)
-// r: chi.Mux router to serve the request
-// Returns the ResponseRecorder
-// Example: buildAndServeHttpRequest("POST", "/users", params, r) => *httptest.ResponseRecorder
-func buildAndServeHttpRequest(method string, url string, body interface{}, r *chi.Mux) *httptest.ResponseRecorder {
-	var reqBody *bytes.Reader
-	if body != nil {
-		jsonBody, _ := json.Marshal(body)
-		reqBody = bytes.NewReader(jsonBody)
-	} else {
-		reqBody = bytes.NewReader([]byte{})
-	}
-	req := httptest.NewRequest(method, url, reqBody)
-	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	r.ServeHTTP(rr, req)
-	return rr
-}
-
-// createTestUser is a helper function to create a test user with the given parameters.
-// Returns the created user.
-// params: Parameters required to create the user.
-// Example: createTestUser(t, params) = repo.User{...}
-func createTestUser(t *testing.T, params createUserParams) repo.User {
-	ctx := context.Background()
-
-	// Go service route to create first user directly
-	user, err := testQueries.CreateUser(ctx, repo.CreateUserParams{
-		LicenceID:    helpers.ToPgUUID(&params.LicenceID),
-		Username:     params.Username,
-		Email:        params.Email,
-		PasswordHash: params.Password,
-		FirstName:    params.FirstName,
-		LastName:     params.LastName,
-		Role:         string(params.Role),
-		IsActive:     helpers.ToPgBool(&params.IsActive),
-	})
-
-	// Ensure no error occurred during first user creation
-	require.NoError(t, err, fmt.Sprintf("failed to create test user: %v", err))
-
-	return user
-}
-
 // TestUserFlow tests the complete user flow including creating, retrieving, listing, and updating users.
 // It also tests various edge cases and error scenarios.
 // This test assumes that the database is clean before running.
@@ -164,10 +99,10 @@ func TestUserFlow(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create a test licence
-		testLicence := createTestLicence(t, "CRE-0001")
+		testLicence := hf.CreateTestLicence(t, "CRE-0001", testQueries)
 
 		// Then, create the user
-		params := createUserParams{
+		params := CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "testuser",
 			Email:     "testuser@example.com",
@@ -185,7 +120,7 @@ func TestUserFlow(t *testing.T) {
 		r.Post("/users", h.CreateUser)
 
 		// Build HTTP request
-		rr := buildAndServeHttpRequest(http.MethodPost, "/users", params, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/users", params, r)
 
 		// Assert the request was successful
 		assert.Equal(t, http.StatusCreated, rr.Code)
@@ -198,27 +133,33 @@ func TestUserFlow(t *testing.T) {
 		require.NoError(t, err)
 
 		// Validate fields of created user to ensure they match input params
-		assert.Equal(t, params.Username, createdUser.Username)
-		assert.Equal(t, params.Email, createdUser.Email)
-		assert.Equal(t, params.FirstName, createdUser.FirstName)
-		assert.Equal(t, params.LastName, createdUser.LastName)
-		assert.Equal(t, string(params.Role), createdUser.Role)
-		assert.Equal(t, params.LicenceID, uuid.MustParse(createdUser.LicenceID.String()))
-		assert.Equal(t, params.IsActive, createdUser.IsActive.Bool)
-		assert.NotEmpty(t, createdUser.ID)                            // Ensure ID is set
-		assert.NotEmpty(t, createdUser.CreatedAt)                     // Ensure CreatedAt is set
-		assert.NotEmpty(t, createdUser.UpdatedAt)                     // Ensure UpdatedAt is set
-		assert.Equal(t, createdUser.CreatedAt, createdUser.UpdatedAt) // On creation, these should be equal
+
+		assert.Equal(t, createdUser, repo.User{
+			Username:  params.Username,
+			Email:     params.Email,
+			FirstName: params.FirstName,
+			LastName:  params.LastName,
+			Role:      string(params.Role),
+			LicenceID: hf.ToPgUUID(&params.LicenceID),
+			IsActive:  hf.ToPgBool(&params.IsActive),
+		})
+
+		// Verify the user is actually in the database
+		dbUser, err := testQueries.GetUserByID(ctx, createdUser.ID)
+		require.NoError(t, err)
+
+		// Check DB values match
+		assert.Equal(t, dbUser.ID, createdUser.ID)
 	})
 
 	t.Run("Create User - Duplicate Email", func(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create a test licence
-		testLicence := createTestLicence(t, "CRE-0002")
+		testLicence := hf.CreateTestLicence(t, "CRE-0002", testQueries)
 
 		// Then, create the first user with a specific email
-		createTestUser(t, createUserParams{
+		hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "userone",
 			Email:     "userone@example.com",
@@ -227,10 +168,10 @@ func TestUserFlow(t *testing.T) {
 			LastName:  "One",
 			Role:      "user",
 			IsActive:  true,
-		})
+		}, testQueries)
 
 		// Set up params for second user with the same email as the first user
-		userTwoParams := createUserParams{
+		userTwoParams := CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "usertwo",
 			Email:     "userone@example.com",
@@ -248,7 +189,7 @@ func TestUserFlow(t *testing.T) {
 		r.Post("/users", h.CreateUser)
 
 		// Build HTTP request
-		rr := buildAndServeHttpRequest(http.MethodPost, "/users", userTwoParams, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/users", userTwoParams, r)
 
 		// Assert that the response status code indicates a conflict due to duplicate email
 		assert.Equal(t, http.StatusConflict, rr.Code)
@@ -258,10 +199,10 @@ func TestUserFlow(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create a test licence
-		testLicence := createTestLicence(t, "CRE-0003")
+		testLicence := hf.CreateTestLicence(t, "CRE-0003", testQueries)
 
 		// Then, build params with an invalid role
-		params := createUserParams{
+		params := CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "invalidroleuser",
 			Email:     "invalidrole@example.com",
@@ -279,7 +220,7 @@ func TestUserFlow(t *testing.T) {
 		r.Post("/users", h.CreateUser)
 
 		// Build HTTP request and serve
-		rr := buildAndServeHttpRequest(http.MethodPost, "/users", params, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/users", params, r)
 
 		// Assert that the response status code indicates a bad request due to invalid email format
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
@@ -289,7 +230,7 @@ func TestUserFlow(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, build params with a non-existent licence ID
-		params := createUserParams{
+		params := CreateUserParams{
 			LicenceID: uuid.New(),
 			Username:  "nonexistentuser",
 			Email:     "nonexistent@example.com",
@@ -307,7 +248,7 @@ func TestUserFlow(t *testing.T) {
 		r.Post("/users", h.CreateUser)
 
 		// Build HTTP request and serve
-		rr := buildAndServeHttpRequest(http.MethodPost, "/users", params, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/users", params, r)
 
 		// Assert that the response status code indicates a bad request due to non-existent licence
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
@@ -317,10 +258,10 @@ func TestUserFlow(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create a test licence
-		testLicence := createTestLicence(t, "CRE-0004")
+		testLicence := hf.CreateTestLicence(t, "CRE-0004", testQueries)
 
 		// Then, build params with missing required fields
-		params := createUserParams{
+		params := CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "missinguser",
 			Email:     "", // Required field left empty
@@ -338,7 +279,7 @@ func TestUserFlow(t *testing.T) {
 		r.Post("/users", h.CreateUser)
 
 		// Build HTTP request and serve
-		rr := buildAndServeHttpRequest(http.MethodPost, "/users", params, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/users", params, r)
 
 		// Assert that the response status code indicates a bad request due to missing required fields
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
@@ -348,10 +289,10 @@ func TestUserFlow(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create a test licence
-		testLicence := createTestLicence(t, "CRE-0005")
+		testLicence := hf.CreateTestLicence(t, "CRE-0005", testQueries)
 
 		// Then, build params with an invalid email format
-		params := createUserParams{
+		params := CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "invalidemailuser",
 			Email:     "invalid-email-format",
@@ -369,7 +310,7 @@ func TestUserFlow(t *testing.T) {
 		r.Post("/users", h.CreateUser)
 
 		// Build HTTP request and serve
-		rr := buildAndServeHttpRequest(http.MethodPost, "/users", params, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPost, "/users", params, r)
 
 		// Assert that the response status code indicates a bad request due to invalid email format
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
@@ -378,10 +319,10 @@ func TestUserFlow(t *testing.T) {
 	t.Run("Get User By ID", func(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 		// First, create a test licence
-		testLicence := createTestLicence(t, "CRE-0006")
+		testLicence := hf.CreateTestLicence(t, "CRE-0006", testQueries)
 
 		// Then, build params to create the user
-		createdUser := createTestUser(t, createUserParams{
+		createdUser := hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "getbyiduser",
 			Email:     "getbyiduser@example.com",
@@ -390,7 +331,7 @@ func TestUserFlow(t *testing.T) {
 			LastName:  "ByID",
 			Role:      "user",
 			IsActive:  true,
-		})
+		}, testQueries)
 
 		// Create router
 		r := chi.NewRouter()
@@ -399,7 +340,7 @@ func TestUserFlow(t *testing.T) {
 		r.Get("/users/{userID}", h.GetUserById)
 
 		// Build HTTP request
-		rr := buildAndServeHttpRequest(http.MethodGet, "/users/"+createdUser.ID.String(), nil, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/users/"+createdUser.ID.String(), nil, r)
 
 		// Validate response
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -412,26 +353,17 @@ func TestUserFlow(t *testing.T) {
 		require.NoError(t, err)
 
 		// Assert retrieved user matches created user
-		assert.Equal(t, createdUser.ID, retrievedUser.ID)
-		assert.Equal(t, createdUser.Username, retrievedUser.Username)
-		assert.Equal(t, createdUser.Email, retrievedUser.Email)
-		assert.Equal(t, createdUser.FirstName, retrievedUser.FirstName)
-		assert.Equal(t, createdUser.LastName, retrievedUser.LastName)
-		assert.Equal(t, createdUser.Role, retrievedUser.Role)
-		assert.Equal(t, createdUser.LicenceID, retrievedUser.LicenceID)
-		assert.Equal(t, createdUser.IsActive, retrievedUser.IsActive)
-		assert.NotEmpty(t, retrievedUser.CreatedAt)
-		assert.NotEmpty(t, retrievedUser.UpdatedAt)
+		assert.Equal(t, createdUser, retrievedUser)
 	})
 
 	t.Run("List Users", func(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create a test licence
-		testLicence := createTestLicence(t, "LIS-0001")
+		testLicence := hf.CreateTestLicence(t, "LIS-0001", testQueries)
 
 		// Create two test users
-		user1 := createTestUser(t, createUserParams{
+		user1 := hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "listuser1",
 			Email:     "listuser1@example.com",
@@ -440,9 +372,9 @@ func TestUserFlow(t *testing.T) {
 			LastName:  "User1",
 			Role:      "user",
 			IsActive:  true,
-		})
+		}, testQueries)
 
-		createTestUser(t, createUserParams{
+		hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "listuser2",
 			Email:     "listuser2@example.com",
@@ -451,7 +383,7 @@ func TestUserFlow(t *testing.T) {
 			LastName:  "User2",
 			Role:      "user",
 			IsActive:  true,
-		})
+		}, testQueries)
 
 		// Create router
 		r := chi.NewRouter()
@@ -460,7 +392,7 @@ func TestUserFlow(t *testing.T) {
 		r.Get("/users", h.ListUsers)
 
 		// Build HTTP request and serve
-		rr := buildAndServeHttpRequest(http.MethodGet, "/users", nil, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/users", nil, r)
 
 		// Assert the request was successful and response code is 200 OK
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -487,10 +419,10 @@ func TestUserFlow(t *testing.T) {
 	t.Run("Update User", func(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 		// First, create a test licence
-		testLicence := createTestLicence(t, "UPD-0001")
+		testLicence := hf.CreateTestLicence(t, "UPD-0001", testQueries)
 
 		// Then, create a user to update
-		createdUser := createTestUser(t, createUserParams{
+		createdUser := hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "updateuser",
 			Email:     "updateuser@example.com",
@@ -499,10 +431,10 @@ func TestUserFlow(t *testing.T) {
 			LastName:  "User",
 			Role:      "user",
 			IsActive:  true,
-		})
+		}, testQueries)
 
 		// Create a new licence to update to
-		newLicence := createTestLicence(t, "UPD-9999")
+		newLicence := hf.CreateTestLicence(t, "UPD-9999", testQueries)
 
 		// Now attempt to update the user with all fields changed
 		updateParams := updateUserParams{
@@ -523,7 +455,7 @@ func TestUserFlow(t *testing.T) {
 		// Define route and handler
 		r.Put("/users/{userID}", h.UpdateUser)
 
-		rr := buildAndServeHttpRequest(http.MethodPut, "/users/"+createdUser.ID.String(), updateParams, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/users/"+createdUser.ID.String(), updateParams, r)
 
 		// Validate response
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -562,7 +494,7 @@ func TestUserFlow(t *testing.T) {
 		r.Put("/users/{userID}", h.UpdateUser)
 
 		// Build and serve HTTP request
-		rr := buildAndServeHttpRequest(http.MethodPut, "/users/"+fakeUUID.String(), updateParms, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/users/"+fakeUUID.String(), updateParms, r)
 
 		// Validate response
 		assert.Equal(t, http.StatusNotFound, rr.Code)
@@ -572,8 +504,8 @@ func TestUserFlow(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create two users
-		testLicence := createTestLicence(t, "UPD-0002")
-		userOne := createTestUser(t, createUserParams{
+		testLicence := hf.CreateTestLicence(t, "UPD-0002", testQueries)
+		userOne := hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "dupemailuser1",
 			Email:     "dupemailuser1@example.com",
@@ -582,9 +514,9 @@ func TestUserFlow(t *testing.T) {
 			LastName:  "User1",
 			Role:      "user",
 			IsActive:  true,
-		})
+		}, testQueries)
 
-		userTwo := createTestUser(t, createUserParams{
+		userTwo := hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "dupemailuser2",
 			Email:     "dupemailuser2@example.com",
@@ -593,7 +525,7 @@ func TestUserFlow(t *testing.T) {
 			LastName:  "User2",
 			Role:      "user",
 			IsActive:  true,
-		})
+		}, testQueries)
 
 		// Now build update params to change userTwo's email to userOne's email
 		updateParams := updateUserParams{
@@ -608,20 +540,20 @@ func TestUserFlow(t *testing.T) {
 		r.Put("/users/{userID}", h.UpdateUser)
 
 		// Build and serve HTTP request
-		rr := buildAndServeHttpRequest(http.MethodPut, "/users/"+userTwo.ID.String(), updateParams, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/users/"+userTwo.ID.String(), updateParams, r)
 
 		// Assert that the response status code indicates a conflict due to duplicate email
-		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Equal(t, http.StatusConflict, rr.Code)
 	})
 
 	t.Run("Update User - Invalid Role", func(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create a test licence
-		testLicence := createTestLicence(t, "UPD-0003")
+		testLicence := hf.CreateTestLicence(t, "UPD-0003", testQueries)
 
 		// Then, create a user to update
-		createdUser := createTestUser(t, createUserParams{
+		createdUser := hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "invalidroleupdateuser",
 			Email:     "invalidroleupdateuser@example.com",
@@ -630,7 +562,7 @@ func TestUserFlow(t *testing.T) {
 			LastName:  "UpdateUser",
 			Role:      "user",
 			IsActive:  true,
-		})
+		}, testQueries)
 
 		// Now build update params with an invalid role
 		updateParams := updateUserParams{
@@ -644,7 +576,7 @@ func TestUserFlow(t *testing.T) {
 		// Define route and handler
 		r.Put("/users/{userID}", h.UpdateUser)
 
-		rr := buildAndServeHttpRequest(http.MethodPut, "/users/"+createdUser.ID.String(), updateParams, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/users/"+createdUser.ID.String(), updateParams, r)
 
 		// Validate response
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
@@ -665,7 +597,7 @@ func TestUserFlow(t *testing.T) {
 		r.Put("/users/{userID}", h.UpdateUser)
 
 		// Make the request
-		rr := buildAndServeHttpRequest(http.MethodPut, "/users/", updateParams, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/users/", updateParams, r)
 
 		// Assert that the response status code indicates not found due to missing userID in URL
 		assert.Equal(t, http.StatusNotFound, rr.Code)
@@ -675,10 +607,10 @@ func TestUserFlow(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create a licence
-		testLicence := createTestLicence(t, "UPD-0005")
+		testLicence := hf.CreateTestLicence(t, "UPD-0005", testQueries)
 
 		// Then, create a user to update
-		createdUser := createTestUser(t, createUserParams{
+		createdUser := hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "invalidemailupdateuser",
 			Email:     "invalid@emailupdate.com",
@@ -687,7 +619,7 @@ func TestUserFlow(t *testing.T) {
 			LastName:  "Email",
 			Role:      "user",
 			IsActive:  true,
-		})
+		}, testQueries)
 
 		// Now build update params with an invalid email format
 		updateParams := updateUserParams{
@@ -702,7 +634,7 @@ func TestUserFlow(t *testing.T) {
 		r.Put("/users/{userID}", h.UpdateUser)
 
 		// Build and serve HTTP request
-		rr := buildAndServeHttpRequest(http.MethodPut, "/users/"+createdUser.ID.String(), updateParams, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/users/"+createdUser.ID.String(), updateParams, r)
 
 		// Assert that the response status code indicates a bad request due to invalid email format
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
@@ -712,10 +644,10 @@ func TestUserFlow(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create a licence
-		testLicence := createTestLicence(t, "UPD-0006")
+		testLicence := hf.CreateTestLicence(t, "UPD-0006", testQueries)
 
 		// Then, create a user to update
-		createdUser := createTestUser(t, createUserParams{
+		createdUser := hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "inactiveupdateuser",
 			Email:     "inactiveupdateuser@example.com",
@@ -724,7 +656,7 @@ func TestUserFlow(t *testing.T) {
 			LastName:  "UpdateUser",
 			Role:      "user",
 			IsActive:  false,
-		})
+		}, testQueries)
 
 		// Now build update params with a non-existent licence ID
 		updateParams := updateUserParams{
@@ -739,7 +671,7 @@ func TestUserFlow(t *testing.T) {
 		r.Put("/users/{userID}", h.UpdateUser)
 
 		// Build and serve HTTP request
-		rr := buildAndServeHttpRequest(http.MethodPut, "/users/"+createdUser.ID.String(), updateParams, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/users/"+createdUser.ID.String(), updateParams, r)
 
 		// Assert that the response status code indicates a bad request due to invalid licence
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
@@ -749,10 +681,10 @@ func TestUserFlow(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create a licence
-		testLicence := createTestLicence(t, "GET-0007")
+		testLicence := hf.CreateTestLicence(t, "GET-0007", testQueries)
 
 		// Then, create a user associated with that licence
-		createdUser := createTestUser(t, createUserParams{
+		createdUser := hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "getlicenceuser",
 			Email:     "getlicenceuser@example.com",
@@ -760,7 +692,7 @@ func TestUserFlow(t *testing.T) {
 			FirstName: "Get",
 			LastName:  "LicenceUser",
 			Role:      "user",
-		})
+		}, testQueries)
 
 		// Create router
 		r := chi.NewRouter()
@@ -769,7 +701,7 @@ func TestUserFlow(t *testing.T) {
 		r.Get("/users/{userID}/licence", h.GetLicence)
 
 		// Build and serve HTTP request
-		rr := buildAndServeHttpRequest(http.MethodGet, "/users/"+createdUser.ID.String()+"/licence", nil, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/users/"+createdUser.ID.String()+"/licence", nil, r)
 
 		// Assert the request was successful and response code is 200 OK
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -788,7 +720,7 @@ func TestUserFlow(t *testing.T) {
 		r.Get("/users/{userID}/licence", h.GetLicence)
 
 		// Build and serve HTTP request
-		rr := buildAndServeHttpRequest(http.MethodGet, "/users/"+fakeID+"/licence", nil, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, "/users/"+fakeID+"/licence", nil, r)
 
 		// Assert the response status code (404) indicates the user was not found
 		assert.Equal(t, http.StatusNotFound, rr.Code)
@@ -798,10 +730,10 @@ func TestUserFlow(t *testing.T) {
 		t.Parallel() // Run test in parallel to speed up execution
 
 		// First, create a test licence
-		testLicence := createTestLicence(t, "DEL-0001")
+		testLicence := hf.CreateTestLicence(t, "DEL-0001", testQueries)
 
 		// Then, create a user to delete
-		createdUser := createTestUser(t, createUserParams{
+		createdUser := hf.CreateTestUser(t, CreateUserParams{
 			LicenceID: uuid.MustParse(testLicence.ID.String()),
 			Username:  "deleteuser",
 			Email:     "deleteuser@example.com",
@@ -810,7 +742,7 @@ func TestUserFlow(t *testing.T) {
 			LastName:  "User",
 			Role:      "user",
 			IsActive:  true,
-		})
+		}, testQueries)
 
 		// Create router
 		r := chi.NewRouter()
@@ -819,7 +751,7 @@ func TestUserFlow(t *testing.T) {
 		r.Delete("/users/{userID}", h.DeleteUser)
 
 		// Now attempt to delete the user
-		rr := buildAndServeHttpRequest(http.MethodDelete, "/users/"+createdUser.ID.String(), nil, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodDelete, "/users/"+createdUser.ID.String(), nil, r)
 
 		// Assert the response status code indicates successful deletion (204 No Content)
 		assert.Equal(t, http.StatusNoContent, rr.Code)
@@ -843,7 +775,7 @@ func TestUserFlow(t *testing.T) {
 		// Define route and handler
 		r.Delete("/users/{userID}", h.DeleteUser)
 
-		rr := buildAndServeHttpRequest(http.MethodDelete, "/users/"+fakeID, nil, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodDelete, "/users/"+fakeID, nil, r)
 
 		// Assert the response status code indicates the user was not found (404 Not Found)
 		assert.Equal(t, http.StatusNotFound, rr.Code)
