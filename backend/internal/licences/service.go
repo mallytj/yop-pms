@@ -24,6 +24,7 @@ var (
 	ErrDeletingLicenceFailed         = errors.New("deleting licence failed")
 	ErrGettingUsersByLicenceIDFailed = errors.New("getting users by licence ID failed")
 	ErrDuplicatedField               = errors.New("duplicated field error")
+	ErrNoPropertiesFound             = errors.New("no properties found for the given licence ID")
 )
 
 // PostgreSQL error codes
@@ -41,6 +42,7 @@ type Service interface {
 	ListLicences(ctx context.Context) ([]repo.Licence, error)
 	GetLicenceById(ctx context.Context) (repo.Licence, error)
 	GetUsersByID(ctx context.Context) ([]repo.User, error)
+	ListProperties(ctx context.Context) ([]repo.Property, error)
 	CreateLicence(ctx context.Context, params repo.CreateLicenceParams) (repo.Licence, error)
 	UpdateLicence(ctx context.Context, params repo.UpdateLicenceParams) (repo.Licence, error)
 	DeleteLicence(ctx context.Context) error
@@ -147,6 +149,23 @@ func (s *svc) GetUsersByID(ctx context.Context) ([]repo.User, error) {
 
 	// Return the list of users
 	return users, nil
+}
+
+func (s *svc) ListProperties(ctx context.Context) ([]repo.Property, error) {
+	// Get licenceID from context
+	licenceID := helpers.GetLicenceID(ctx)
+	
+	// Get the list of properties from the repository
+	properties, err := s.repo.ListPropertiesByLicenceID(ctx, helpers.ToPgUUID(&licenceID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNoPropertiesFound
+		}
+		return nil, err
+	}
+
+	// Return the list of properties
+	return properties, nil
 }
 
 // UpdateLicence updates an existing licence in the database. (CRUD - Update)

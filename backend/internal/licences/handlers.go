@@ -94,6 +94,27 @@ func (h *handler) GetLicenceById(w http.ResponseWriter, r *http.Request) {
 	json.Write(w, http.StatusOK, licence)
 }
 
+// GetProperties handles retrieving properties associated with a licence. (CRUD - Read)
+func (h *handler) GetProperties(w http.ResponseWriter, r *http.Request) {
+	// Get properties associated with the licence from the service
+	properties, err := h.service.ListProperties(r.Context())
+
+	// Handle errors from the service
+	if err != nil {
+		if err == ErrNoPropertiesFound {
+			json.Write(w, http.StatusNotFound, "no properties found for the given licence ID")
+			return
+		}
+		log.Printf("error getting properties by licence ID: %v", err)
+		json.Write(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	// Write the properties to the response
+	json.Write(w, http.StatusOK, properties)
+}
+
+// GetUsersByID handles retrieving users associated with a licence. (CRUD - Read)
 func (h *handler) GetUsersByID(w http.ResponseWriter, r *http.Request) {
 	// Get users associated with the licence from the service
 	users, err := h.service.GetUsersByID(r.Context())
