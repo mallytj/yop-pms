@@ -24,8 +24,10 @@ import (
 
 var (
 	ErrStartingTx      = errors.New("error starting transaction")
-	ErrCommitingTx     = errors.New("error committing transaction")
+	ErrCommittingTx    = errors.New("error committing transaction")
 	ErrDuplicatedField = errors.New("duplicated field error")
+	// ErrCommitingTx is deprecated: use ErrCommittingTx instead
+	ErrCommitingTx = ErrCommittingTx
 )
 
 // CheckErrorCode checks if the given error is a pgx.PgError with the specified code.
