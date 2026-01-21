@@ -65,10 +65,27 @@ func TestMain(m *testing.M) {
 	connStr, _ := pgContainer.ConnectionString(ctx, "sslmode=disable")
 
 	// 2. Run Migrations
+	connStr, err = pgContainer.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		log.Fatalf("failed to get connection string: %v", err)
+	}
+
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Wait for the database to be ready
+	for i := 0; i < 30; i++ {
+		if err = db.Ping(); err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	if err != nil {
+		log.Fatalf("database not ready after 30 seconds: %v", err)
+	}
+
 	// Point this to your actual migrations folder
 	if err := goose.Up(db, "../adapters/postgresql/migrations"); err != nil {
 		log.Fatalf("migrations failed: %v", err)
@@ -89,9 +106,10 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// TestUserFlow tests the complete user flow including creating, retrieving, listing, and updating users.
-// It also tests various edge cases and error scenarios.
-// This test assumes that the database is clean before running.
+// TestUserFlow tests the complete user CRUD flow including creating, retrieving,
+// listing, updating, and deleting users. It also tests various edge cases and error
+// scenarios such as duplicate emails, invalid roles, non-existent licences, and more.
+// All tests run in parallel for better performance and are isolated from each other.
 func TestUserFlow(t *testing.T) {
 	// Setup test environment
 	ctx := context.Background()

@@ -15,10 +15,18 @@ import (
 )
 
 var (
+<<<<<<< HEAD
 	ErrStartingTx            = errors.New("error starting transaction")
 	ErrCommittingTx           = errors.New("error committing transaction")
 	ErrDuplicatedField       = errors.New("duplicated field error")
 	ErrRelatedEntityNotFound = errors.New("related entity not found")
+=======
+	ErrStartingTx      = errors.New("error starting transaction")
+	ErrCommittingTx    = errors.New("error committing transaction")
+	ErrDuplicatedField = errors.New("duplicated field error")
+	// ErrCommitingTx is deprecated: use ErrCommittingTx instead
+	ErrCommitingTx = ErrCommittingTx
+>>>>>>> 21d9782a8a6732fa532492163ab09156e89c1e06
 )
 
 // CheckErrorCode checks if the given error is a pgx.PgError with the specified code.
