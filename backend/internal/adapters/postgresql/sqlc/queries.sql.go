@@ -333,6 +333,46 @@ func (q *Queries) GetUsersByLicenceID(ctx context.Context, licenceID pgtype.UUID
 	return items, nil
 }
 
+const getUsersByPropertyID = `-- name: GetUsersByPropertyID :many
+SELECT u.id, u.licence_id, u.username, u.email, u.password_hash, u.first_name, u.last_name, u.role, u.is_active, u.created_at, u.updated_at
+FROM users u
+JOIN licences l ON u.licence_id = l.id
+JOIN properties p ON l.id = p.licence_id
+WHERE p.id = $1
+`
+
+func (q *Queries) GetUsersByPropertyID(ctx context.Context, id pgtype.UUID) ([]User, error) {
+	rows, err := q.db.Query(ctx, getUsersByPropertyID, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.LicenceID,
+			&i.Username,
+			&i.Email,
+			&i.PasswordHash,
+			&i.FirstName,
+			&i.LastName,
+			&i.Role,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLicences = `-- name: ListLicences :many
 SELECT id, licence_key, organisation_name, contact_email, licence_notes, created_at, updated_at FROM licences
 `
@@ -366,11 +406,44 @@ func (q *Queries) ListLicences(ctx context.Context) ([]Licence, error) {
 }
 
 const listProperties = `-- name: ListProperties :many
+SELECT id, licence_id, name, address, property_notes, timezone, created_at, updated_at FROM properties
+`
+
+func (q *Queries) ListProperties(ctx context.Context) ([]Property, error) {
+	rows, err := q.db.Query(ctx, listProperties)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Property
+	for rows.Next() {
+		var i Property
+		if err := rows.Scan(
+			&i.ID,
+			&i.LicenceID,
+			&i.Name,
+			&i.Address,
+			&i.PropertyNotes,
+			&i.Timezone,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPropertiesByLicenceID = `-- name: ListPropertiesByLicenceID :many
 SELECT id, licence_id, name, address, property_notes, timezone, created_at, updated_at FROM properties WHERE licence_id = $1
 `
 
-func (q *Queries) ListProperties(ctx context.Context, licenceID pgtype.UUID) ([]Property, error) {
-	rows, err := q.db.Query(ctx, listProperties, licenceID)
+func (q *Queries) ListPropertiesByLicenceID(ctx context.Context, licenceID pgtype.UUID) ([]Property, error) {
+	rows, err := q.db.Query(ctx, listPropertiesByLicenceID, licenceID)
 	if err != nil {
 		return nil, err
 	}

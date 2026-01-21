@@ -8,6 +8,7 @@ import (
 
 	repo "ollerod-pms/internal/adapters/postgresql/sqlc"
 	"ollerod-pms/internal/licences"
+	"ollerod-pms/internal/properties"
 	"ollerod-pms/internal/users"
 
 	"github.com/go-chi/chi/v5"
@@ -19,7 +20,8 @@ import (
 
 func (app *application) mount() http.Handler {
 	r := chi.NewRouter()
-	// A good base middleware stack
+
+	// Global middlewares
 	r.Use(middleware.RequestID) // important for rate limiting
 	r.Use(middleware.RealIP)    // important for rate limiting and analytics and tracing
 	r.Use(middleware.Logger)
@@ -31,8 +33,10 @@ func (app *application) mount() http.Handler {
 	// processing should be stopped.
 	r.Use(middleware.Timeout(60 * time.Second))
 
+	// Health check endpoint
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("all good"))
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
 	})
 
 	/*
@@ -110,46 +114,55 @@ func (app *application) mount() http.Handler {
 	 |_|   |_|  \___/| .__/ \___|_|   \__|_|\___||___/
 	                 |_|
 	*/
+	propertyService := properties.NewService(*repo.New(app.db), app.db)
+	propertyHandler := properties.NewHandler(propertyService)
 	r.Route("/properties", func(r chi.Router) {
 		// Create a new property
-		// r.Post("/", propertyHandler.CreateProperty)
+		r.Post("/", propertyHandler.CreateProperty)
 
 		// Get all properties
-		// r.Get("/", propertyHandler.ListProperties)
+		r.Get("/", propertyHandler.ListProperties)
 
-		// Get a single property by ID
-		// r.Get("/{propertyID}", propertyHandler.GetPropertyById)
+		r.Route("/{propertyID}", func(r chi.Router) {
+			r.Use(mw.PropertyCtx) // Middleware to extract propertyID from URL and add to context
 
-		// Update an existing property by ID
-		// r.Put("/{propertyID}", propertyHandler.UpdateProperty)
+			// Get a single property by ID
+			r.Get("/{propertyID}", propertyHandler.GetPropertyById)
 
-		// Delete a property by ID
-		// r.Delete("/{propertyID}", propertyHandler.DeleteProperty)
+			// Update an existing property by ID
+			r.Put("/{propertyID}", propertyHandler.UpdateProperty)
 
-		// Get properties licence by propertyID
-		// r.Get("/{propertyID}/licence", propertyHandler.GetLicence)
+			// Delete a property by ID
+			r.Delete("/{propertyID}", propertyHandler.DeleteProperty)
 
-		// Get properties room types by propertyID
-		// r.Get("/{propertyID}/roomtypes", propertyHandler.GetRoomTypes)
+			// Get properties licence by propertyID
+			r.Get("/{propertyID}/licence", propertyHandler.GetLicence)
 
-		// Get properties amenities by propertyID
-		// r.Get("/{propertyID}/amenities", propertyHandler.GetAmenities)
+			// Get properties users by propertyID
+			r.Get("/{propertyID}/users", propertyHandler.GetUsers)
 
-		// Get property reservations by propertyID
-		// r.Get("/{propertyID}/reservations", propertyHandler.GetReservations)
+			// Get properties room types by propertyID
+			// r.Get("/{propertyID}/roomtypes", propertyHandler.GetRoomTypes)
 
-		// Get property rooms by propertyID
-		// r.Get("/{propertyID}/rooms", propertyHandler.GetRooms)
+			// Get properties amenities by propertyID
+			// r.Get("/{propertyID}/amenities", propertyHandler.GetAmenities)
 
-		// Get property rate plans by propertyID
-		// r.Get("/{propertyID}/rateplans", propertyHandler.GetRatePlans)
+			// Get property reservations by propertyID
+			// r.Get("/{propertyID}/reservations", propertyHandler.GetReservations)
 
-		// Get property guests by propertyID
-		// r.Get("/{propertyID}/guests", propertyHandler.GetGuests)
+			// Get property rooms by propertyID
+			// r.Get("/{propertyID}/rooms", propertyHandler.GetRooms)
 
-		// Get property daily availability by propertyID
-		// Returns availability matrix for the next 365 days
-		// r.Get("/{propertyID}/availability", propertyHandler.GetDailyAvailability)
+			// Get property rate plans by propertyID
+			// r.Get("/{propertyID}/rateplans", propertyHandler.GetRatePlans)
+
+			// Get property guests by propertyID
+			// r.Get("/{propertyID}/guests", propertyHandler.GetGuests)
+
+			// Get property daily availability by propertyID
+			// Returns availability matrix for the next 365 days
+			// r.Get("/{propertyID}/availability", propertyHandler.GetDailyAvailability)
+		})
 	})
 
 	return r

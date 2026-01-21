@@ -67,8 +67,11 @@ SELECT EXISTS(SELECT 1 FROM licences WHERE id = $1) AS exists;
 INSERT INTO properties (address, name, timezone, licence_id, property_notes) 
 VALUES ($1, $2, $3, $4, $5) RETURNING *;
 
--- name: ListProperties :many
+-- name: ListPropertiesByLicenceID :many
 SELECT * FROM properties WHERE licence_id = $1;
+
+-- name: ListProperties :many
+SELECT * FROM properties;
 
 -- name: GetPropertyByID :one
 SELECT * FROM properties WHERE id = $1;
@@ -94,3 +97,10 @@ WHERE p.id = $1 LIMIT 1;
 
 -- name: GetPropertiesByLicenceID :many
 SELECT * FROM properties WHERE licence_id = $1;
+
+-- name: GetUsersByPropertyID :many
+SELECT u.*
+FROM users u
+JOIN licences l ON u.licence_id = l.id
+JOIN properties p ON l.id = p.licence_id
+WHERE p.id = $1;

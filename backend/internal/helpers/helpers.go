@@ -17,14 +17,25 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	ErrStartingTx  = errors.New("error starting transaction")
-	ErrCommitingTx = errors.New("error committing transaction")
+	ErrStartingTx      = errors.New("error starting transaction")
+	ErrCommitingTx     = errors.New("error committing transaction")
+	ErrDuplicatedField = errors.New("duplicated field error")
 )
+
+// CheckErrorCode checks if the given error is a pgx.PgError with the specified code.
+func CheckErrorCode(err error, code string) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == code
+	}
+	return false
+}
 
 // StringCharCount returns the number of characters in a string, accounting for multi-byte characters.
 func StringCharCount(s string) int {
@@ -128,6 +139,7 @@ func BuildAndServeHttpRequest(method string, url string, body interface{}, r *ch
 // CreateTestLicence is a helper function to create a test licence with the given licence key.
 // Returns the created licence.
 // licenceKey: Must be in the format "XXX-YYYY" where X is uppercase letter and Y is digit.
+// testQueries: Database queries interface for executing SQL commands.
 // Example: CreateTestLicence(t, "TEST-1234") = repo.Licence{...}
 func CreateTestLicence(t *testing.T, licenceKey string, testQueries *repo.Queries) repo.Licence {
 	ctx := context.Background()
@@ -164,6 +176,25 @@ func CreateTestUser(t *testing.T, params types.CreateUserParams, testQueries *re
 	require.NoError(t, err, fmt.Sprintf("failed to create test user: %v", err))
 
 	return user
+}
+
+// CreateTestProperty is a helper function to create a test property with the given parameters.
+// Returns the created property.
+// params: Parameters required to create the property.
+// testQueries: Database queries interface for executing SQL commands.
+// Example: CreateTestProperty(t, params, testQueries) = repo.Property{...}
+func CreateTestProperty(t *testing.T, params repo.CreatePropertyParams, testQueries *repo.Queries) repo.Property {
+	// Create context
+	ctx := context.Background()
+
+	// Create property in the database
+	property, err := testQueries.CreateProperty(ctx, params)
+
+	// Ensure no error occurred during property creation
+	require.NoError(t, err, fmt.Sprintf("failed to create test property: %v", err))
+
+	// Return the created property
+	return property
 }
 
 // ParamIsProvided checks if a string pointer parameter is provided (not nil and not empty).
