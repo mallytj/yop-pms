@@ -41,6 +41,9 @@ WHERE u.id = $1 LIMIT 1;
 -- name: GetLicenceByID :one
 SELECT * FROM licences WHERE id = $1;
 
+-- name: GetLicenceByKey :one
+SELECT * FROM licences WHERE licence_key = $1 LIMIT 1;
+
 -- name: CreateLicence :one
 INSERT INTO licences (licence_key, organisation_name, contact_email, licence_notes) 
 VALUES ($1, $2, $3, $4) RETURNING *;
@@ -104,3 +107,39 @@ FROM users u
 JOIN licences l ON u.licence_id = l.id
 JOIN properties p ON l.id = p.licence_id
 WHERE p.id = $1;
+
+-- name: CreatePropertyAmenity :one
+INSERT INTO property_amenities (property_id, name, short_code, description, is_active) 
+VALUES ($1, $2, $3, $4, $5) RETURNING *;
+
+-- name: ListPropertyAmenities :many
+SELECT * FROM property_amenities;
+
+-- name: GetPropertyAmenityByID :one
+SELECT * FROM property_amenities WHERE id = $1;
+
+-- name: UpdatePropertyAmenity :one
+UPDATE property_amenities 
+SET 
+    name = COALESCE(sqlc.narg('name'), name),
+    short_code = COALESCE(sqlc.narg('short_code'), short_code),
+    description = COALESCE(sqlc.narg('description'), description),
+    is_active = COALESCE(sqlc.narg('is_active'), is_active),
+    updated_at = NOW()
+WHERE id = $1 RETURNING *;  
+
+-- name: DeletePropertyAmenity :execresult
+DELETE FROM property_amenities WHERE id = $1;
+
+-- name: GetPropertyByPropertyAmenityID :one
+SELECT p.*
+FROM properties p
+JOIN property_amenities pa ON p.id = pa.property_id
+WHERE pa.id = $1 LIMIT 1;
+
+-- name: GetLicenceByPropertyAmenityID :one
+SELECT l.*
+FROM licences l
+JOIN properties p ON l.id = p.licence_id
+JOIN property_amenities pa ON p.id = pa.property_id
+WHERE pa.id = $1 LIMIT 1;

@@ -110,12 +110,14 @@ type Property struct {
 }
 
 type PropertyAmenity struct {
-	ID          pgtype.UUID `json:"id"`
-	PropertyID  pgtype.UUID `json:"property_id"`
-	Name        string      `json:"name"`
-	ShortCode   string      `json:"short_code"`
-	Description pgtype.Text `json:"description"`
-	IsActive    pgtype.Bool `json:"is_active"`
+	ID          pgtype.UUID        `json:"id"`
+	PropertyID  pgtype.UUID        `json:"property_id"`
+	Name        string             `json:"name"`
+	ShortCode   string             `json:"short_code"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    pgtype.Bool        `json:"is_active"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type RateAdjustment struct {

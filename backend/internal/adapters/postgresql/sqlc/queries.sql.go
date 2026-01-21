@@ -90,6 +90,41 @@ func (q *Queries) CreateProperty(ctx context.Context, arg CreatePropertyParams) 
 	return i, err
 }
 
+const createPropertyAmenity = `-- name: CreatePropertyAmenity :one
+INSERT INTO property_amenities (property_id, name, short_code, description, is_active) 
+VALUES ($1, $2, $3, $4, $5) RETURNING id, property_id, name, short_code, description, is_active, created_at, updated_at
+`
+
+type CreatePropertyAmenityParams struct {
+	PropertyID  pgtype.UUID `json:"property_id"`
+	Name        string      `json:"name"`
+	ShortCode   string      `json:"short_code"`
+	Description pgtype.Text `json:"description"`
+	IsActive    pgtype.Bool `json:"is_active"`
+}
+
+func (q *Queries) CreatePropertyAmenity(ctx context.Context, arg CreatePropertyAmenityParams) (PropertyAmenity, error) {
+	row := q.db.QueryRow(ctx, createPropertyAmenity,
+		arg.PropertyID,
+		arg.Name,
+		arg.ShortCode,
+		arg.Description,
+		arg.IsActive,
+	)
+	var i PropertyAmenity
+	err := row.Scan(
+		&i.ID,
+		&i.PropertyID,
+		&i.Name,
+		&i.ShortCode,
+		&i.Description,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (username, email, password_hash, first_name, last_name, is_active, licence_id, role) 
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, licence_id, username, email, password_hash, first_name, last_name, role, is_active, created_at, updated_at
@@ -150,6 +185,14 @@ func (q *Queries) DeleteProperty(ctx context.Context, id pgtype.UUID) (pgconn.Co
 	return q.db.Exec(ctx, deleteProperty, id)
 }
 
+const deletePropertyAmenity = `-- name: DeletePropertyAmenity :execresult
+DELETE FROM property_amenities WHERE id = $1
+`
+
+func (q *Queries) DeletePropertyAmenity(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, deletePropertyAmenity, id)
+}
+
 const deleteUser = `-- name: DeleteUser :execresult
 DELETE FROM users WHERE id = $1
 `
@@ -164,6 +207,48 @@ SELECT id, licence_key, organisation_name, contact_email, licence_notes, created
 
 func (q *Queries) GetLicenceByID(ctx context.Context, id pgtype.UUID) (Licence, error) {
 	row := q.db.QueryRow(ctx, getLicenceByID, id)
+	var i Licence
+	err := row.Scan(
+		&i.ID,
+		&i.LicenceKey,
+		&i.OrganisationName,
+		&i.ContactEmail,
+		&i.LicenceNotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getLicenceByKey = `-- name: GetLicenceByKey :one
+SELECT id, licence_key, organisation_name, contact_email, licence_notes, created_at, updated_at FROM licences WHERE licence_key = $1 LIMIT 1
+`
+
+func (q *Queries) GetLicenceByKey(ctx context.Context, licenceKey string) (Licence, error) {
+	row := q.db.QueryRow(ctx, getLicenceByKey, licenceKey)
+	var i Licence
+	err := row.Scan(
+		&i.ID,
+		&i.LicenceKey,
+		&i.OrganisationName,
+		&i.ContactEmail,
+		&i.LicenceNotes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getLicenceByPropertyAmenityID = `-- name: GetLicenceByPropertyAmenityID :one
+SELECT l.id, l.licence_key, l.organisation_name, l.contact_email, l.licence_notes, l.created_at, l.updated_at
+FROM licences l
+JOIN properties p ON l.id = p.licence_id
+JOIN property_amenities pa ON p.id = pa.property_id
+WHERE pa.id = $1 LIMIT 1
+`
+
+func (q *Queries) GetLicenceByPropertyAmenityID(ctx context.Context, id pgtype.UUID) (Licence, error) {
+	row := q.db.QueryRow(ctx, getLicenceByPropertyAmenityID, id)
 	var i Licence
 	err := row.Scan(
 		&i.ID,
@@ -254,12 +339,55 @@ func (q *Queries) GetPropertiesByLicenceID(ctx context.Context, licenceID pgtype
 	return items, nil
 }
 
+const getPropertyAmenityByID = `-- name: GetPropertyAmenityByID :one
+SELECT id, property_id, name, short_code, description, is_active, created_at, updated_at FROM property_amenities WHERE id = $1
+`
+
+func (q *Queries) GetPropertyAmenityByID(ctx context.Context, id pgtype.UUID) (PropertyAmenity, error) {
+	row := q.db.QueryRow(ctx, getPropertyAmenityByID, id)
+	var i PropertyAmenity
+	err := row.Scan(
+		&i.ID,
+		&i.PropertyID,
+		&i.Name,
+		&i.ShortCode,
+		&i.Description,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getPropertyByID = `-- name: GetPropertyByID :one
 SELECT id, licence_id, name, address, property_notes, timezone, created_at, updated_at FROM properties WHERE id = $1
 `
 
 func (q *Queries) GetPropertyByID(ctx context.Context, id pgtype.UUID) (Property, error) {
 	row := q.db.QueryRow(ctx, getPropertyByID, id)
+	var i Property
+	err := row.Scan(
+		&i.ID,
+		&i.LicenceID,
+		&i.Name,
+		&i.Address,
+		&i.PropertyNotes,
+		&i.Timezone,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPropertyByPropertyAmenityID = `-- name: GetPropertyByPropertyAmenityID :one
+SELECT p.id, p.licence_id, p.name, p.address, p.property_notes, p.timezone, p.created_at, p.updated_at
+FROM properties p
+JOIN property_amenities pa ON p.id = pa.property_id
+WHERE pa.id = $1 LIMIT 1
+`
+
+func (q *Queries) GetPropertyByPropertyAmenityID(ctx context.Context, id pgtype.UUID) (Property, error) {
+	row := q.db.QueryRow(ctx, getPropertyByPropertyAmenityID, id)
 	var i Property
 	err := row.Scan(
 		&i.ID,
@@ -471,6 +599,39 @@ func (q *Queries) ListPropertiesByLicenceID(ctx context.Context, licenceID pgtyp
 	return items, nil
 }
 
+const listPropertyAmenities = `-- name: ListPropertyAmenities :many
+SELECT id, property_id, name, short_code, description, is_active, created_at, updated_at FROM property_amenities
+`
+
+func (q *Queries) ListPropertyAmenities(ctx context.Context) ([]PropertyAmenity, error) {
+	rows, err := q.db.Query(ctx, listPropertyAmenities)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PropertyAmenity
+	for rows.Next() {
+		var i PropertyAmenity
+		if err := rows.Scan(
+			&i.ID,
+			&i.PropertyID,
+			&i.Name,
+			&i.ShortCode,
+			&i.Description,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRooms = `-- name: ListRooms :many
 SELECT id, property_id, room_type_id, room_number, floor, status, room_notes, is_twinnable, created_at, updated_at FROM rooms
 `
@@ -616,6 +777,47 @@ func (q *Queries) UpdateProperty(ctx context.Context, arg UpdatePropertyParams) 
 		&i.Address,
 		&i.PropertyNotes,
 		&i.Timezone,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updatePropertyAmenity = `-- name: UpdatePropertyAmenity :one
+UPDATE property_amenities 
+SET 
+    name = COALESCE($2, name),
+    short_code = COALESCE($3, short_code),
+    description = COALESCE($4, description),
+    is_active = COALESCE($5, is_active),
+    updated_at = NOW()
+WHERE id = $1 RETURNING id, property_id, name, short_code, description, is_active, created_at, updated_at
+`
+
+type UpdatePropertyAmenityParams struct {
+	ID          pgtype.UUID `json:"id"`
+	Name        pgtype.Text `json:"name"`
+	ShortCode   pgtype.Text `json:"short_code"`
+	Description pgtype.Text `json:"description"`
+	IsActive    pgtype.Bool `json:"is_active"`
+}
+
+func (q *Queries) UpdatePropertyAmenity(ctx context.Context, arg UpdatePropertyAmenityParams) (PropertyAmenity, error) {
+	row := q.db.QueryRow(ctx, updatePropertyAmenity,
+		arg.ID,
+		arg.Name,
+		arg.ShortCode,
+		arg.Description,
+		arg.IsActive,
+	)
+	var i PropertyAmenity
+	err := row.Scan(
+		&i.ID,
+		&i.PropertyID,
+		&i.Name,
+		&i.ShortCode,
+		&i.Description,
+		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

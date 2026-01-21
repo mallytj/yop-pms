@@ -29,7 +29,7 @@ func (h *handler) CreateProperty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Valdiate the parameters
+	// Validate the parameters
 	if err := validateCreatePropertyParams(tempProperty); err != nil {
 		log.Println("error validating create property params:", err)
 		json.Write(w, http.StatusBadRequest, err)

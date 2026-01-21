@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"ollerod-pms/internal/json"
 	"ollerod-pms/internal/types"
 
@@ -37,7 +36,6 @@ func genericIDExtractor(paramName types.ContextKey, next http.Handler) http.Hand
 		// 3. Store the paramName in the request context
 		ctx := r.Context()
 		ctx = context.WithValue(ctx, paramName, id)
-		fmt.Println("Stored", paramName, "in context with value:", id)
 
 		// 4. Call the next handler with the updated context
 		next.ServeHTTP(w, r.WithContext(ctx))

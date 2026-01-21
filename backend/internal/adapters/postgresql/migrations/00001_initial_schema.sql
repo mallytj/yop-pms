@@ -29,9 +29,12 @@ CREATE TABLE IF NOT EXISTS property_amenities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     property_id UUID REFERENCES properties(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    short_code TEXT UNIQUE NOT NULL,
+    short_code TEXT NOT NULL,
     description TEXT,
-    is_active BOOLEAN DEFAULT TRUE
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (property_id, short_code)
 );
 
 CREATE TABLE IF NOT EXISTS users (

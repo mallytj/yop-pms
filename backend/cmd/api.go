@@ -9,6 +9,7 @@ import (
 	repo "ollerod-pms/internal/adapters/postgresql/sqlc"
 	"ollerod-pms/internal/licences"
 	"ollerod-pms/internal/properties"
+	"ollerod-pms/internal/property_amenities"
 	"ollerod-pms/internal/users"
 
 	"github.com/go-chi/chi/v5"
@@ -49,25 +50,26 @@ func (app *application) mount() http.Handler {
 	userService := users.NewService(*repo.New(app.db), app.db)
 	userHandler := users.NewHandler(userService)
 	r.Route("/users", func(r chi.Router) {
-		r.Use(mw.UserCtx) // Middleware to extract userID from URL and add to context
-
 		// Create a new user (using form data)
 		r.Post("/", userHandler.CreateUser)
 
 		// Get all users
 		r.Get("/", userHandler.ListUsers)
 
-		// Get user's licence by userID
-		r.Get("/{userID}/licence", userHandler.GetLicence)
+		r.Route("/{userID}", func(r chi.Router) {
+			r.Use(mw.UserCtx) // Middleware to extract userID from URL and add to context
+			// Get user's licence by userID
+			r.Get("/{userID}/licence", userHandler.GetLicence)
 
-		// Get a single user by ID
-		r.Get("/{userID}", userHandler.GetUserById)
+			// Get a single user by ID
+			r.Get("/{userID}", userHandler.GetUserById)
 
-		// Update an existing user by ID (using form data)
-		r.Put("/{userID}", userHandler.UpdateUser)
+			// Update an existing user by ID (using form data)
+			r.Put("/{userID}", userHandler.UpdateUser)
 
-		// Delete a user by ID
-		r.Delete("/{userID}", userHandler.DeleteUser)
+			// Delete a user by ID
+			r.Delete("/{userID}", userHandler.DeleteUser)
+		})
 
 	})
 
@@ -81,28 +83,29 @@ func (app *application) mount() http.Handler {
 	licenceService := licences.NewService(*repo.New(app.db), app.db)
 	licenceHandler := licences.NewHandler(licenceService)
 	r.Route("/licences", func(r chi.Router) {
-		r.Use(mw.LicenceCtx) // Middleware to extract licenceID from URL and add to context
-
 		// Create a new licence (using form data)
 		r.Post("/", licenceHandler.CreateLicence)
 
 		// Get all licences
 		r.Get("/", licenceHandler.ListLicences)
 
-		// Get a single licence by ID
-		r.Get("/{licenceID}", licenceHandler.GetLicenceById)
+		r.Route("/{licenceID}", func(r chi.Router) {
+			r.Use(mw.LicenceCtx) // Middleware to extract licenceID from URL and add to context
+			// Get a single licence by ID
+			r.Get("/{licenceID}", licenceHandler.GetLicenceById)
 
-		// Update an existing licence by ID (using form data)
-		r.Put("/{licenceID}", licenceHandler.UpdateLicence)
+			// Update an existing licence by ID (using form data)
+			r.Put("/{licenceID}", licenceHandler.UpdateLicence)
 
-		// Delete a licence by ID
-		r.Delete("/{licenceID}", licenceHandler.DeleteLicence)
+			// Delete a licence by ID
+			r.Delete("/{licenceID}", licenceHandler.DeleteLicence)
 
-		// Users by licence ID
-		r.Route("/{licenceID}/users", func(r chi.Router) {
-			r.Use(mw.UserCtx) // Middleware to extract userID from URL and add to context
-			// Get all users by licence ID
-			r.Get("/", licenceHandler.GetUsersByID)
+			// Users by licence ID
+			r.Route("/{licenceID}/users", func(r chi.Router) {
+				r.Use(mw.UserCtx) // Middleware to extract userID from URL and add to context
+				// Get all users by licence ID
+				r.Get("/", licenceHandler.GetUsersByID)
+			})
 		})
 	})
 
@@ -127,41 +130,76 @@ func (app *application) mount() http.Handler {
 			r.Use(mw.PropertyCtx) // Middleware to extract propertyID from URL and add to context
 
 			// Get a single property by ID
-			r.Get("/{propertyID}", propertyHandler.GetPropertyById)
+			r.Get("/", propertyHandler.GetPropertyById)
 
 			// Update an existing property by ID
-			r.Put("/{propertyID}", propertyHandler.UpdateProperty)
+			r.Put("/", propertyHandler.UpdateProperty)
 
 			// Delete a property by ID
-			r.Delete("/{propertyID}", propertyHandler.DeleteProperty)
+			r.Delete("/", propertyHandler.DeleteProperty)
 
 			// Get properties licence by propertyID
-			r.Get("/{propertyID}/licence", propertyHandler.GetLicence)
+			r.Get("/licence", propertyHandler.GetLicence)
 
 			// Get properties users by propertyID
-			r.Get("/{propertyID}/users", propertyHandler.GetUsers)
+			r.Get("/users", propertyHandler.GetUsers)
 
 			// Get properties room types by propertyID
-			// r.Get("/{propertyID}/roomtypes", propertyHandler.GetRoomTypes)
+			// r.Get("/roomtypes", propertyHandler.GetRoomTypes)
 
 			// Get properties amenities by propertyID
-			// r.Get("/{propertyID}/amenities", propertyHandler.GetAmenities)
+			// r.Get("/amenities", propertyHandler.GetAmenities)
 
 			// Get property reservations by propertyID
-			// r.Get("/{propertyID}/reservations", propertyHandler.GetReservations)
+			// r.Get("/reservations", propertyHandler.GetReservations)
 
 			// Get property rooms by propertyID
-			// r.Get("/{propertyID}/rooms", propertyHandler.GetRooms)
+			// r.Get("/rooms", propertyHandler.GetRooms)
 
 			// Get property rate plans by propertyID
-			// r.Get("/{propertyID}/rateplans", propertyHandler.GetRatePlans)
+			// r.Get("/rateplans", propertyHandler.GetRatePlans)
 
 			// Get property guests by propertyID
-			// r.Get("/{propertyID}/guests", propertyHandler.GetGuests)
+			// r.Get("/guests", propertyHandler.GetGuests)
 
 			// Get property daily availability by propertyID
 			// Returns availability matrix for the next 365 days
-			// r.Get("/{propertyID}/availability", propertyHandler.GetDailyAvailability)
+			// r.Get("/availability", propertyHandler.GetDailyAvailability)
+		})
+	})
+
+	/*
+	  ____                            _              _                         _ _   _
+	 |  _ \ _ __ ___  _ __   ___ _ __| |_ _   _     / \   _ __ ___   ___ _ __ (_) |_(_) ___  ___
+	 | |_) | '__/ _ \| '_ \ / _ \ '__| __| | | |   / _ \ | '_ ` _ \ / _ \ '_ \| | __| |/ _ \/ __|
+	 |  __/| | | (_) | |_) |  __/ |  | |_| |_| |  / ___ \| | | | | |  __/ | | | | |_| |  __/\__ \
+	 |_|   |_|  \___/| .__/ \___|_|   \__|\__, | /_/   \_\_| |_| |_|\___|_| |_|_|\__|_|\___||___/
+	                 |_|                  |___/
+	*/
+
+	propertyAmenitiesService := property_amenities.NewService(*repo.New(app.db), app.db)
+	propertyAmenitiesHandler := property_amenities.NewHandler(propertyAmenitiesService)
+	r.Route("/property-amenities", func(r chi.Router) {
+		// Create a new property amenity
+		r.Post("/", propertyAmenitiesHandler.CreatePropertyAmenity)
+
+		// Get all property amenities
+		// r.Get("/", propertyAmenitiesHandler.ListPropertyAmenities)
+
+		r.Route("/{propertyAmenityID}", func(r chi.Router) {
+			r.Use(mw.PropertyAmenityCtx) // Middleware to extract propertyAmenityID from URL and add to context
+
+			// Get a single property amenity by ID
+			// r.Get("/{propertyAmenityID}", propertyAmenitiesHandler.GetPropertyAmenityById)
+
+			// Update an existing property amenity by ID
+			// r.Put("/{propertyAmenityID}", propertyAmenitiesHandler.UpdatePropertyAmenity)
+
+			// Delete a property amenity by ID
+			// r.Delete("/{propertyAmenityID}", propertyAmenitiesHandler.DeletePropertyAmenity)
+
+			// Get property amenity's property by propertyAmenityID
+			// r.Get("/{propertyAmenityID}/property", propertyAmenitiesHandler.GetProperty)
 		})
 	})
 
