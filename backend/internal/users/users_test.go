@@ -452,13 +452,15 @@ func TestUserFlow(t *testing.T) {
 
 		// First, build update params with a non-existent user ID
 		fakeUUID := uuid.New()
-		updateParms := updateUserParams{
+
+		// Build update params
+		updateParams := updateUserParams{
 			UserID:   fakeUUID,
 			IsActive: helpers.Ptr(false),
 		}
 
 		// Build and serve HTTP request
-		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/users/"+fakeUUID.String(), updateParms, r)
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, "/users/"+fakeUUID.String(), updateParams, r)
 
 		// Validate response
 		assert.Equal(t, http.StatusNotFound, rr.Code)

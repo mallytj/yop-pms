@@ -161,7 +161,7 @@ func (h *handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call the service to update the user
-	user, err := h.service.UpdateUser(r.Context(), params.UserID, *params)
+	user, err := h.service.UpdateUser(r.Context(), *params)
 
 	// Handle potential errors
 	if err != nil {

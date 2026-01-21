@@ -47,7 +47,7 @@ type Service interface {
 	ListUsers(ctx context.Context) ([]repo.User, error)
 	CreateUser(ctx context.Context, params CreateUserParams) (repo.User, error)
 	GetUserById(ctx context.Context, userID uuid.UUID) (repo.User, error)
-	UpdateUser(ctx context.Context, userID uuid.UUID, params updateUserParams) (repo.User, error)
+	UpdateUser(ctx context.Context, params updateUserParams) (repo.User, error)
 	DeleteUser(ctx context.Context, userID uuid.UUID) error
 	GetLicence(ctx context.Context, userID uuid.UUID) (repo.Licence, error)
 }
@@ -175,7 +175,10 @@ func (s *svc) CreateUser(ctx context.Context, params CreateUserParams) (repo.Use
 
 // UpdateUser updates an existing user in the database. (CRUD - Update)
 // Returns the updated User object or an error if the user is not found.
-func (s *svc) UpdateUser(ctx context.Context, userID uuid.UUID, params updateUserParams) (repo.User, error) {
+func (s *svc) UpdateUser(ctx context.Context, params updateUserParams) (repo.User, error) {
+	// Extract user ID from context
+	userID := helpers.GetUserID(ctx)
+
 	if params == (updateUserParams{}) {
 		return repo.User{}, nil // No fields to update
 	}
@@ -216,7 +219,7 @@ func (s *svc) UpdateUser(ctx context.Context, userID uuid.UUID, params updateUse
 		Role:         helpers.ToPgText(params.Role),
 		LicenceID:    helpers.ToPgUUID(params.LicenceID),
 		IsActive:     helpers.ToPgBool(params.IsActive),
-		PasswordHash: helpers.ToPgText(helpers.Ptr(encryptedPassword)),
+		PasswordHash: helpers.ToPgText(&encryptedPassword),
 	}
 
 	// Perform the update operation
