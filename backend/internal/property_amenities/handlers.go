@@ -105,3 +105,115 @@ func (h *handler) GetPropertyAmenityById(w http.ResponseWriter, r *http.Request)
 	// Write the property amenity as a JSON response with a 200 OK status
 	json.Write(w, http.StatusOK, amenity)
 }
+
+// UpdatePropertyAmenity handles updating an existing property amenity by its ID. (CRUD - Update)
+func (h *handler) UpdatePropertyAmenity(w http.ResponseWriter, r *http.Request) {
+	// Parse the request body into a temporary UpdatePropertyAmenityParams struct
+	var tempAmenity repo.UpdatePropertyAmenityParams
+
+	// json.Read will decode the JSON body into the UpdatePropertyAmenityParams struct
+	if err := json.Read(r, &tempAmenity); err != nil {
+		// If there's an error reading the request, log it and return a 400 Bad Request response
+		log.Println("error reading update property amenity request:", err)
+		json.Write(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Validate the parameters
+	if err := validateUpdatePropertyAmenityParams(tempAmenity); err != nil {
+		if err == ErrNoFieldsToUpdate {
+			log.Println("no fields to update for property amenity")
+			json.Write(w, http.StatusBadRequest, ErrNoFieldsToUpdate)
+			return
+		}
+
+		// If validation fails, log the error and return a 400 Bad Request response
+		log.Println("error validating update property amenity params:", err)
+		json.Write(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Call the service to update the property amenity
+	amenity, err := h.service.UpdatePropertyAmenity(r.Context(), tempAmenity)
+
+	// Handle errors from the service
+	if err != nil {
+		if err == ErrPropertyAmenityNotFound {
+			log.Printf("property amenity not found for update: %v", err)
+			json.Write(w, http.StatusNotFound, ErrPropertyAmenityNotFound)
+			return
+		}
+
+		// Handle duplicated field error
+		if err == hf.ErrDuplicatedField {
+			log.Printf("property amenity field duplication: %v", err)
+			json.Write(w, http.StatusConflict, "property amenity field duplication")
+			return
+		}
+		log.Printf("error updating property amenity: %v", err)
+		json.Write(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	// Write the updated property amenity as a JSON response with a 200 OK status
+	json.Write(w, http.StatusOK, amenity)
+}
+
+// DeletePropertyAmenity handles deleting a property amenity by its ID. (CRUD - Delete)
+func (h *handler) DeletePropertyAmenity(w http.ResponseWriter, r *http.Request) {
+	// Call the service to delete the property amenity
+	err := h.service.DeletePropertyAmenity(r.Context())
+
+	// Handle errors from the service
+	if err != nil {
+		if err == ErrPropertyAmenityNotFound {
+			log.Printf("property amenity not found for deletion: %v", err)
+			json.Write(w, http.StatusNotFound, ErrPropertyAmenityNotFound)
+			return
+		}
+		log.Printf("error deleting property amenity: %v", err)
+		json.Write(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	// Return a 204 No Content response on successful deletion
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// GetProperty handles retrieving a property by its ID. (CRUD - Read)
+func (h *handler) GetProperty(w http.ResponseWriter, r *http.Request) {
+	// Get the property from the service
+	property, err := h.service.GetProperty(r.Context())
+
+	if err != nil {
+		if err == hf.ErrRelatedEntityNotFound {
+			json.Write(w, http.StatusNotFound, hf.ErrRelatedEntityNotFound)
+			return
+		}
+		log.Printf("error getting property by ID: %v", err)
+		json.Write(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	// Write the property as a JSON response with a 200 OK status
+	json.Write(w, http.StatusOK, property)
+}
+
+// GetLicence handles retrieving a licence by its ID. (CRUD - Read)
+func (h *handler) GetLicence(w http.ResponseWriter, r *http.Request) {
+	// Get the licence from the service
+	licence, err := h.service.GetLicence(r.Context())
+
+	if err != nil {
+		if err == hf.ErrRelatedEntityNotFound {
+			json.Write(w, http.StatusNotFound, hf.ErrRelatedEntityNotFound)
+			return
+		}
+		log.Printf("error getting licence by ID: %v", err)
+		json.Write(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	// Write the licence as a JSON response with a 200 OK status
+	json.Write(w, http.StatusOK, licence)
+}

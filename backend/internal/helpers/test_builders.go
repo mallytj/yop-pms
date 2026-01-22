@@ -110,15 +110,17 @@ func CreateTestPropertyAmenity(t *testing.T, params repo.CreatePropertyAmenityPa
 
 	// Create licence in the database
 	lic, err := testQueries.GetLicenceByKey(ctx, licKey)
+	licId := &lic.ID
 	if err != nil {
 		lic = CreateTestLicence(t, licKey, testQueries)
+		licId = &lic.ID
 	}
 
 	// Ensure the property ID is set to a valid property
 
 	if !params.PropertyID.Valid || params.PropertyID.Bytes == uuid.Nil {
 		property := CreateTestProperty(t, repo.CreatePropertyParams{
-			LicenceID: lic.ID,
+			LicenceID: *licId,
 			Name:      "Test Property",
 			Address:   "123 Test St, Test City",
 			Timezone:  "Test/Europe",

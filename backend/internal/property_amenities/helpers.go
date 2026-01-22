@@ -16,6 +16,8 @@ var (
 	ErrUpdatingPropertyAmenity    = errors.New("error updating property amenity in database")
 	ErrDeletingPropertyAmenity    = errors.New("error deleting property amenity from database")
 	ErrRelatedEntityNotFound      = errors.New("related entity not found")
+	ErrDuplicatedField            = errors.New("duplicated field error")
+	ErrNoFieldsToUpdate           = errors.New("no fields to update")
 )
 
 // validatePropertyAmenityName checks if the property amenity name length is between 2 and 100 characters.
@@ -49,6 +51,29 @@ func validateCreatePropertyAmenityParams(params repo.CreatePropertyAmenityParams
 	}
 
 	// Description can be empty, but if provided, should be validated
+	if hf.ParamIsProvided(&params.Description.String) && !validateDescription(params.Description.String) {
+		return ErrInvalidDescription
+	}
+	return nil
+}
+
+// validateUpdatePropertyAmenityParams validates all parameters required to update a property amenity.
+func validateUpdatePropertyAmenityParams(params repo.UpdatePropertyAmenityParams) error {
+	if params == (repo.UpdatePropertyAmenityParams{}) {
+		return ErrNoFieldsToUpdate // No fields to update
+	}
+
+	// Name is optional, but if provided, should be validated
+	if hf.ParamIsProvided(&params.Name.String) && !validatePropertyAmenityName(params.Name.String) {
+		return ErrInvalidPropertyAmenityName
+	}
+
+	// Shortcode is optional, but if provided, should be validated
+	if hf.ParamIsProvided(&params.ShortCode.String) && !validateShortcode(params.ShortCode.String) {
+		return ErrInvalidShortcode
+	}
+
+	// Description is optional, but if provided, should be validated
 	if hf.ParamIsProvided(&params.Description.String) && !validateDescription(params.Description.String) {
 		return ErrInvalidDescription
 	}

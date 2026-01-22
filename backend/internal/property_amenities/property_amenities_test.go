@@ -98,18 +98,19 @@ func TestPropertyAmenityFlow(t *testing.T) {
 		r.Use(middleware.StripSlashes)
 		r.Post("/", h.CreatePropertyAmenity)
 		r.Get("/", h.ListPropertyAmenities)
-	})
-	// Routes that require propertyAmenityID in URL
-	r.Route("/{propertyAmenityID}", func(r chi.Router) {
-		// Middleware to extract propertyAmenityID from URL and add to context
-		r.Use(mw.PropertyAmenityCtx)
-		r.Use(middleware.StripSlashes)
 
-		r.Get("/", h.GetPropertyAmenityById)
-		// r.Put("/", h.UpdatePropertyAmenity)
-		// r.Delete("/", h.DeletePropertyAmenity)
-		// r.Get("/property", h.GetProperty)
-		// r.Get("/licence", h.GetLicence)
+		// Routes that require propertyAmenityID in URL
+		r.Route("/{propertyAmenityID}", func(r chi.Router) {
+			// Middleware to extract propertyAmenityID from URL and add to context
+			r.Use(mw.PropertyAmenityCtx)
+			r.Use(middleware.StripSlashes)
+
+			r.Get("/", h.GetPropertyAmenityById)
+			r.Put("/", h.UpdatePropertyAmenity)
+			r.Delete("/", h.DeletePropertyAmenity)
+			r.Get("/property", h.GetProperty)
+			r.Get("/licence", h.GetLicence)
+		})
 	})
 
 	t.Run("Create Property Amenity", func(t *testing.T) {
@@ -416,7 +417,8 @@ func TestPropertyAmenityFlow(t *testing.T) {
 
 		// Parse the response body
 		var fetchedAmenity repo.PropertyAmenity
-		json.Unmarshal(rr.Body.Bytes(), &fetchedAmenity)
+		err := json.Unmarshal(rr.Body.Bytes(), &fetchedAmenity)
+		assert.NoError(t, err)
 
 		// Assertions
 		assert.Equal(t, testAmenity.ID, fetchedAmenity.ID)
@@ -442,6 +444,291 @@ func TestPropertyAmenityFlow(t *testing.T) {
 
 		// Build and send the HTTP request
 		rr := hf.BuildAndServeHttpRequest(http.MethodGet, pathPrefix+"/"+invalidID, nil, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+
+	t.Run("Update Property Amenity", func(t *testing.T) {
+		// Create a test property amenity
+		testAmenity := hf.CreateTestPropertyAmenity(t, repo.CreatePropertyAmenityParams{
+			ShortCode:   "update",
+			Name:        "Update Test",
+			Description: hf.ToPgText(hf.Ptr("Update Description")),
+		}, "PAM-0003", testQueries)
+
+		// Prepare update payload
+		updatePayload := repo.UpdatePropertyAmenityParams{
+			ID:          testAmenity.ID,
+			Name:        hf.ToPgText(hf.Ptr("Updated Name")),
+			Description: hf.ToPgText(hf.Ptr("Updated Description")),
+			ShortCode:   hf.ToPgText(hf.Ptr("UPD")),
+			IsActive:    hf.ToPgBool(hf.Ptr(false)),
+		}
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, pathPrefix+"/"+testAmenity.ID.String(), updatePayload, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusOK, rr.Code)
+
+		// Parse the response body
+		var updatedAmenity repo.PropertyAmenity
+		err := json.Unmarshal(rr.Body.Bytes(), &updatedAmenity)
+		assert.NoError(t, err)
+
+		// Assertions
+		assert.Equal(t, updatePayload.Name.String, updatedAmenity.Name)
+		assert.Equal(t, updatePayload.Description.String, updatedAmenity.Description.String)
+		assert.Equal(t, updatePayload.ShortCode.String, updatedAmenity.ShortCode)
+		assert.Equal(t, updatePayload.IsActive.Bool, updatedAmenity.IsActive.Bool)
+
+		// Verify the update in the database
+		var dbAmenity repo.PropertyAmenity
+		err = testDB.QueryRow(ctx, "SELECT name, description, short_code, is_active FROM property_amenities WHERE id=$1",
+			testAmenity.ID).Scan(
+			&dbAmenity.Name,
+			&dbAmenity.Description,
+			&dbAmenity.ShortCode,
+			&dbAmenity.IsActive,
+		)
+		assert.NoError(t, err)
+		assert.Equal(t, updatePayload.Name.String, dbAmenity.Name)
+		assert.Equal(t, updatePayload.Description.String, dbAmenity.Description.String)
+		assert.Equal(t, updatePayload.ShortCode.String, dbAmenity.ShortCode)
+		assert.Equal(t, updatePayload.IsActive.Bool, dbAmenity.IsActive.Bool)
+	})
+
+	t.Run("Update Property Amenity - No Fields to Update", func(t *testing.T) {
+		// Create a test property amenity
+		testAmenity := hf.CreateTestPropertyAmenity(t, repo.CreatePropertyAmenityParams{
+			ShortCode:   "nofield",
+			Name:        "No Field Test",
+			Description: hf.ToPgText(hf.Ptr("No Field Description")),
+		}, "PAM-0004", testQueries)
+
+		// Prepare empty update payload
+		updatePayload := repo.UpdatePropertyAmenityParams{
+			ID: testAmenity.ID,
+		}
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, pathPrefix+"/"+testAmenity.ID.String(), updatePayload, r)
+ 
+		// Check the response returns ok as no fields to update is now handled gracefully
+		assert.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("Update Property Amenity - Not Found", func(t *testing.T) {
+		// Generate a random UUID that does not exist
+		nonExistentID := uuid.New()
+
+		// Prepare update payload
+		updatePayload := repo.UpdatePropertyAmenityParams{
+			ID:          hf.ToPgUUID(&nonExistentID),
+			Name:        hf.ToPgText(hf.Ptr("Updated Name")),
+			Description: hf.ToPgText(hf.Ptr("Updated Description")),
+			ShortCode:   hf.ToPgText(hf.Ptr("UPD")),
+			IsActive:    hf.ToPgBool(hf.Ptr(false)),
+		}
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, pathPrefix+"/"+nonExistentID.String(), updatePayload, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+	})
+
+	t.Run("Update Property Amenity - Invalid ShortCode", func(t *testing.T) {
+		// Create a test property amenity
+		testAmenity := hf.CreateTestPropertyAmenity(t, repo.CreatePropertyAmenityParams{
+			ShortCode:   "invshort",
+			Name:        "Invalid Shortcode Test",
+			Description: hf.ToPgText(hf.Ptr("Invalid Shortcode Description")),
+		}, "PAM-0005", testQueries)
+
+		// Prepare update payload with invalid shortcode
+		updatePayload := repo.UpdatePropertyAmenityParams{
+			ID:        testAmenity.ID,
+			ShortCode: hf.ToPgText(hf.Ptr("A")), // Invalid shortcode (too short)
+		}
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, pathPrefix+"/"+testAmenity.ID.String(), updatePayload, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+
+	t.Run("Update Property Amenity - Duplicate Entry", func(t *testing.T) {
+		// Create a property as they must be the same
+		lic := hf.CreateTestLicence(t, "PAM-6666", testQueries)
+		property := hf.CreateTestProperty(t, repo.CreatePropertyParams{
+			LicenceID: lic.ID,
+			Name:      "Duplicate Update Test Property",
+			Address:   "999 Test Ln, Test City",
+		}, testQueries)
+
+		// Create an initial property amenity
+		hf.CreateTestPropertyAmenity(t, repo.CreatePropertyAmenityParams{
+			PropertyID:  property.ID,
+			Name:        "Sauna",
+			Description: hf.ToPgText(hf.Ptr("Relaxing sauna")),
+			ShortCode:   "SAUN",
+			IsActive:    hf.ToPgBool(hf.Ptr(true)),
+		}, "PAM-6666", testQueries)
+
+		// Create another property amenity to be updated
+		amenityToUpdate := hf.CreateTestPropertyAmenity(t, repo.CreatePropertyAmenityParams{
+			PropertyID:  property.ID,
+			Name:        "Steam Room",
+			Description: hf.ToPgText(hf.Ptr("Hot steam room")),
+			ShortCode:   "STEAM",
+			IsActive:    hf.ToPgBool(hf.Ptr(true)),
+		}, "PAM-6666", testQueries)
+
+		// Prepare update payload to duplicate the existing amenity's name and shortcode
+		updatePayload := repo.UpdatePropertyAmenityParams{
+			ID:        amenityToUpdate.ID,
+			Name:      hf.ToPgText(hf.Ptr("Sauna")), // Duplicate name
+			ShortCode: hf.ToPgText(hf.Ptr("SAUN")),  // Duplicate shortcode
+		}
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodPut, pathPrefix+"/"+amenityToUpdate.ID.String(), updatePayload, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusConflict, rr.Code)
+	})
+
+	t.Run("Delete Property Amenity", func(t *testing.T) {
+		// Create a test property amenity
+		testAmenity := hf.CreateTestPropertyAmenity(t, repo.CreatePropertyAmenityParams{
+			ShortCode:   "deltest",
+			Name:        "Delete Test",
+			Description: hf.ToPgText(hf.Ptr("Delete Description")),
+		}, "PAM-0006", testQueries)
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodDelete, pathPrefix+"/"+testAmenity.ID.String(), nil, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusNoContent, rr.Code)
+
+		// Verify the amenity has been deleted from the database
+		var count int
+		err := testDB.QueryRow(ctx, "SELECT COUNT(*) FROM property_amenities WHERE id=$1", testAmenity.ID).Scan(&count)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, count)
+	})
+
+	t.Run("Delete Property Amenity - Not Found", func(t *testing.T) {
+		// Generate a random UUID that does not exist
+		nonExistentID := uuid.New()
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodDelete, pathPrefix+"/"+nonExistentID.String(), nil, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+	})
+
+	t.Run("Delete Property Amenity - Invalid UUID", func(t *testing.T) {
+		// Use an invalid UUID string
+		invalidID := "invalid-uuid"
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodDelete, pathPrefix+"/"+invalidID, nil, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+
+	t.Run("Get Licence for Property Amenity", func(t *testing.T) {
+		// Create a test property amenity
+		testAmenity := hf.CreateTestPropertyAmenity(t, repo.CreatePropertyAmenityParams{
+			ShortCode:   "lictest",
+			Name:        "Licence Test",
+			Description: hf.ToPgText(hf.Ptr("Licence Description")),
+		}, "PAM-0007", testQueries)
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, pathPrefix+"/"+testAmenity.ID.String()+"/licence", nil, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusOK, rr.Code)
+
+		// Parse the response body
+		var licence repo.Licence
+		err := json.Unmarshal(rr.Body.Bytes(), &licence)
+		assert.NoError(t, err)
+
+		// Assertions
+		assert.Equal(t, "PAM-0007", licence.LicenceKey)
+	})
+
+	t.Run("Get Licence for Property Amenity - Not Found", func(t *testing.T) {
+		// Generate a random UUID that does not exist
+		nonExistentID := uuid.New()
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, pathPrefix+"/"+nonExistentID.String()+"/licence", nil, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+	})
+
+	t.Run("Get Licence for Property Amenity - Invalid UUID", func(t *testing.T) {
+		// Use an invalid UUID string
+		invalidID := "invalid-uuid"
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, pathPrefix+"/"+invalidID+"/licence", nil, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+
+	t.Run("Get Property for Property Amenity", func(t *testing.T) {
+		// Create a test property amenity
+		testAmenity := hf.CreateTestPropertyAmenity(t, repo.CreatePropertyAmenityParams{
+			ShortCode:   "proptest",
+			Name:        "Property Test",
+			Description: hf.ToPgText(hf.Ptr("Property Description")),
+		}, "PAM-0008", testQueries)
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, pathPrefix+"/"+testAmenity.ID.String()+"/property", nil, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusOK, rr.Code)
+
+		// Parse the response body
+		var property repo.Property
+		err := json.Unmarshal(rr.Body.Bytes(), &property)
+		assert.NoError(t, err)
+
+		// Assertions
+		assert.Equal(t, testAmenity.PropertyID, property.ID)
+	})
+
+	t.Run("Get Property for Property Amenity - Not Found", func(t *testing.T) {
+		// Generate a random UUID that does not exist
+		nonExistentID := uuid.New()
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, pathPrefix+"/"+nonExistentID.String()+"/property", nil, r)
+
+		// Check the response
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+	})
+
+	t.Run("Get Property for Property Amenity - Invalid UUID", func(t *testing.T) {
+		// Use an invalid UUID string
+		invalidID := "invalid-uuid"
+
+		// Build and send the HTTP request
+		rr := hf.BuildAndServeHttpRequest(http.MethodGet, pathPrefix+"/"+invalidID+"/property", nil, r)
 
 		// Check the response
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
