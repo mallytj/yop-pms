@@ -17,3 +17,7 @@ func Read(r *http.Request, data any) error {
 
 	return decoder.Decode(data)
 }
+
+func Unmarshal(data []byte, v any) error {
+	return json.Unmarshal(data, v)
+}

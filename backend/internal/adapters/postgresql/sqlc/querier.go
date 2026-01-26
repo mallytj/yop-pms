@@ -7,19 +7,41 @@ package repo
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
+	CheckLicenceExists(ctx context.Context, id pgtype.UUID) (bool, error)
 	CreateLicence(ctx context.Context, arg CreateLicenceParams) (Licence, error)
+	CreateProperty(ctx context.Context, arg CreatePropertyParams) (Property, error)
+	CreatePropertyAmenity(ctx context.Context, arg CreatePropertyAmenityParams) (PropertyAmenity, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
-	DeleteUser(ctx context.Context, id pgtype.UUID) error
+	DeleteLicence(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error)
+	DeleteProperty(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error)
+	DeletePropertyAmenity(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error)
+	DeleteUser(ctx context.Context, id pgtype.UUID) (pgconn.CommandTag, error)
 	GetLicenceByID(ctx context.Context, id pgtype.UUID) (Licence, error)
+	GetLicenceByKey(ctx context.Context, licenceKey string) (Licence, error)
+	GetLicenceByPropertyAmenityID(ctx context.Context, id pgtype.UUID) (Licence, error)
+	GetLicenceByPropertyID(ctx context.Context, id pgtype.UUID) (Licence, error)
 	GetLicenceByUserID(ctx context.Context, id pgtype.UUID) (Licence, error)
+	GetPropertiesByLicenceID(ctx context.Context, licenceID pgtype.UUID) ([]Property, error)
+	GetPropertyAmenityByID(ctx context.Context, id pgtype.UUID) (PropertyAmenity, error)
+	GetPropertyByID(ctx context.Context, id pgtype.UUID) (Property, error)
+	GetPropertyByPropertyAmenityID(ctx context.Context, id pgtype.UUID) (Property, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
+	GetUsersByLicenceID(ctx context.Context, licenceID pgtype.UUID) ([]User, error)
+	GetUsersByPropertyID(ctx context.Context, id pgtype.UUID) ([]User, error)
 	ListLicences(ctx context.Context) ([]Licence, error)
+	ListProperties(ctx context.Context) ([]Property, error)
+	ListPropertiesByLicenceID(ctx context.Context, licenceID pgtype.UUID) ([]Property, error)
+	ListPropertyAmenities(ctx context.Context) ([]PropertyAmenity, error)
 	ListRooms(ctx context.Context) ([]Room, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	UpdateLicence(ctx context.Context, arg UpdateLicenceParams) (Licence, error)
+	UpdateProperty(ctx context.Context, arg UpdatePropertyParams) (Property, error)
+	UpdatePropertyAmenity(ctx context.Context, arg UpdatePropertyAmenityParams) (PropertyAmenity, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }
 

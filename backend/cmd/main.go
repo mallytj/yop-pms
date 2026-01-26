@@ -2,29 +2,26 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 
 	"ollerod-pms/internal/env"
 
-	"github.com/jackc/pgx/v5"
-)
+	appCfg "ollerod-pms/internal/config"
 
-var (
-	dbName     = env.GetEnv("DB_NAME", "hotel_pms")
-	dbHost     = env.GetEnv("DB_HOST", "localhost")
-	dbPort     = env.GetEnv("DB_PORT", "5433")
-	dbUser     = env.GetEnv("DB_USER", "nil")
-	dbPassword = env.GetEnv("DB_PASSWORD", "nil")
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
+	envCfg := *appCfg.NewConfig()
 	ctx := context.Background()
+	fmt.Println("Starting Ollerod PMS Backend...", envCfg.DBName, envCfg.DBHost, envCfg.DBPort, envCfg.DBUser, envCfg.DBPassword)
 
 	cfg := config{
 		addr: ":8080",
 		db: dbConfig{
-			dsn: env.GetEnv("DATABASE_DSN", "host="+dbHost+" port="+dbPort+" user="+dbUser+" password="+dbPassword+" dbname="+dbName+" sslmode=disable"),
+			dsn: env.GetEnv("DATABASE_DSN", "host="+envCfg.DBHost+" port="+envCfg.DBPort+" user="+envCfg.DBUser+" password="+envCfg.DBPassword+" dbname="+envCfg.DBName+" sslmode=disable"),
 		},
 	}
 
@@ -33,11 +30,11 @@ func main() {
 	slog.SetDefault(logger)
 
 	// Database
-	conn, err := pgx.Connect(ctx, cfg.db.dsn)
+	conn, err := pgxpool.New(ctx, cfg.db.dsn)
 	if err != nil {
 		panic(err)
 	}
-	defer conn.Close(ctx)
+	defer conn.Close()
 
 	logger.Info("connected to database", "dsn", cfg.db.dsn)
 
