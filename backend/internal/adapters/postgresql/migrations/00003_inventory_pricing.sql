@@ -1,0 +1,171 @@
+-- +goose Up
+
+-- Room types
+CREATE TABLE IF NOT EXISTS inventory.room_types (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID REFERENCES operations.properties(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  code TEXT NOT NULL,
+  std_occupancy INT NOT NULL DEFAULT 2 CHECK (std_occupancy > 0),
+  min_occupancy INT NOT NULL DEFAULT 1 CHECK (min_occupancy > 0 AND min_occupancy <= std_occupancy),
+  max_occupancy INT NOT NULL DEFAULT 2 CHECK (max_occupancy > 0 AND max_occupancy >= std_occupancy),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  deleted_at TIMESTAMPTZ,
+  UNIQUE (property_id, code),
+  UNIQUE (property_id, name)
+);
+
+CREATE INDEX idx_room_types_property
+  ON inventory.room_types(property_id);
+
+CREATE TABLE IF NOT EXISTS relations.room_type_amenities (
+  room_type_id UUID REFERENCES inventory.room_types(id) ON DELETE CASCADE,
+  amenity_id UUID REFERENCES operations.amenities(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  deleted_at TIMESTAMPTZ DEFAULT NULL,
+  PRIMARY KEY (room_type_id, amenity_id)
+);
+
+-- Rooms
+CREATE TABLE IF NOT EXISTS inventory.rooms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID REFERENCES operations.properties(id) ON DELETE CASCADE,
+  room_type_id UUID REFERENCES inventory.room_types(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  housekeeping_status inventory.housekeeping_status NOT NULL DEFAULT 'clean',
+  occupancy_status inventory.occupancy_status NOT NULL DEFAULT 'vacant',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  deleted_at TIMESTAMPTZ,
+  UNIQUE (property_id, name)
+);
+
+CREATE INDEX idx_rooms_room_type ON inventory.rooms(room_type_id);
+CREATE INDEX idx_housekeeping_status ON inventory.rooms(housekeeping_status);
+CREATE INDEX idx_occupancy_status ON inventory.rooms(occupancy_status);
+CREATE INDEX idx_rooms_property ON inventory.rooms(property_id);
+
+CREATE TABLE IF NOT EXISTS relations.room_amenities (
+  room_id UUID REFERENCES inventory.rooms(id) ON DELETE CASCADE,
+  amenity_id UUID REFERENCES operations.amenities(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  deleted_at TIMESTAMPTZ DEFAULT NULL,
+  PRIMARY KEY (room_id, amenity_id)
+);
+
+-- Maintenance blocks
+-- Create maintenance blocks table
+CREATE TABLE IF NOT EXISTS inventory.maintenance_blocks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    room_id UUID REFERENCES inventory.rooms(id) ON DELETE CASCADE,
+    block_period TSTZRANGE NOT NULL CHECK (upper(block_period) > lower(block_period)),
+    reason TEXT,
+    type inventory.maintenance_block_type NOT NULL,
+    created_by_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+    UNIQUE (room_id, block_period),
+
+    EXCLUDE USING GIST (
+        room_id WITH =,
+        block_period WITH &&
+    )
+);
+
+CREATE INDEX idx_maintenance_blocks_room_period ON inventory.maintenance_blocks (room_id, block_period);
+CREATE INDEX idx_maintenance_blocks_period ON inventory.maintenance_blocks (block_period);
+CREATE INDEX idx_maintenance_blocks_type ON inventory.maintenance_blocks (type);
+CREATE INDEX idx_maintenance_blocks_created_by ON inventory.maintenance_blocks (created_by_user_id);
+CREATE INDEX idx_maintenance_blocks_room ON inventory.maintenance_blocks (room_id);
+
+
+CREATE TABLE IF NOT EXISTS
+    pricing.rate_plans (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        code TEXT NOT NULL,
+        description TEXT,
+        parent_rate_plan_id UUID NULL,
+        derivation_rule JSONB CHECK (
+            derivation_rule?'type'
+            AND derivation_rule?'value'
+            AND derivation_rule->>'type' IN ('percentage', 'fixed')
+            AND (derivation_rule->>'value')::NUMERIC<>0
+        ), -- e.g., {"type": "percentage", "value": 10} for 10% above parent
+        is_active BOOLEAN DEFAULT TRUE,
+        currency_code TEXT NOT NULL DEFAULT 'GBP' CHECK (LENGTH(currency_code) = 3), -- ISO 4217 currency code
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+        UNIQUE (property_id, code),
+        UNIQUE (property_id, name)
+    );
+
+-- Add self-referencing foreign key for parent rate plans
+ALTER TABLE pricing.rate_plans
+ADD CONSTRAINT fk_parent_rate_plan FOREIGN KEY (parent_rate_plan_id) REFERENCES pricing.rate_plans (id) ON DELETE SET NULL;
+
+CREATE INDEX idx_rate_plans_property  ON pricing.rate_plans(property_id);
+CREATE INDEX idx_rate_plans_parent_rate_plan ON pricing.rate_plans(parent_rate_plan_id);
+CREATE INDEX idx_rate_plans_active ON pricing.rate_plans(is_active);
+
+-- Company profiles
+CREATE TABLE IF NOT EXISTS
+    identity.company_profiles (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
+        tax_id TEXT UNIQUE, -- e.g., VAT number
+        negotiated_rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE SET NULL,
+        company_name TEXT NOT NULL,
+        contact_email TEXT,
+        contact_phone TEXT,
+        billing_address TEXT,
+        company_notes TEXT,
+        has_credit_facility BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes,
+        UNIQUE (property_id, company_name)
+    );
+
+CREATE INDEX idx_company_profiles_property ON identity.company_profiles (property_id);
+CREATE INDEX idx_company_profiles_negotiated_rate_plan ON identity.company_profiles (negotiated_rate_plan_id);
+
+
+CREATE TABLE IF NOT EXISTS
+    pricing.daily_price_grid (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        room_type_id UUID REFERENCES inventory.room_types (id) ON DELETE CASCADE,
+        rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE CASCADE,
+        calendar_date DATE,
+        base_price_pence INTEGER NOT NULL DEFAULT 0, -- Store prices in pence to avoid floating point issues
+        min_los_restriction INT DEFAULT 1 CHECK (min_los_restriction > 0), -- Minimum length of stay restriction
+        max_los_restriction INT DEFAULT 365 CHECK (max_los_restriction > 0 AND max_los_restriction > min_los_restriction), -- Maximum length of stay restriction
+        is_available BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+        UNIQUE (room_type_id, calendar_date, rate_plan_id)
+    );
+  
+CREATE INDEX idx_daily_price_grid_room_type ON pricing.daily_price_grid (room_type_id);
+CREATE INDEX idx_daily_price_grid_rate_plan ON pricing.daily_price_grid (rate_plan_id);
+CREATE INDEX idx_daily_price_grid_date ON pricing.daily_price_grid (calendar_date);
+CREATE INDEX idx_daily_price_grid_available ON pricing.daily_price_grid (is_available);
+CREATE INDEX idx_daily_price_grid_available_room_type_date ON pricing.daily_price_grid (room_type_id, calendar_date) WHERE is_available=true;
+CREATE INDEX idx_daily_price_grid_available_rate_plan_date ON pricing.daily_price_grid (rate_plan_id, calendar_date) WHERE is_available=true;
+
+-- +goose Down
+DROP TABLE IF EXISTS pricing.daily_price_grid;
+DROP TABLE IF EXISTS identity.company_profiles;
+DROP TABLE IF EXISTS pricing.rate_plans;
+DROP TABLE IF EXISTS inventory.maintenance_blocks;
+DROP TABLE IF EXISTS relations.room_amenities;
+DROP TABLE IF EXISTS relations.room_type_amenities;
+DROP TABLE IF EXISTS inventory.rooms;
+DROP TABLE IF EXISTS inventory.room_types;
