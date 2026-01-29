@@ -2,10 +2,10 @@
 -- Licences
 CREATE TABLE operations.licences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  licence_key TEXT UNIQUE NOT NULL,
-  organisation_name TEXT NOT NULL,
+  licence_key TEXT UNIQUE NOT NULL CHECK(licence_key ~ '^YOP-\d{5}$'),
+  organisation_name TEXT NOT NULL CHECK(char_length(organisation_name) <= 50),
   contact_email TEXT NOT NULL,
-  licence_notes TEXT,
+  licence_notes TEXT CHECK (char_length(licence_notes) <= 1500),
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
@@ -19,10 +19,10 @@ CREATE INDEX idx_licence_active ON operations.licences(is_active);
 CREATE TABLE operations.properties (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   licence_id UUID REFERENCES operations.licences(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  address TEXT NOT NULL,
+  name TEXT NOT NULL CHECK (char_length(name) <= 50),
+  address TEXT NOT NULL CHECK (char_length(address) <= 250),
   timezone TEXT NOT NULL,
-  property_notes TEXT,
+  property_notes TEXT CHECK (char_length(property_notes) <= 1500),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   deleted_at TIMESTAMPTZ,
@@ -30,9 +30,14 @@ CREATE TABLE operations.properties (
   UNIQUE (licence_id, address)
 );
 
-CREATE INDEX idx_properties_name ON operations.properties(name);
+-- Trigger to enforce that the linked licence is active
+CREATE TRIGGER trg_check_licence_is_active
+BEFORE INSERT OR UPDATE ON operations.properties
+FOR EACH ROW EXECUTE FUNCTION operations.check_licence_is_active();
+
+CREATE INDEX idx_licence_properties_name ON operations.properties(licence_id, name);
 CREATE INDEX idx_properties_licence ON operations.properties(licence_id);
-CREATE INDEX idx_properties_active ON operations.properties(is_active);
+CREATE INDEX idx_licence_properties_active ON operations.properties(licence_id, is_active);
 
 -- Users
 CREATE TABLE auth.users (
