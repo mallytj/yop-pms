@@ -140,10 +140,10 @@ CREATE TABLE IF NOT EXISTS
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
         PRIMARY KEY (reservation_item_id, guest_id)
     );
+
 CREATE INDEX idx_reservation_item_guests_guest ON relations.reservation_item_guests (guest_id);
 CREATE INDEX idx_reservation_item_guests_reservation ON relations.reservation_item_guests (reservation_item_id);
 CREATE INDEX idx_reservation_item_guests_role ON relations.reservation_item_guests (role);
-  
 
 -- Create booked daily rates table
 CREATE TABLE IF NOT EXISTS
@@ -221,15 +221,15 @@ CREATE TABLE IF NOT EXISTS
         folio_id UUID REFERENCES finance.folios (id) ON DELETE CASCADE,
         ledger_code_id UUID REFERENCES finance.ledger_codes (id) ON DELETE SET NULL,
         description TEXT,
-        net_unit_price_pence INT NOT NULL DEFAULT 0,
-        quantity INT NOT NULL DEFAULT 1,
+        net_unit_price_pence INT NOT NULL DEFAULT 0, -- Can be positive (charge) or negative (credit)
+        quantity INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
         tax_rule_id UUID REFERENCES finance.tax_rules (id) ON DELETE SET NULL,
-        total_price_pence INT NOT NULL GENERATED ALWAYS AS (net_unit_price_pence*quantity) STORED,
+        total_net_price_pence INT NOT NULL GENERATED ALWAYS AS (net_unit_price_pence*quantity) STORED,
         tax_rate_snapshot NUMERIC(5, 2) NOT NULL, -- Snapshot of tax rate at time of transaction (from tax_rules table)
         tax_amount_pence INT GENERATED ALWAYS AS (CAST((net_unit_price_pence*quantity) * tax_rate_snapshot / 100 AS INT)) STORED,
         gross_amount_pence INT NOT NULL GENERATED ALWAYS AS (net_unit_price_pence * quantity + (CAST((net_unit_price_pence*quantity) * tax_rate_snapshot / 100 AS INT))) STORED,
         posted_at TIMESTAMPTZ DEFAULT NOW(), -- A tx can be created, but only posted when finalised
-        posted_by_user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
+        posted_by_user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL CHECK(posted_at IS NOT NULL OR posted_by_user_id IS NULL),
         status finance.folio_transaction_status NOT NULL DEFAULT 'pending',
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -248,8 +248,8 @@ CREATE TABLE IF NOT EXISTS
     finance.invoices (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
-        folio_id UUID REFERENCES finance.folios (id) ON DELETE CASCADE,
-        property_code TEXT NOT NULL DEFAULT 'RES', -- Snapshot of property code at time of invoice
+        folio_id UUID REFERENCES finance.folios (id) ON DELETE SET NULL, -- Nullable for pro-forma invoices or sales ledger only invoices
+        property_code TEXT NOT NULL DEFAULT 'RES' CHECK(LENGTH(property_code) = 3 OR LENGTH(property_code) = 4), -- Snapshot of property code at time of invoice
         fiscal_year INT NOT NULL,
         fiscal_sequential INT NOT NULL, -- Sequential number within the fiscal year
         invoice_number TEXT GENERATED ALWAYS AS (
@@ -258,7 +258,7 @@ CREATE TABLE IF NOT EXISTS
         billing_address TEXT NOT NULL,
         is_pro_forma BOOLEAN DEFAULT FALSE,
         issue_date TIMESTAMPTZ DEFAULT NOW(),
-        due_date TIMESTAMPTZ DEFAULT NOW()+ INTERVAL '30 days',
+        due_date TIMESTAMPTZ DEFAULT NOW()+ INTERVAL '30 days' CHECK(due_date >= issue_date),
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
@@ -267,9 +267,9 @@ CREATE TABLE IF NOT EXISTS
 
 CREATE INDEX idx_invoices_folio ON finance.invoices (folio_id);
 CREATE INDEX idx_invoices_property ON finance.invoices (property_id);
-CREATE INDEX idx_invoices_fiscal_year ON finance.invoices (fiscal_year);
-CREATE INDEX idx_invoices_issue_date ON finance.invoices (issue_date);
-CREATE INDEX idx_invoices_due_date ON finance.invoices (due_date);
+CREATE INDEX idx_invoices_property_fiscal_year ON finance.invoices (property_id, fiscal_year);
+CREATE INDEX idx_invoices_property_issue_date ON finance.invoices (property_id, issue_date);
+CREATE INDEX idx_invoices_property_due_date ON finance.invoices (property_id, due_date);
 
 
 -- Create sales ledger transactions table
@@ -278,7 +278,7 @@ CREATE TABLE IF NOT EXISTS sales_ledgers.transactions (
     ledger_account_id UUID REFERENCES sales_ledgers.accounts(id) ON DELETE CASCADE,
     source_invoice_id UUID REFERENCES finance.invoices(id) ON DELETE SET NULL,
     amount_pence INT NOT NULL, -- Positive for charges, negative for payments
-    due_date TIMESTAMPTZ,
+    due_date TIMESTAMPTZ DEFAULT NOW() + INTERVAL '30 days' CHECK(due_date >= NOW()),
     is_fully_paid BOOLEAN GENERATED ALWAYS AS (amount_pence <= 0) STORED,
     posted_at TIMESTAMPTZ DEFAULT NOW(),
     posted_by_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -342,9 +342,9 @@ CREATE TABLE IF NOT EXISTS inventory.room_inventory_ledger (
     )
 );
 
-CREATE INDEX idx_inventory_available_date ON inventory.room_inventory_ledger (calendar_date, room_id) WHERE status = 'available';
-CREATE INDEX idx_room_inventory_ledger_room_date ON inventory.room_inventory_ledger (room_id, calendar_date);
+CREATE INDEX idx_inventory_dates_n_rooms_available ON inventory.room_inventory_ledger (calendar_date, room_id) WHERE status = 'available';
 CREATE INDEX idx_availability_date ON inventory.room_inventory_ledger (calendar_date) WHERE status = 'available';
+CREATE INDEX idx_room_inventory_ledger_room_date ON inventory.room_inventory_ledger (room_id, calendar_date);
 CREATE INDEX idx_room_inventory_ledger_calendar_date ON inventory.room_inventory_ledger (calendar_date);
 CREATE INDEX idx_room_inventory_ledger_status ON inventory.room_inventory_ledger (status);
 CREATE INDEX idx_room_inventory_ledger_reservation ON inventory.room_inventory_ledger (reservation_id);
