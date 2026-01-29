@@ -82,7 +82,31 @@ CREATE TYPE sales_ledgers.transaction_type AS ENUM (
 CREATE TYPE identity.identity_doc_type AS ENUM (
   'passport', 'id_card', 'driver_license', 'other'
 );
+
+-- Function for checking if a licence is active
+-- +goose StatementBegin
+CREATE OR REPLACE FUNCTION operations.check_licence_is_active()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Check if the linked licence exists and is active
+  -- We perform a direct lookup on the parent table
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM operations.licences 
+    WHERE id = NEW.licence_id 
+      AND is_active = TRUE
+  ) THEN
+    RAISE EXCEPTION 'Cannot assign property to an inactive or non-existent licence (ID: %)', NEW.licence_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+-- +goose StatementEnd
+
+
 -- +goose Down
+DROP FUNCTION IF EXISTS operations.check_licence_is_active();
 DROP SCHEMA IF EXISTS relations CASCADE;
 DROP SCHEMA IF EXISTS inventory CASCADE;
 DROP SCHEMA IF EXISTS pricing CASCADE;
