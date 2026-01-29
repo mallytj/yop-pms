@@ -132,3 +132,17 @@ func ExtractAndParseUUIDParam(r *http.Request, param string) (uuid.UUID, error) 
 func ParamIsProvided(param *string) bool {
 	return param != nil && *param != ""
 }
+
+// Lpad pads the input string s with the padStr character on the left until it reaches the overallLength.
+// If s is already longer than or equal to overallLength, it returns s unchanged.
+func Lpad(s, padStr string, overallLength int) string {
+    if len(s) >= overallLength {
+        return s
+    }
+    padLength := overallLength - len(s)
+    buffer := make([]rune, padLength)
+    for i := 0; i < padLength; i++ {
+        buffer[i] = rune(padStr[0]) // Assuming padStr is a single character
+    }
+    return string(buffer) + s
+}

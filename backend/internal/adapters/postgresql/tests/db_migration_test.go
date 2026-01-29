@@ -112,10 +112,8 @@ func TestInitMigration(t *testing.T) {
 		}
 
 		tableTests := []tableTest{
-			{"auth.users", "TC-USER-01"},
+			{"operations.licences", "TC-LICE-01"},
 			{"operations.properties", "TC-PROP-01"},
-			{"inventory.rooms", "TC-ROOM-01"},
-			{"finance.pricing_blocks", "TC-PRICING-01"},
 		}
 
 		for _, tt := range tableTests {
@@ -134,6 +132,70 @@ func TestInitMigration(t *testing.T) {
 					)`, schema, tableName).Scan(&exists)
 				assert.NoError(t, err)
 				assert.True(t, exists, "Table %s does not exist in schema %s", tableName, schema)
+			})
+		}
+	})
+
+	t.Run("Indexes Created", func(t *testing.T) {
+		t.Parallel()
+
+		type indexTest struct {
+			name     string
+			testCase string
+		}
+
+		indexTests := []indexTest{
+			{"idx_licence_properties_name", "TC-PROP-13"},
+			{"idx_licence_properties_active", "TC-PROP-04"},
+			{"idx_properties_licence", "TC-PROP-11"},
+		}
+
+		for _, it := range indexTests {
+			t.Run(it.testCase+" - Index: "+it.name, func(t *testing.T) {
+				t.Parallel()
+
+				var exists bool
+				err := testDB.QueryRow(context.Background(),
+					`SELECT EXISTS (
+						SELECT 1
+						FROM pg_indexes
+						WHERE indexname = $1
+					)`, it.name).Scan(&exists)
+				assert.NoError(t, err)
+				assert.True(t, exists, "Index %s does not exist", it.name)
+			})
+		}
+	})
+
+	t.Run("Functions Created", func(t *testing.T) {
+		t.Parallel()
+
+		type functionTest struct {
+			name     string
+			testCase string
+		}
+
+		functionTests := []functionTest{
+			{"operations.check_licence_is_active", "TC-PROP-06"},
+		}
+
+		for _, ft := range functionTests {
+			t.Run(ft.testCase+" - Function: "+ft.name, func(t *testing.T) {
+				t.Parallel()
+
+				schema, functionName := splitEnumName(ft.name)
+
+				var exists bool
+				err := testDB.QueryRow(context.Background(),
+					`SELECT EXISTS (
+						SELECT 1
+						FROM pg_proc p
+						JOIN pg_namespace n ON p.pronamespace = n.oid
+						WHERE n.nspname = $1
+						AND p.proname = $2
+					)`, schema, functionName).Scan(&exists)
+				assert.NoError(t, err)
+				assert.True(t, exists, "Function %s does not exist in schema %s", functionName, schema)
 			})
 		}
 	})
