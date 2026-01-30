@@ -2,8 +2,6 @@ package db_tests
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
 	"strings"
 	"testing"
 
@@ -12,44 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
-
-type TestCreatePropertyParams struct {
-	LicenceID uuid.UUID
-	Name      string
-	Address   string
-	Timezone  string
-}
-
-type TestLicence struct {
-	ID               uuid.UUID `db:"id"`
-	LicenceKey       string    `db:"licence_key"`
-	OrganisationName string    `db:"organisation_name"`
-	ContactEmail     string    `db:"contact_email"`
-	IsActive         bool      `db:"is_active"`
-}
-
-// GenerateTestLicence is a helper function to create a test licence.
-// t:        The testing object.
-// ctx:      The context for database operations.
-// isActive: Whether the licence should be active or not.
-// Returns the created TestLicence.
-func GenerateTestLicence(t *testing.T, ctx context.Context, isActive bool) *TestLicence {
-	// Create test licence
-	var lic *TestLicence
-	// Assign memory address
-	lic = &TestLicence{}
-
-	// Insert test licence into database
-	// Use a unique licence key for each test run
-	licenceKey := "YOP-" + hf.Lpad(fmt.Sprint(rand.Intn(90000+10000)), "0", 5)
-	row := testDB.QueryRow(ctx,
-		`INSERT INTO operations.licences (licence_key, organisation_name, contact_email, is_active)
-				VALUES ($1, $2, $3, $4) RETURNING id, licence_key, organisation_name, contact_email, is_active`,
-		licenceKey, "Active Org", "test@test.com", isActive).Scan(&lic.ID, &lic.LicenceKey, &lic.OrganisationName, &lic.ContactEmail, &lic.IsActive)
-	assert.NoError(t, row)
-
-	return lic
-}
 
 func TestDbProperties(t *testing.T) {
 	ctx := context.Background()
@@ -83,20 +43,15 @@ func TestDbProperties(t *testing.T) {
 		t.Run("TC-PROP-02b - Licence must be active", func(t *testing.T) {
 			t.Parallel()
 			// First, create an inactive licence
-			var inactiveLicenceID uuid.UUID
-			err := testDB.QueryRow(ctx,
-				`INSERT INTO operations.licences (licence_key, organisation_name, contact_email, is_active)
-				VALUES ($1, $2, $3, $4) RETURNING id`,
-				"YOP-99999", "Inactive Org", "test@test.com", false).Scan(&inactiveLicenceID)
-			assert.NoError(t, err)
+			inactiveLicence := GenerateTestLicence(t, ctx, false)
 
-			params.LicenceID = inactiveLicenceID
+			params.LicenceID = inactiveLicence.ID
 
 			// Create query
 			query := `INSERT INTO operations.properties (licence_id, name, address, timezone) VALUES ($1, $2, $3, $4)`
 
 			// Attempt to create a property with an inactive licence
-			_, err = testDB.Exec(ctx, query, params.LicenceID, params.Name, params.Address, params.Timezone)
+			_, err := testDB.Exec(ctx, query, params.LicenceID, params.Name, params.Address, params.Timezone)
 
 			// Check for raise exception error
 			assert.True(t, hf.CheckErrorCode(err, hf.RaiseExceptionCode), "Expected raise exception error, got: %v", err)
@@ -148,6 +103,7 @@ func TestDbProperties(t *testing.T) {
 
 	t.Run("Character Limits", func(t *testing.T) {
 		t.Parallel()
+
 		// Fill params
 		activeLicence := GenerateTestLicence(t, ctx, true)
 

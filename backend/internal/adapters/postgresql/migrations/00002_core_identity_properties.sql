@@ -43,11 +43,11 @@ CREATE INDEX idx_licence_properties_active ON operations.properties(licence_id, 
 CREATE TABLE auth.users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   licence_id UUID REFERENCES operations.licences(id) ON DELETE SET NULL,
-  username TEXT UNIQUE NOT NULL,
+  username TEXT UNIQUE NOT NULL CHECK (char_length(username) <= 20 AND username ~ '^[a-zA-Z0-9_]+$'),
   email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
+  password_hash TEXT NOT NULL CHECK (length(password_hash) >= 60 AND password_hash LIKE '$2%'), -- bcrypt hash (what we use)
+  first_name TEXT NOT NULL CHECK (char_length(first_name) <= 50 AND first_name ~ '^[a-zA-Z''-]+$'),
+  last_name TEXT NOT NULL CHECK (char_length(last_name) <= 50 AND last_name ~ '^[a-zA-Z''-]+$'),
   role auth.user_role NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -55,17 +55,22 @@ CREATE TABLE auth.users (
   deleted_at TIMESTAMPTZ
 );
 
+CREATE TRIGGER trg_check_user_licence_is_active
+BEFORE INSERT OR UPDATE ON auth.users
+FOR EACH ROW EXECUTE FUNCTION operations.check_licence_is_active();
+
 CREATE INDEX idx_users_licence ON auth.users(licence_id);
 CREATE INDEX idx_users_role ON auth.users(role);
 CREATE INDEX idx_users_active ON auth.users(is_active);
 CREATE INDEX idx_users_name ON auth.users(last_name, first_name);
+CREATE INDEX idx_users_email ON auth.users(email);
 
 -- Guests
 CREATE TABLE identity.guests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID REFERENCES operations.properties(id) ON DELETE CASCADE,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
+ first_name TEXT NOT NULL CHECK (char_length(first_name) <= 50 AND first_name ~ '^[a-zA-Z''-]+$'),
+  last_name TEXT NOT NULL CHECK (char_length(last_name) <= 50 AND last_name ~ '^[a-zA-Z''-]+$'),
   email TEXT,
   phone_number TEXT,
   preferences JSONB,
@@ -77,12 +82,12 @@ CREATE TABLE identity.guests (
   deleted_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_guests_name ON identity.guests(last_name, first_name);
-CREATE INDEX idx_guests_email ON identity.guests(email);
-CREATE INDEX idx_guests_phone ON identity.guests(phone_number);
-CREATE INDEX idx_guests_marketing_opt_in ON identity.guests(marketing_opt_in);
-CREATE INDEX idx_guests_anonymised ON identity.guests(is_anonymised);
-CREATE INDEX idx_guests_property ON identity.guests(property_id);
+CREATE INDEX idx_property_guests_name ON identity.guests(property_id, last_name, first_name);
+CREATE INDEX idx_property_guests_email ON identity.guests(property_id, email);
+CREATE INDEX idx_property_guests_phone ON identity.guests(property_id, phone_number);
+CREATE INDEX idx_property_guests_marketing_opt_in ON identity.guests(property_id, marketing_opt_in);
+CREATE INDEX idx_property_guests_anonymised ON identity.guests(property_id, is_anonymised);
+CREATE INDEX idx_property_guests ON identity.guests(property_id);
 
 CREATE TABLE IF NOT EXISTS
   auth.audit_logs (

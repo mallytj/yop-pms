@@ -115,6 +115,7 @@ func TestInitMigration(t *testing.T) {
 			{"operations.licences", "TC-LICE-01"},
 			{"operations.properties", "TC-PROP-01"},
 			{"auth.users", "TC-USER-01"},
+			{"identity.guests", "TC-GUEST-01"},
 		}
 
 		for _, tt := range tableTests {
@@ -154,6 +155,12 @@ func TestInitMigration(t *testing.T) {
 			{"idx_users_email", "TC-USER-27"},
 			{"idx_users_role", "TC-USER-24"},
 			{"idx_users_active", "TC-USER-25"},
+			{"idx_property_guests_name", "TC-GUEST-14"},
+			{"idx_property_guests_email", "TC-GUEST-15"},
+			{"idx_property_guests_phone", "TC-GUEST-16"},
+			{"idx_property_guests_marketing_opt_in", "TC-GUEST-17"},
+			{"idx_property_guests_anonymised", "TC-GUEST-18"},
+			{"idx_property_guests", "TC-GUEST-19"},
 		}
 
 		for _, it := range indexTests {
