@@ -7,4 +7,5 @@ const (
 	CheckViolationCode      = "23514"
 	NotNullViolationCode    = "23502"
 	RaiseExceptionCode     = "P0001"
+	InvalidTextRepresentationCode = "22P02"
 )

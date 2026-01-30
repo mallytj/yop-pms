@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 
 	"regexp"
 	"unicode/utf8"
@@ -12,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -136,13 +138,48 @@ func ParamIsProvided(param *string) bool {
 // Lpad pads the input string s with the padStr character on the left until it reaches the overallLength.
 // If s is already longer than or equal to overallLength, it returns s unchanged.
 func Lpad(s, padStr string, overallLength int) string {
-    if len(s) >= overallLength {
-        return s
+	if len(s) >= overallLength {
+		return s
+	}
+	padLength := overallLength - len(s)
+	buffer := make([]rune, padLength)
+	for i := 0; i < padLength; i++ {
+		buffer[i] = rune(padStr[0]) // Assuming padStr is a single character
+	}
+	return string(buffer) + s
+}
+
+// hashPassword hashes the provided password using bcrypt.
+// Returns the hashed password as a string or an error if hashing fails.
+// Example usage: hashPassword("mysecretpassword") => "$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36Z1Z6Fh5j6K5j6K5j6K5j6"
+func HashPassword(password string) (string, error) {
+	// Generate the bcrypt hash of the password
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+
+	// Handle potential error during hashing
+	if err != nil {
+		return "", err
+	}
+
+	// Convert hashed bytes to string
+	hashedPassword := string(hashedBytes)
+
+	// Return the hashed password
+	return hashedPassword, nil
+}
+
+// StructToSlice converts a struct into a slice of its field values.
+func StructToSlice(s interface{}) []interface{} {
+    v := reflect.ValueOf(s)
+    
+    // If a pointer is passed, get the underlying element
+    if v.Kind() == reflect.Ptr {
+        v = v.Elem()
     }
-    padLength := overallLength - len(s)
-    buffer := make([]rune, padLength)
-    for i := 0; i < padLength; i++ {
-        buffer[i] = rune(padStr[0]) // Assuming padStr is a single character
+
+    values := make([]interface{}, v.NumField())
+    for i := 0; i < v.NumField(); i++ {
+        values[i] = v.Field(i).Interface()
     }
-    return string(buffer) + s
+    return values
 }
