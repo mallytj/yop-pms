@@ -117,6 +117,7 @@ func TestInitMigration(t *testing.T) {
 			{"auth.users", "TC-USER-01"},
 			{"identity.guests", "TC-GUEST-01"},
 			{"auth.audit_logs", "TC-AUDIT-01"},
+			{"operations.amenities", "TC-AMEN-01"},
 		}
 
 		for _, tt := range tableTests {
@@ -165,6 +166,8 @@ func TestInitMigration(t *testing.T) {
 			{"idx_property_audit_logs_user", "TC-AUDIT-09"},
 			{"idx_property_audit_logs_entity", "TC-AUDIT-10"},
 			{"idx_property_audit_logs_action", "TC-AUDIT-11"},
+			{"idx_amenities_property", "TC-AMEN-09"},
+			{"idx_amenities_active_by_property", "TC-AMEN-10"},
 		}
 
 		for _, it := range indexTests {

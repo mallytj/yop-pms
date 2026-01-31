@@ -168,3 +168,12 @@ type TestAuditLog struct {
 	EntityID uuid.UUID
 	Changes  string
 }
+
+type TestAmenity struct {
+	ID          uuid.UUID
+	PropertyID  uuid.UUID
+	Name        string
+	ShortCode   string
+	Description string
+	IsActive    bool
+}
