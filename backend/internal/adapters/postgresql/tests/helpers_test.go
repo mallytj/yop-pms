@@ -178,7 +178,7 @@ func GenerateTestAmenity(t *testing.T, ctx context.Context, propertyID uuid.UUID
 	// Create test amenity
 	var amenity *TestAmenity
 	amenity = &TestAmenity{}
-	
+
 	fmt.Println(GetRandomString(5))
 
 	createParams := TestAmenity{
@@ -215,4 +215,15 @@ type TestAmenity struct {
 	ShortCode   string
 	Description string
 	IsActive    bool
+}
+
+type TestTravelAgent struct {
+	ID                uuid.UUID
+	PropertyID        uuid.UUID
+	Name              string
+	ContactEmail      string
+	ContactPhone      string
+	IATACode          string
+	CommissionPercent float64
+	AgencyNotes       string
 }

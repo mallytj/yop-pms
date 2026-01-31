@@ -162,10 +162,10 @@ CREATE TABLE IF NOT EXISTS
     identity.travel_agents (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
-        name TEXT NOT NULL,
+        name TEXT NOT NULL CHECK(char_length(name) <= 100),
         contact_email TEXT,
         contact_phone TEXT,
-        agency_notes TEXT,
+        agency_notes TEXT CHECK(char_length(agency_notes) <= 1000),
         iata_code TEXT,
         commission_percent NUMERIC(5, 2) DEFAULT 0.00 CHECK(commission_percent >= 0.00 AND commission_percent <= 75.00), -- e.g., 10.00 for 10%
         created_at TIMESTAMPTZ DEFAULT NOW(),
