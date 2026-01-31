@@ -168,18 +168,23 @@ func HashPassword(password string) (string, error) {
 	return hashedPassword, nil
 }
 
-// StructToSlice converts a struct into a slice of its field values.
+// StructToSlice converts a struct into a slice of its field values. Exclude ID
 func StructToSlice(s interface{}) []interface{} {
-    v := reflect.ValueOf(s)
-    
-    // If a pointer is passed, get the underlying element
-    if v.Kind() == reflect.Ptr {
-        v = v.Elem()
-    }
+	v := reflect.ValueOf(s)
 
-    values := make([]interface{}, v.NumField())
-    for i := 0; i < v.NumField(); i++ {
-        values[i] = v.Field(i).Interface()
-    }
-    return values
+	// If a pointer is passed, get the underlying element
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	values := make([]interface{}, v.NumField()) // Exclude ID field
+
+	for i := 0; i < v.NumField(); i++ {
+		if v.Type().Field(i).Name == "ID" {
+			continue
+		}
+		values[i] = v.Field(i).Interface()
+	}
+
+	return values
 }
