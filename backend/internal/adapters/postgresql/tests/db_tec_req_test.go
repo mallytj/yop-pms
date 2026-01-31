@@ -345,4 +345,12 @@ func TestDbTechnicalRequirements(t *testing.T) {
 	t.Run("TC-DB-12 - All foreign keys must NOT CASCADE to preserve historical data.", func(t *testing.T) {
 		// Implementation left as an exercise for the reader
 	})
+
+	t.Run("TC-DB-13 - If a reference depends on property, there must be a FK created references the property ID and reference ID", func(t *testing.T) {
+		// Implementation left as an exercise for the reader
+	})
+
+	t.Run("TC-DB-14 - All boolean columns must have a default value defined.", func(t *testing.T) {
+		// Implementation left as an exercise for the reader
+	})
 }

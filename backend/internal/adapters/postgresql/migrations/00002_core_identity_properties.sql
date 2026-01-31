@@ -115,24 +115,26 @@ CREATE TABLE IF NOT EXISTS
 CREATE INDEX idx_property_audit_logs_user ON auth.audit_logs(property_id, user_id);
 CREATE INDEX idx_property_audit_logs_entity ON auth.audit_logs(property_id, entity, entity_id);
 CREATE INDEX idx_property_audit_logs_action ON auth.audit_logs(property_id, action); 
+
 -- Amenities
 CREATE TABLE IF NOT EXISTS
     operations.amenities (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE, -- The owner of the amenities, separate to a property's amenities
-        name TEXT NOT NULL,
-        short_code TEXT,
-        description TEXT,
+        name TEXT NOT NULL CHECK (name != '' AND char_length(name) <= 100),
+        short_code TEXT CHECK (short_code ~ '^[A-Z0-9_/]{2,5}$'), -- e.g., Alphabetical or _ or / or 0-9 only, 2-5 chars
+        description TEXT CHECK (char_length(description) <= 250),
         is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
         UNIQUE (property_id, short_code),
-        UNIQUE (property_id, name)
+        UNIQUE (property_id, name),
+        UNIQUE (property_id, id)
     );
 
 CREATE INDEX idx_amenities_property ON operations.amenities(property_id);
-CREATE INDEX idx_amenities_active ON operations.amenities(is_active);
+CREATE INDEX idx_amenities_active_by_property ON operations.amenities(property_id, is_active);
 
 -- Join table for property amenities
 CREATE TABLE IF NOT EXISTS
@@ -142,8 +144,18 @@ CREATE TABLE IF NOT EXISTS
         created_at TIMESTAMPTZ DEFAULT now(),
         updated_at TIMESTAMPTZ DEFAULT now(),
         deleted_at TIMESTAMPTZ DEFAULT NULL,
+       
+        -- Enforce that the amenity belongs to the same property
+        -- Ensures TC-DB-13 is met
+        FOREIGN KEY (property_id, amenity_id)
+            REFERENCES operations.amenities (property_id, id)
+            ON DELETE CASCADE,
+
         PRIMARY KEY (property_id, amenity_id)
     );
+
+CREATE INDEX idx_property_amenities_amenity ON relations.property_amenities(amenity_id);
+CREATE INDEX idx_property_amenities_property ON relations.property_amenities(property_id);
 
 -- Travel agents
 CREATE TABLE IF NOT EXISTS

@@ -13,6 +13,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func GetRandomString(n int) string {
+	const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
 func splitEnumName(fullName string) (string, string) {
 	parts := strings.Split(fullName, ".")
 	var schema, typeName string
@@ -158,6 +167,36 @@ func GenerateTestUser(t *testing.T, ctx context.Context) *CreateTestUser {
 	assert.NoError(t, row, "Failed to create test user: %v", row)
 
 	return user
+}
+
+// GenerateTestAmenitiy is a helper function to create a test amenity for a given property.
+// t:        The testing object.
+// ctx:      The context for database operations.
+// propertyID: The ID of the property to which the amenity belongs.
+// Returns the created TestAmenity.
+func GenerateTestAmenity(t *testing.T, ctx context.Context, propertyID uuid.UUID) *TestAmenity {
+	// Create test amenity
+	var amenity *TestAmenity
+	amenity = &TestAmenity{}
+	
+	fmt.Println(GetRandomString(5))
+
+	createParams := TestAmenity{
+		PropertyID:  propertyID,
+		Name:        GetRandomString(10), // Random name
+		ShortCode:   GetRandomString(4),  // Random short code
+		Description: "Fully equipped gym",
+		IsActive:    true,
+	}
+
+	// Insert test amenity into database
+	row := testDB.QueryRow(ctx,
+		`INSERT INTO operations.amenities (property_id, name, short_code, description, is_active)
+				VALUES ($1, $2, $3, $4, $5) RETURNING id, property_id, name, short_code, description, is_active`,
+		createParams.PropertyID, createParams.Name, createParams.ShortCode, createParams.Description, createParams.IsActive).Scan(&amenity.ID, &amenity.PropertyID, &amenity.Name, &amenity.ShortCode, &amenity.Description, &amenity.IsActive)
+	assert.NoError(t, row)
+
+	return amenity
 }
 
 type TestAuditLog struct {
