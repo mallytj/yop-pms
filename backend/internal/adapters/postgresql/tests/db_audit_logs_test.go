@@ -2,7 +2,6 @@ package db_tests
 
 import (
 	"context"
-	"fmt"
 	hf "ollerod-pms/internal/helpers"
 	"testing"
 
@@ -106,7 +105,6 @@ func TestDbAuditLogs(t *testing.T) {
 		// TODO Improve StructToSlice to allow excluding fields
 		// Good enough for now, just a little hacky
 		paramsSlice = paramsSlice[1:]
-
 
 		hf.RunConstraintTests(t, ctx, testDB, query, paramsSlice, tests)
 	})
