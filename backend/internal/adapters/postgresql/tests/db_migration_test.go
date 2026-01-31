@@ -78,7 +78,7 @@ func TestInitMigration(t *testing.T) {
 			{"operations.reservation_status", "TC-RESV-08"},
 			{"operations.reservation_guest_role", "TC-RESG-04"},
 			{"operations.reservation_item_status", "TC-RESI-19"},
-			{"inventory.maintenance_block_types", "TC-MAINT-05"},
+			{"inventory.maintenance_block_type", "TC-MAINT-05"},
 		}
 
 		for _, et := range enumTests {
@@ -116,6 +116,7 @@ func TestInitMigration(t *testing.T) {
 			{"operations.properties", "TC-PROP-01"},
 			{"auth.users", "TC-USER-01"},
 			{"identity.guests", "TC-GUEST-01"},
+			{"auth.audit_logs", "TC-AUDIT-01"},
 		}
 
 		for _, tt := range tableTests {
@@ -161,6 +162,9 @@ func TestInitMigration(t *testing.T) {
 			{"idx_property_guests_marketing_opt_in", "TC-GUEST-17"},
 			{"idx_property_guests_anonymised", "TC-GUEST-18"},
 			{"idx_property_guests", "TC-GUEST-19"},
+			{"idx_property_audit_logs_user", "TC-AUDIT-09"},
+			{"idx_property_audit_logs_entity", "TC-AUDIT-10"},
+			{"idx_property_audit_logs_action", "TC-AUDIT-11"},
 		}
 
 		for _, it := range indexTests {

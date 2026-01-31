@@ -102,3 +102,69 @@ func GenerateTestProperty(t *testing.T, ctx context.Context) *TestProperty {
 
 	return property
 }
+
+type CreateTestUser struct {
+	ID           uuid.UUID
+	LicenceID    string `json:"licence_id"`
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	PasswordHash string `json:"password_hash"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	Role         string `json:"role"`
+	IsActive     bool   `json:"is_active"`
+}
+
+// GenerateTestUser is a helper function to create a test user with a valid licence.
+// t:        The testing object.
+// ctx:      The context for database operations.
+// Returns the created user ID.
+func GenerateTestUser(t *testing.T, ctx context.Context) *CreateTestUser {
+	// Create test licence
+	licence := GenerateTestLicence(t, ctx, true)
+
+	// Initiate user variable
+	var user *CreateTestUser
+
+	// Set address
+	user = &CreateTestUser{}
+
+	// Generate hashed password
+	hashedPassword, err := hf.HashPassword("test")
+	assert.NoError(t, err, "Failed to hash password: %v", err)
+
+	// Build params
+	params := CreateTestUser{
+		LicenceID:    licence.ID.String(),
+		Username:     "testuser",
+		Email:        "testuser@example.com",
+		PasswordHash: hashedPassword,
+		FirstName:    "Test",
+		LastName:     "User",
+		Role:         "admin",
+		IsActive:     true,
+	}
+
+	// Insert test user into database
+	row := testDB.QueryRow(
+		ctx,
+		`INSERT INTO auth.users (licence_id, username, email, password_hash, first_name, last_name, role, is_active)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, licence_id, username, email, password_hash, first_name, last_name, role, is_active`,
+		params.LicenceID, params.Username, params.Email, params.PasswordHash,
+		params.FirstName, params.LastName, params.Role, params.IsActive).Scan(
+		&user.ID, &user.LicenceID, &user.Username, &user.Email, &user.PasswordHash,
+		&user.FirstName, &user.LastName, &user.Role, &user.IsActive,
+	)
+	assert.NoError(t, row, "Failed to create test user: %v", row)
+
+	return user
+}
+
+type TestAuditLog struct {
+	ID       uuid.UUID
+	UserID   uuid.UUID
+	Action   string
+	Entity   string
+	EntityID uuid.UUID
+	Changes  string
+}

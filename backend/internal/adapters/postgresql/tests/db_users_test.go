@@ -9,16 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type CreateTestUser struct {
-	LicenceID    string `json:"licence_id"`
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	PasswordHash string `json:"password_hash"`
-	FirstName    string `json:"first_name"`
-	LastName     string `json:"last_name"`
-	Role         string `json:"role"`
-	IsActive     bool   `json:"is_active"`
-}
 
 // TestDbUsers contains tests related to the auth.users table and its constraints.
 func TestDbUsers(t *testing.T) {

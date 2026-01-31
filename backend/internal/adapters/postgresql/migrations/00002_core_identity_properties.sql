@@ -93,9 +93,10 @@ CREATE TABLE IF NOT EXISTS
   auth.audit_logs (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
+      property_id UUID REFERENCES operations.properties (id) ON DELETE SET NULL,
       action auth.audit_log_action NOT NULL,
       entity auth.audit_log_entity NOT NULL,
-      entity_id UUID,
+      entity_id UUID NOT NULL,
       changes JSONB CHECK (
           changes IS NOT NULL AND jsonb_typeof(changes) = 'object' AND changes <> '{}'::JSONB 
           AND (
@@ -111,12 +112,9 @@ CREATE TABLE IF NOT EXISTS
       deleted_at TIMESTAMPTZ DEFAULT NULL
   );
 
-CREATE INDEX idx_audit_logs_user ON auth.audit_logs(user_id);
-
-CREATE INDEX idx_audit_logs_entity ON auth.audit_logs(entity, entity_id);
-
-CREATE INDEX idx_audit_logs_action ON auth.audit_logs(action);
-
+CREATE INDEX idx_property_audit_logs_user ON auth.audit_logs(property_id, user_id);
+CREATE INDEX idx_property_audit_logs_entity ON auth.audit_logs(property_id, entity, entity_id);
+CREATE INDEX idx_property_audit_logs_action ON auth.audit_logs(property_id, action); 
 -- Amenities
 CREATE TABLE IF NOT EXISTS
     operations.amenities (
