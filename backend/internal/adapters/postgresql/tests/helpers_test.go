@@ -617,3 +617,12 @@ func GenerateTestDailyPriceGrid(t *testing.T, ctx context.Context, propertyID, r
 
 	return &priceGrid
 }
+
+type TestTaxRule struct {
+	ID uuid.UUID
+	PropertyID uuid.UUID
+	Name string
+	Description string
+	TaxPercentage float64
+	IsTaxInclusive bool
+}

@@ -4,13 +4,14 @@ CREATE TABLE IF NOT EXISTS
     finance.tax_rules (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
-        name TEXT NOT NULL,
-        description TEXT,
+        name TEXT NOT NULL CHECK (char_length(name) <= 50),
+        description TEXT CHECK (char_length(description) <= 250),
         tax_percentage NUMERIC(5, 2) NOT NULL CHECK(tax_percentage >= 0.00 AND tax_percentage <= 75.00), -- e.g., 10.00 for 10%
         is_tax_inclusive BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+        UNIQUE (property_id, id),
         UNIQUE (property_id, name)
     );
 
