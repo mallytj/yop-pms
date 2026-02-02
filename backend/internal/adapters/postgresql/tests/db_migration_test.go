@@ -121,6 +121,7 @@ func TestInitMigration(t *testing.T) {
 			{"relations.room_amenities", "TC-RMAM-01"},
 			{"inventory.maintenance_blocks", "TC-MAINT-01"},
 			{"pricing.rate_plans", "TC-RPLAN-01"},
+			{"identity.company_profiles", "TC-CPROF-01"},
 		}
 
 		for _, tt := range tableTests {
@@ -186,6 +187,8 @@ func TestInitMigration(t *testing.T) {
 			{"idx_rate_plans_property", "TC-RPLAN-09"},
 			{"idx_property_rate_plans_parent_rate_plan", "TC-RPLAN-10"},
 			{"idx_property_rate_plans_active", "TC-RPLAN-11"},
+			{"idx_company_profiles_property", "TC-CPROF-13"},
+			{"idx_company_profiles_negotiated_rate_plan", "TC-CPROF-14"},
 		}
 
 		for _, it := range indexTests {

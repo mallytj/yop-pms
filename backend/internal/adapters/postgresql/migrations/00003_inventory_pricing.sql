@@ -165,22 +165,28 @@ CREATE TABLE IF NOT EXISTS
     identity.company_profiles (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
-        tax_id TEXT UNIQUE, -- e.g., VAT number
+        tax_id TEXT, -- e.g., VAT number
         negotiated_rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE SET NULL,
-        company_name TEXT NOT NULL,
+        company_name TEXT NOT NULL CHECK (char_length(company_name) <= 50 AND char_length(company_name) >= 2),
         contact_email TEXT,
         contact_phone TEXT,
-        billing_address TEXT,
-        company_notes TEXT,
+        billing_address TEXT CHECK (char_length(billing_address) <= 200),
+        company_notes TEXT CHECK (char_length(company_notes) <= 1500),
         has_credit_facility BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes,
-        UNIQUE (property_id, company_name)
+
+        FOREIGN KEY (property_id, negotiated_rate_plan_id)
+            REFERENCES pricing.rate_plans (property_id, id)
+            ON DELETE SET NULL,
+
+        UNIQUE (property_id, company_name),
+        UNIQUE(tax_id, property_id)
     );
 
 CREATE INDEX idx_company_profiles_property ON identity.company_profiles (property_id);
-CREATE INDEX idx_company_profiles_negotiated_rate_plan ON identity.company_profiles (negotiated_rate_plan_id);
+CREATE INDEX idx_company_profiles_negotiated_rate_plan ON identity.company_profiles (property_id, negotiated_rate_plan_id);
 
 
 CREATE TABLE IF NOT EXISTS

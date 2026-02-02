@@ -509,3 +509,54 @@ func GenerateTestRatePlan(t *testing.T, ctx context.Context, propertyID uuid.UUI
 
 	return &ratePlan
 }
+
+type TestCompanyProfile struct {
+	ID                   uuid.UUID
+	PropertyID           uuid.UUID
+	TaxID                string
+	NegotiatedRatePlanID *uuid.UUID
+	CompanyName          string
+	ContactEmail         string
+	ContactPhone         string
+	BillingAddress       string
+	CompanyNotes         string
+	HasCreditFacility    bool
+}
+
+// GenerateTestCompanyProfile creates a test company profile for the given property.
+// If propertyID is uuid.Nil a new property is created automatically.
+func GenerateTestCompanyProfile(t *testing.T, ctx context.Context, propertyID uuid.UUID) *TestCompanyProfile {
+	if propertyID == uuid.Nil {
+		propertyID = GenerateTestProperty(t, ctx).ID
+	}
+
+	companyProfile := TestCompanyProfile{
+		PropertyID:        propertyID,
+		TaxID:             "TAX" + uuid.New().String()[:5],
+		CompanyName:       "Company " + uuid.New().String()[:8],
+		ContactEmail:      "contact@" + uuid.New().String()[:5] + ".com",
+		ContactPhone:      "+1234567890",
+		BillingAddress:    "123 Business St, Commerce City",
+		CompanyNotes:      "This is a test company profile.",
+		HasCreditFacility: true,
+	}
+
+	query := `INSERT INTO pricing.company_profiles (property_id, tax_id, company_name, contact_email, contact_phone, billing_address
+			  , company_notes, has_credit_facility)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			RETURNING id`
+
+	err := testDB.QueryRow(ctx, query,
+		companyProfile.PropertyID,
+		companyProfile.TaxID,
+		companyProfile.CompanyName,
+		companyProfile.ContactEmail,
+		companyProfile.ContactPhone,
+		companyProfile.BillingAddress,
+		companyProfile.CompanyNotes,
+		companyProfile.HasCreditFacility,
+	).Scan(&companyProfile.ID)
+	assert.NoError(t, err)
+
+	return &companyProfile
+}
