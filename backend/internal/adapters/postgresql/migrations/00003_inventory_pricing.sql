@@ -192,9 +192,10 @@ CREATE INDEX idx_company_profiles_negotiated_rate_plan ON identity.company_profi
 CREATE TABLE IF NOT EXISTS
     pricing.daily_price_grid (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
         room_type_id UUID REFERENCES inventory.room_types (id) ON DELETE CASCADE,
         rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE CASCADE,
-        calendar_date DATE,
+        calendar_date DATE NOT NULL CHECK (calendar_date >= NOW()),
         base_price_pence INTEGER NOT NULL DEFAULT 0, -- Store prices in pence to avoid floating point issues
         min_los_restriction INT DEFAULT 1 CHECK (min_los_restriction > 0), -- Minimum length of stay restriction
         max_los_restriction INT DEFAULT 365 CHECK (max_los_restriction > 0 AND max_los_restriction > min_los_restriction), -- Maximum length of stay restriction
@@ -202,15 +203,27 @@ CREATE TABLE IF NOT EXISTS
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
-        UNIQUE (room_type_id, calendar_date, rate_plan_id)
+
+        -- Ensure that the room type and rate plan belong to the same property
+        FOREIGN KEY (property_id, room_type_id)
+            REFERENCES inventory.room_types (property_id, id)
+            ON DELETE CASCADE,
+
+
+        FOREIGN KEY (property_id, rate_plan_id)
+            REFERENCES pricing.rate_plans (property_id, id)
+            ON DELETE CASCADE,
+
+        UNIQUE(property_id, id),
+        UNIQUE (property_id, room_type_id, calendar_date)
     );
   
-CREATE INDEX idx_daily_price_grid_room_type ON pricing.daily_price_grid (room_type_id);
-CREATE INDEX idx_daily_price_grid_rate_plan ON pricing.daily_price_grid (rate_plan_id);
-CREATE INDEX idx_daily_price_grid_date ON pricing.daily_price_grid (calendar_date);
-CREATE INDEX idx_daily_price_grid_available ON pricing.daily_price_grid (is_available);
-CREATE INDEX idx_daily_price_grid_available_room_type_date ON pricing.daily_price_grid (room_type_id, calendar_date) WHERE is_available=true;
-CREATE INDEX idx_daily_price_grid_available_rate_plan_date ON pricing.daily_price_grid (rate_plan_id, calendar_date) WHERE is_available=true;
+CREATE INDEX idx_property_daily_price_grid_room_type ON pricing.daily_price_grid (property_id, room_type_id);
+CREATE INDEX idx_property_daily_price_grid_rate_plan ON pricing.daily_price_grid (property_id, rate_plan_id);
+CREATE INDEX idx_property_daily_price_grid_date ON pricing.daily_price_grid (property_id, calendar_date);
+CREATE INDEX idx_property_daily_price_grid_available ON pricing.daily_price_grid (property_id, is_available);
+CREATE INDEX idx_property_daily_price_grid_available_room_type_date ON pricing.daily_price_grid (property_id, room_type_id, calendar_date) WHERE is_available=true;
+CREATE INDEX idx_property_daily_price_grid_available_rate_plan_date ON pricing.daily_price_grid (property_id, rate_plan_id, calendar_date) WHERE is_available=true;
 
 -- +goose Down
 DROP TABLE IF EXISTS pricing.daily_price_grid;

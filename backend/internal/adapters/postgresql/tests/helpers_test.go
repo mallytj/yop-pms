@@ -560,3 +560,60 @@ func GenerateTestCompanyProfile(t *testing.T, ctx context.Context, propertyID uu
 
 	return &companyProfile
 }
+
+type TestDailyPriceGrid struct {
+	ID uuid.UUID
+	PropertyID  uuid.UUID
+	RoomTypeID uuid.UUID
+	RatePlanID uuid.UUID
+	CalendarDate string // in YYYY-MM-DD format
+	BasePricePence int
+	MinLOSRestriction int
+	MaxLOSRestriction int
+	IsAvailable bool
+}
+
+// GenerateTestDailyPriceGrid creates a test daily price grid entry for the given property, room type, and rate plan.
+// If propertyID is uuid.Nil a new property is created automatically.
+// If roomTypeID is uuid.Nil a new room type is created automatically under the property.
+// If ratePlanID is uuid.Nil a new rate plan is created automatically under the property.
+func GenerateTestDailyPriceGrid(t *testing.T, ctx context.Context, propertyID, roomTypeID, ratePlanID uuid.UUID, calendarDate string) *TestDailyPriceGrid {
+	if propertyID == uuid.Nil {
+		propertyID = GenerateTestProperty(t, ctx).ID
+	}
+	if roomTypeID == uuid.Nil {
+		roomTypeID = GenerateTestRoomType(t, ctx, propertyID).ID
+	}
+	if ratePlanID == uuid.Nil {
+		ratePlanID = GenerateTestRatePlan(t, ctx, propertyID).ID
+	}
+
+	priceGrid := TestDailyPriceGrid{
+		PropertyID:        propertyID,
+		RoomTypeID:       roomTypeID,
+		RatePlanID:       ratePlanID,
+		CalendarDate:     calendarDate,
+		BasePricePence:   10000, // £100.00
+		MinLOSRestriction: 1,
+		MaxLOSRestriction: 30,
+		IsAvailable:      true,
+	}
+
+	query := `INSERT INTO pricing.daily_price_grid (property_id, room_type_id, rate_plan_id, calendar_date, base_price_pence, min_los_restriction, max_los_restriction, is_available)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			RETURNING id`
+
+	err := testDB.QueryRow(ctx, query,
+		priceGrid.PropertyID,
+		priceGrid.RoomTypeID,
+		priceGrid.RatePlanID,
+		priceGrid.CalendarDate,
+		priceGrid.BasePricePence,
+		priceGrid.MinLOSRestriction,
+		priceGrid.MaxLOSRestriction,
+		priceGrid.IsAvailable,
+	).Scan(&priceGrid.ID)
+	assert.NoError(t, err)
+
+	return &priceGrid
+}
