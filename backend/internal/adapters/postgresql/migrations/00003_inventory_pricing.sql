@@ -188,6 +188,7 @@ CREATE TABLE IF NOT EXISTS
 CREATE INDEX idx_company_profiles_property ON identity.company_profiles (property_id);
 CREATE INDEX idx_company_profiles_negotiated_rate_plan ON identity.company_profiles (property_id, negotiated_rate_plan_id);
 
+SET datestyle = 'ISO, YMD';
 
 CREATE TABLE IF NOT EXISTS
     pricing.daily_price_grid (
@@ -215,7 +216,7 @@ CREATE TABLE IF NOT EXISTS
             ON DELETE CASCADE,
 
         UNIQUE(property_id, id),
-        UNIQUE (property_id, room_type_id, calendar_date)
+        UNIQUE (property_id, room_type_id, rate_plan_id, calendar_date)
     );
   
 CREATE INDEX idx_property_daily_price_grid_room_type ON pricing.daily_price_grid (property_id, room_type_id);
