@@ -121,9 +121,9 @@ CREATE TABLE IF NOT EXISTS
     pricing.rate_plans (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
-        name TEXT NOT NULL,
-        code TEXT NOT NULL,
-        description TEXT,
+        name TEXT NOT NULL CHECK (char_length(name) <= 30),
+        code TEXT NOT NULL CHECK (char_length(code) <= 7),
+        description TEXT CHECK (char_length(description) <= 300),
         parent_rate_plan_id UUID NULL,
         derivation_rule JSONB CHECK (
             derivation_rule?'type'
@@ -136,6 +136,18 @@ CREATE TABLE IF NOT EXISTS
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+
+        CHECK (
+            (parent_rate_plan_id IS NULL AND derivation_rule IS NULL)
+            OR (parent_rate_plan_id IS NOT NULL AND derivation_rule IS NOT NULL)
+        ), -- Both parent_rate_plan_id and derivation_rule must be either set or null
+
+        -- Ensure that the parent rate plan belongs to the same property
+        FOREIGN KEY (property_id, parent_rate_plan_id)
+            REFERENCES pricing.rate_plans (property_id, id)
+            ON DELETE SET NULL,
+
+        UNIQUE (property_id, id),
         UNIQUE (property_id, code),
         UNIQUE (property_id, name)
     );
@@ -145,8 +157,8 @@ ALTER TABLE pricing.rate_plans
 ADD CONSTRAINT fk_parent_rate_plan FOREIGN KEY (parent_rate_plan_id) REFERENCES pricing.rate_plans (id) ON DELETE SET NULL;
 
 CREATE INDEX idx_rate_plans_property  ON pricing.rate_plans(property_id);
-CREATE INDEX idx_rate_plans_parent_rate_plan ON pricing.rate_plans(parent_rate_plan_id);
-CREATE INDEX idx_rate_plans_active ON pricing.rate_plans(is_active);
+CREATE INDEX idx_property_rate_plans_parent_rate_plan ON pricing.rate_plans(property_id, parent_rate_plan_id);
+CREATE INDEX idx_property_rate_plans_active ON pricing.rate_plans(property_id, is_active);
 
 -- Company profiles
 CREATE TABLE IF NOT EXISTS

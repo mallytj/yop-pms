@@ -438,10 +438,10 @@ func GenerateTestMaintenanceBlock(t *testing.T, ctx context.Context, roomID, cre
 	}
 
 	block := TestMaintenaceBlock{
-		RoomID: roomID,
-		Reason: "Routine Maintenance",
-		Type:   "cleaning",
-		BlockPeriod: *hf.ToPgTstzRange(time.Now(), time.Now().Add(24*time.Hour)),
+		RoomID:          roomID,
+		Reason:          "Routine Maintenance",
+		Type:            "cleaning",
+		BlockPeriod:     *hf.ToPgTstzRange(time.Now(), time.Now().Add(24*time.Hour)),
 		CreatedByUserID: createdByUserID,
 	}
 
@@ -458,4 +458,54 @@ func GenerateTestMaintenanceBlock(t *testing.T, ctx context.Context, roomID, cre
 	assert.NoError(t, err)
 
 	return &block
+}
+
+type RPDerivationRule struct {
+	Type  string `json:"type"`
+	Value int    `json:"value"`
+}
+
+type TestRatePlan struct {
+	ID               uuid.UUID
+	PropertyID       uuid.UUID
+	Name             string
+	Code             string
+	Description      string
+	IsActive         bool
+	ParentRatePlanID *uuid.UUID
+	DerivationRule   *RPDerivationRule
+	CurrencyCode     string
+}
+
+// GenerateTestRatePlan creates a test rate plan for the given property.
+// If propertyID is uuid.Nil a new property is created automatically.
+func GenerateTestRatePlan(t *testing.T, ctx context.Context, propertyID uuid.UUID) *TestRatePlan {
+	if propertyID == uuid.Nil {
+		propertyID = GenerateTestProperty(t, ctx).ID
+	}
+
+	ratePlan := TestRatePlan{
+		PropertyID:       propertyID,
+		Name:             "Rate Plan " + uuid.New().String()[:8],
+		Code:             "RP" + uuid.New().String()[:1],
+		Description:      "Test rate plan description",
+		IsActive:         true,
+		CurrencyCode:     "GBP",
+		ParentRatePlanID: nil,
+	}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO pricing.rate_plans (property_id, name, code, description, is_active, currency_code)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id`,
+		ratePlan.PropertyID,
+		ratePlan.Name,
+		ratePlan.Code,
+		ratePlan.Description,
+		ratePlan.IsActive,
+		ratePlan.CurrencyCode,
+	).Scan(&ratePlan.ID)
+	assert.NoError(t, err)
+
+	return &ratePlan
 }
