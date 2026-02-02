@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS
     finance.ledger_codes (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
-        code TEXT NOT NULL,
-        description TEXT,
+        code TEXT NOT NULL CHECK (char_length(code) <= 50),
+        description TEXT CHECK (char_length(description) <= 250),
         tax_rule UUID REFERENCES finance.tax_rules (id) ON DELETE SET NULL,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),

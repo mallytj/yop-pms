@@ -562,15 +562,15 @@ func GenerateTestCompanyProfile(t *testing.T, ctx context.Context, propertyID uu
 }
 
 type TestDailyPriceGrid struct {
-	ID uuid.UUID
-	PropertyID  uuid.UUID
-	RoomTypeID uuid.UUID
-	RatePlanID uuid.UUID
-	CalendarDate string // in YYYY-MM-DD format
-	BasePricePence int
+	ID                uuid.UUID
+	PropertyID        uuid.UUID
+	RoomTypeID        uuid.UUID
+	RatePlanID        uuid.UUID
+	CalendarDate      string // in YYYY-MM-DD format
+	BasePricePence    int
 	MinLOSRestriction int
 	MaxLOSRestriction int
-	IsAvailable bool
+	IsAvailable       bool
 }
 
 // GenerateTestDailyPriceGrid creates a test daily price grid entry for the given property, room type, and rate plan.
@@ -590,13 +590,13 @@ func GenerateTestDailyPriceGrid(t *testing.T, ctx context.Context, propertyID, r
 
 	priceGrid := TestDailyPriceGrid{
 		PropertyID:        propertyID,
-		RoomTypeID:       roomTypeID,
-		RatePlanID:       ratePlanID,
-		CalendarDate:     calendarDate,
-		BasePricePence:   10000, // £100.00
+		RoomTypeID:        roomTypeID,
+		RatePlanID:        ratePlanID,
+		CalendarDate:      calendarDate,
+		BasePricePence:    10000, // £100.00
 		MinLOSRestriction: 1,
 		MaxLOSRestriction: 30,
-		IsAvailable:      true,
+		IsAvailable:       true,
 	}
 
 	query := `INSERT INTO pricing.daily_price_grid (property_id, room_type_id, rate_plan_id, calendar_date, base_price_pence, min_los_restriction, max_los_restriction, is_available)
@@ -619,10 +619,48 @@ func GenerateTestDailyPriceGrid(t *testing.T, ctx context.Context, propertyID, r
 }
 
 type TestTaxRule struct {
-	ID uuid.UUID
-	PropertyID uuid.UUID
-	Name string
-	Description string
-	TaxPercentage float64
+	ID             uuid.UUID
+	PropertyID     uuid.UUID
+	Name           string
+	Description    string
+	TaxPercentage  float64
 	IsTaxInclusive bool
+}
+
+// GenerateTestTaxRule creates a test tax rule for the given property.
+// If propertyID is uuid.Nil a new property is created automatically.
+func GenerateTestTaxRule(t *testing.T, ctx context.Context, propertyID uuid.UUID) *TestTaxRule {
+	if propertyID == uuid.Nil {
+		propertyID = GenerateTestProperty(t, ctx).ID
+	}
+
+	taxRule := TestTaxRule{
+		PropertyID:     propertyID,
+		Name:           "Tax Rule " + uuid.New().String()[:8],
+		Description:    "Test tax rule description",
+		TaxPercentage:  10.00,
+		IsTaxInclusive: false,
+	}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO finance.tax_rules (property_id, name, description, tax_percentage, is_tax_inclusive)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id`,
+		taxRule.PropertyID,
+		taxRule.Name,
+		taxRule.Description,
+		taxRule.TaxPercentage,
+		taxRule.IsTaxInclusive,
+	).Scan(&taxRule.ID)
+	assert.NoError(t, err)
+
+	return &taxRule
+}
+
+type TestLedgerCode struct {
+	ID          uuid.UUID
+	PropertyID  uuid.UUID
+	Code        string
+	Description string
+	TaxRuleID   uuid.UUID
 }
