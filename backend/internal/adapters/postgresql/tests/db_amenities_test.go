@@ -68,10 +68,7 @@ func TestDBAmenities(t *testing.T) {
 
 		query := `INSERT INTO operations.amenities (property_id, name, short_code, description, is_active) VALUES ($1, $2, $3, $4, $5)`
 
-		paramsSlice := hf.StructToSlice(baseParams)
-		paramsSlice = paramsSlice[1:] // Exclude PropertyID for the tests
-
-		hf.RunConstraintTests(t, ctx, testDB, query, paramsSlice, cases)
+		hf.RunConstraintTests(t, ctx, testDB, query, hf.StructToSlice(baseParams), cases)
 	})
 
 	t.Run("Character Limits", func(t *testing.T) {
@@ -113,10 +110,7 @@ func TestDBAmenities(t *testing.T) {
 		}
 		query := `INSERT INTO operations.amenities (property_id, name, short_code, description, is_active) VALUES ($1, $2, $3, $4, $5)`
 
-		paramsSlice := hf.StructToSlice(baseParams)
-		paramsSlice = paramsSlice[1:] // Exclude ID PK for the tests
-
-		hf.RunConstraintTests(t, ctx, testDB, query, paramsSlice, cases)
+		hf.RunConstraintTests(t, ctx, testDB, query, hf.StructToSlice(baseParams), cases)
 	})
 
 	t.Run("Unique Fields", func(t *testing.T) {

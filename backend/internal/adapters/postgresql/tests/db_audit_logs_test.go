@@ -97,15 +97,8 @@ func TestDbAuditLogs(t *testing.T) {
 			},
 		}
 
-		// Create query
 		query := `INSERT INTO auth.audit_logs (user_id, action, entity, entity_id, changes) VALUES ($1, $2, $3, $4, $5)`
-		paramsSlice := hf.StructToSlice(params)
 
-		// Remove ID from params slice as it's not used in insert
-		// TODO Improve StructToSlice to allow excluding fields
-		// Good enough for now, just a little hacky
-		paramsSlice = paramsSlice[1:]
-
-		hf.RunConstraintTests(t, ctx, testDB, query, paramsSlice, tests)
+		hf.RunConstraintTests(t, ctx, testDB, query, hf.StructToSlice(params), tests)
 	})
 }

@@ -7,17 +7,8 @@ import (
 
 	hf "ollerod-pms/internal/helpers"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
-
-type TestGuest struct {
-	PropertyID string
-	FirstName  string
-	LastName   string
-	Email      string
-	Phone      string
-}
 
 func TestDbGuests(t *testing.T) {
 	ctx := context.Background()
@@ -34,26 +25,13 @@ func TestDbGuests(t *testing.T) {
 
 		insertQuery := `INSERT INTO identity.guests (property_id, first_name, last_name, email, phone_number) VALUES ($1, $2, $3, $4, $5)`
 
-		t.Run("Fail when property does not exist", func(t *testing.T) {
-			t.Parallel()
-			params.PropertyID = uuid.New().String() // Non-existent property
-			// Attempt to create a guest with a non-existent property
-			_, err := testDB.Exec(ctx, insertQuery, params.PropertyID, params.FirstName, params.LastName, params.Email, params.Phone)
-
-			assert.True(t, hf.CheckErrorCode(err, hf.ForeignKeyViolationCode), "Expected foreign key violation error, got: %v", err)
-		})
-
-		t.Run("Pass when property exists", func(t *testing.T) {
-			t.Parallel()
-			// Create a property
-			property := GenerateTestProperty(t, ctx)
-
-			params.PropertyID = property.ID.String()
-
-			// Attempt to create a guest with the existing property
-			_, err := testDB.Exec(ctx, insertQuery, params.PropertyID, params.FirstName, params.LastName, params.Email, params.Phone)
-
-			assert.NoError(t, err)
+		hf.RunFKExistenceTests(t, ctx, testDB, insertQuery, []hf.FKExistenceTest{
+			{
+				Name:      "TC-GUEST-02 - Property must exist",
+				FakeIDIdx: 0, // Non-existent property
+				RealID:    GenerateTestProperty(t, ctx).ID,
+				BaseParams: hf.StructToSlice(params),
+			},
 		})
 	})
 
@@ -64,7 +42,7 @@ func TestDbGuests(t *testing.T) {
 
 		// Base params
 		baseParams := TestGuest{
-			PropertyID: property.ID.String(),     // PropertyID
+			PropertyID: property.ID,              // PropertyID
 			FirstName:  "Test",                   // FirstName
 			LastName:   "Guest",                  // LastName
 			Email:      "test.guest@example.com", // Email
@@ -100,7 +78,7 @@ func TestDbGuests(t *testing.T) {
 
 		// Base params
 		baseParams := TestGuest{
-			PropertyID: property.ID.String(),     // PropertyID
+			PropertyID: property.ID,              // PropertyID
 			FirstName:  "Test",                   // FirstName
 			LastName:   "Guest",                  // LastName
 			Email:      "test.guest@example.com", // Email
@@ -136,7 +114,7 @@ func TestDbGuests(t *testing.T) {
 
 		// Base params
 		baseParams := TestGuest{
-			PropertyID: property.ID.String(),     // PropertyID
+			PropertyID: property.ID,              // PropertyID
 			FirstName:  "Test",                   // FirstName
 			LastName:   "Guest",                  // LastName
 			Email:      "test.guest@example.com", // Email

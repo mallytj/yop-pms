@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"time"
 
 	"regexp"
 	"unicode/utf8"
@@ -107,6 +108,21 @@ func ToPgBoolPtr(b bool) *pgtype.Bool {
 	return &pgBool
 }
 
+// ToPgTstzRange converts a start date and end date to a pgtype.Tstzrange pointer.
+// Example usage: ToPgTstzRange(startTime, endTime)
+// returns &pgtype.Tstzrange{Lower: startTime, Upper: endTime, Valid: true}
+func ToPgTstzRange(start, end time.Time) *pgtype.Range[pgtype.Timestamptz] {
+	pgRange := pgtype.Range[pgtype.Timestamptz]{
+			Lower: pgtype.Timestamptz{Time: start, Valid: true},
+			Upper: pgtype.Timestamptz{Time: end, Valid: true},
+			Valid: true,
+			LowerType: pgtype.Inclusive,
+			UpperType: pgtype.Exclusive,
+		}
+
+	return &pgRange
+}
+
 // ExtractAndParseUUIDParam extracts a parameter from the URL and parses it as a UUID.
 // Returns the parsed UUID or an error if extraction or parsing fails.
 // Example usage: ExtractAndParseUUIDParam(r, "userID") => uuid.UUID, nil
@@ -168,22 +184,22 @@ func HashPassword(password string) (string, error) {
 	return hashedPassword, nil
 }
 
-// StructToSlice converts a struct into a slice of its field values. Exclude ID
+// StructToSlice converts a struct into a slice of its field values, excluding
+// any field named "ID".
 func StructToSlice(s interface{}) []interface{} {
 	v := reflect.ValueOf(s)
 
-	// If a pointer is passed, get the underlying element
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
 
-	values := make([]interface{}, v.NumField()) // Exclude ID field
+	values := make([]interface{}, 0, v.NumField())
 
 	for i := 0; i < v.NumField(); i++ {
 		if v.Type().Field(i).Name == "ID" {
 			continue
 		}
-		values[i] = v.Field(i).Interface()
+		values = append(values, v.Field(i).Interface())
 	}
 
 	return values

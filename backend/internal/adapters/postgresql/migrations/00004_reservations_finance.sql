@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS
     );
 
 CREATE INDEX idx_ledger_codes_property ON finance.ledger_codes (property_id);
-CREATE INDEX idx_ledger_codes_tax_rule ON finance.ledger_codes (tax_rule);
+CREATE INDEX idx_ledger_codes_tax_rule ON finance.ledger_codes (property_id, tax_rule);
 
 CREATE TABLE IF NOT EXISTS
     sales_ledgers.accounts (

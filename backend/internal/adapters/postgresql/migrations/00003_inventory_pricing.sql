@@ -4,8 +4,8 @@
 CREATE TABLE IF NOT EXISTS inventory.room_types (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID REFERENCES operations.properties(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  code TEXT NOT NULL,
+  name TEXT NOT NULL CHECK (char_length(name) <= 75),
+  code TEXT NOT NULL CHECK (char_length(code) <= 7),
   std_occupancy INT NOT NULL DEFAULT 2 CHECK (std_occupancy > 0),
   min_occupancy INT NOT NULL DEFAULT 1 CHECK (min_occupancy > 0 AND min_occupancy <= std_occupancy),
   max_occupancy INT NOT NULL DEFAULT 2 CHECK (max_occupancy > 0 AND max_occupancy >= std_occupancy),
@@ -13,33 +13,54 @@ CREATE TABLE IF NOT EXISTS inventory.room_types (
   updated_at TIMESTAMPTZ DEFAULT now(),
   deleted_at TIMESTAMPTZ,
   UNIQUE (property_id, code),
-  UNIQUE (property_id, name)
+  UNIQUE (property_id, name),
+  UNIQUE (property_id, id)
 );
 
 CREATE INDEX idx_room_types_property
   ON inventory.room_types(property_id);
 
 CREATE TABLE IF NOT EXISTS relations.room_type_amenities (
+  property_id UUID REFERENCES operations.properties(id) ON DELETE CASCADE,
   room_type_id UUID REFERENCES inventory.room_types(id) ON DELETE CASCADE,
   amenity_id UUID REFERENCES operations.amenities(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   deleted_at TIMESTAMPTZ DEFAULT NULL,
+
+  -- Enforce that the room type belongs to the same property
+  FOREIGN KEY (property_id, room_type_id)
+      REFERENCES inventory.room_types (property_id, id)
+          ON DELETE CASCADE,
+
+  -- Enforce that the amenity belongs to the same property as the room type
+  FOREIGN KEY (property_id, amenity_id)
+      REFERENCES operations.amenities (property_id, id)
+          ON DELETE CASCADE,
+
   PRIMARY KEY (room_type_id, amenity_id)
 );
+
+CREATE INDEX idx_room_type_amenities_room_type ON relations.room_type_amenities(room_type_id);
+CREATE INDEX idx_room_type_amenities_amenity ON relations.room_type_amenities(amenity_id);
 
 -- Rooms
 CREATE TABLE IF NOT EXISTS inventory.rooms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID REFERENCES operations.properties(id) ON DELETE CASCADE,
   room_type_id UUID REFERENCES inventory.room_types(id) ON DELETE SET NULL,
-  name TEXT NOT NULL,
+  name TEXT NOT NULL CHECK (char_length(name) <= 75),
   housekeeping_status inventory.housekeeping_status NOT NULL DEFAULT 'clean',
   occupancy_status inventory.occupancy_status NOT NULL DEFAULT 'vacant',
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   deleted_at TIMESTAMPTZ,
-  UNIQUE (property_id, name)
+  UNIQUE(property_id, id),
+  UNIQUE (property_id, name),
+  -- Enforce that the room type belongs to the same property
+  FOREIGN KEY (property_id, room_type_id)
+      REFERENCES inventory.room_types (property_id, id)
+      ON DELETE SET NULL
 );
 
 CREATE INDEX idx_rooms_room_type ON inventory.rooms(room_type_id);
@@ -48,23 +69,36 @@ CREATE INDEX idx_occupancy_status ON inventory.rooms(occupancy_status);
 CREATE INDEX idx_rooms_property ON inventory.rooms(property_id);
 
 CREATE TABLE IF NOT EXISTS relations.room_amenities (
+  property_id UUID REFERENCES operations.properties(id) ON DELETE CASCADE,
   room_id UUID REFERENCES inventory.rooms(id) ON DELETE CASCADE,
   amenity_id UUID REFERENCES operations.amenities(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   deleted_at TIMESTAMPTZ DEFAULT NULL,
+  -- Enforce that the room belongs to the same property
+  FOREIGN KEY (property_id, room_id)
+      REFERENCES inventory.rooms (property_id, id)
+      ON DELETE CASCADE,
+
+  -- Enforce that the amenity belongs to the same property as the room
+  FOREIGN KEY (property_id, amenity_id)
+      REFERENCES operations.amenities (property_id, id)
+      ON DELETE CASCADE,
+
   PRIMARY KEY (room_id, amenity_id)
 );
 
--- Maintenance blocks
+CREATE INDEX idx_property_room_amenities_room ON relations.room_amenities(property_id, room_id);
+CREATE INDEX idx_property_room_amenities_amenity ON relations.room_amenities(property_id, amenity_id);
+
 -- Create maintenance blocks table
 CREATE TABLE IF NOT EXISTS inventory.maintenance_blocks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    room_id UUID REFERENCES inventory.rooms(id) ON DELETE CASCADE,
+    room_id UUID REFERENCES inventory.rooms(id) ON DELETE CASCADE NOT NULL,
     block_period TSTZRANGE NOT NULL CHECK (upper(block_period) > lower(block_period)),
-    reason TEXT,
+    reason TEXT CHECK (char_length(reason) <= 150) NOT NULL,
     type inventory.maintenance_block_type NOT NULL,
-    created_by_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_by_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes

@@ -7,6 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type ExistenceTest struct {
+	name     string
+	testCase string
+}
+
 func TestInitMigration(t *testing.T) {
 	t.Run("TC-MIG-01 - Initialise Extensions (uuid-ossp, pgcrypto)", func(t *testing.T) {
 		t.Parallel()
@@ -62,12 +67,7 @@ func TestInitMigration(t *testing.T) {
 	t.Run("Enum Types Created", func(t *testing.T) {
 		t.Parallel()
 
-		type enumTest struct {
-			name     string
-			testCase string
-		}
-
-		enumTests := []enumTest{
+		enumTests := []ExistenceTest{
 			{"auth.user_role", "TC-USER-21"},
 			{"auth.audit_log_entity", "TC-AUDIT-07"},
 			{"auth.audit_log_action", "TC-AUDIT-08"},
@@ -106,12 +106,7 @@ func TestInitMigration(t *testing.T) {
 	t.Run("Tables Created", func(t *testing.T) {
 		t.Parallel()
 
-		type tableTest struct {
-			name     string
-			testCase string
-		}
-
-		tableTests := []tableTest{
+		tableTests := []ExistenceTest{
 			{"operations.licences", "TC-LICE-01"},
 			{"operations.properties", "TC-PROP-01"},
 			{"auth.users", "TC-USER-01"},
@@ -120,6 +115,11 @@ func TestInitMigration(t *testing.T) {
 			{"operations.amenities", "TC-AMEN-01"},
 			{"relations.property_amenities", "TC-PRAM-01"},
 			{"identity.travel_agents", "TC-TRAV-01"},
+			{"inventory.room_types", "TC-RTYPE-01"},
+			{"relations.room_type_amenities", "TC-RTYPE-15"},
+			{"inventory.rooms", "TC-ROOM-01"},
+			{"relations.room_amenities", "TC-RMAM-01"},
+			{"inventory.maintenance_blocks", "TC-MAINT-01"},
 		}
 
 		for _, tt := range tableTests {
@@ -145,12 +145,7 @@ func TestInitMigration(t *testing.T) {
 	t.Run("Indexes Created", func(t *testing.T) {
 		t.Parallel()
 
-		type indexTest struct {
-			name     string
-			testCase string
-		}
-
-		indexTests := []indexTest{
+		indexTests := []ExistenceTest{
 			{"idx_licence_properties_name", "TC-PROP-13"},
 			{"idx_licence_properties_active", "TC-PROP-04"},
 			{"idx_properties_licence", "TC-PROP-11"},
@@ -173,6 +168,20 @@ func TestInitMigration(t *testing.T) {
 			{"idx_property_amenities_property", "TC-PRAM-04"},
 			{"idx_property_amenities_amenity", "TC-PRAM-05"},
 			{"idx_travel_agents_property", "TC-TRAV-10"},
+			{"idx_room_types_property", "TC-RTYPE-14"},
+			{"idx_room_type_amenities_room_type", "TC-RTYPE-18"},
+			{"idx_room_type_amenities_amenity", "TC-RTYPE-19"},
+			{"idx_rooms_room_type", "TC-ROOM-08"},
+			{"idx_housekeeping_status", "TC-ROOM-09"},
+			{"idx_occupancy_status", "TC-ROOM-10"},
+			{"idx_rooms_property", "TC-ROOM-11"},
+			{"idx_property_room_amenities_room", "TC-RMAM-04"},
+			{"idx_property_room_amenities_amenity", "TC-RMAM-05"},
+			{"idx_maintenance_blocks_room_period", "TC-MAINT-08"},
+			{"idx_maintenance_blocks_period", "TC-MAINT-09"},
+			{"idx_maintenance_blocks_type", "TC-MAINT-10"},
+			{"idx_maintenance_blocks_created_by", "TC-MAINT-11"},
+			{"idx_maintenance_blocks_room", "TC-MAINT-12"},
 		}
 
 		for _, it := range indexTests {
@@ -186,7 +195,9 @@ func TestInitMigration(t *testing.T) {
 						FROM pg_indexes
 						WHERE indexname = $1
 					)`, it.name).Scan(&exists)
+
 				assert.NoError(t, err)
+
 				assert.True(t, exists, "Index %s does not exist", it.name)
 			})
 		}
@@ -194,13 +205,7 @@ func TestInitMigration(t *testing.T) {
 
 	t.Run("Functions Created", func(t *testing.T) {
 		t.Parallel()
-
-		type functionTest struct {
-			name     string
-			testCase string
-		}
-
-		functionTests := []functionTest{
+		functionTests := []ExistenceTest{
 			{"operations.check_licence_is_active", "TC-PROP-06"},
 		}
 

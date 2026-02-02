@@ -27,14 +27,14 @@ func TestDbTravelAgents(t *testing.T) {
 	// Prepare parameters slice for reuse in tests
 	// Indexes correspond to the insert query placeholders
 	paramsSlice := []interface{}{
-			baseParams.PropertyID,
-			baseParams.Name,
-			baseParams.ContactEmail, 
-			baseParams.ContactPhone,
-			baseParams.AgencyNotes, 
-			baseParams.IATACode, 
-			baseParams.CommissionPercent,
-		}
+		baseParams.PropertyID,
+		baseParams.Name,
+		baseParams.ContactEmail,
+		baseParams.ContactPhone,
+		baseParams.AgencyNotes,
+		baseParams.IATACode,
+		baseParams.CommissionPercent,
+	}
 
 	insertQuery := `INSERT INTO identity.travel_agents (property_id, name, contact_email, contact_phone, agency_notes, iata_code, commission_percent) VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
@@ -44,7 +44,7 @@ func TestDbTravelAgents(t *testing.T) {
 		t.Run("TC-TRAV-02 - Name is required", func(t *testing.T) {
 			t.Parallel()
 
-			_, err := testDB.Exec(ctx, insertQuery, baseParams.PropertyID, nil, baseParams.ContactEmail, baseParams.ContactPhone, baseParams.IATACode, baseParams.CommissionPercent)
+			_, err := testDB.Exec(ctx, insertQuery, baseParams.PropertyID, nil, baseParams.ContactEmail, baseParams.ContactPhone, baseParams.AgencyNotes, baseParams.IATACode, baseParams.CommissionPercent)
 
 			// Check for null value violation error
 			assert.Equal(t, hf.CheckErrorCode(err, hf.NotNullViolationCode), true, "Expected not null violation error, got: %v", err)
@@ -87,7 +87,6 @@ func TestDbTravelAgents(t *testing.T) {
 		assert.True(t, hf.CheckErrorCode(err, hf.UniqueViolationCode), "Expected unique violation error, got: %v", err)
 	})
 
-
 	t.Run("Commission Percentage Bounds", func(t *testing.T) {
 		t.Parallel()
 
@@ -109,5 +108,18 @@ func TestDbTravelAgents(t *testing.T) {
 		}
 
 		hf.RunConstraintTests(t, ctx, testDB, insertQuery, paramsSlice, tests)
+	})
+
+	t.Run("Foreign Key Constraints", func(t *testing.T) {
+		t.Parallel()
+
+		hf.RunFKExistenceTests(t, ctx, testDB, insertQuery, []hf.FKExistenceTest{
+			{
+				Name:      "TC-TRAV-10 - Property must exist",
+				FakeIDIdx: 0, // Non-existent property
+				RealID:    property.ID,
+				BaseParams: paramsSlice,
+			},
+		})
 	})
 }

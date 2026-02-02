@@ -180,7 +180,7 @@ CREATE INDEX idx_travel_agents_property ON identity.travel_agents(property_id);
 CREATE TABLE IF NOT EXISTS
     identity.identity_docs (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
-        guest_id UUID REFERENCES identity.guests (id) ON DELETE CASCADE,
+        guest_id UUID REFERENCES identity.guests(id) ON DELETE CASCADE,
         doc_type identity.identity_doc_type NOT NULL,
         encrypted_doc_number TEXT NOT NULL CHECK (LENGTH(encrypted_doc_number) > 0), -- Encrypted for security
         issuing_country TEXT, -- ISO country code
