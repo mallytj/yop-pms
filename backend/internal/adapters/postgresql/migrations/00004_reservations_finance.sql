@@ -37,18 +37,27 @@ CREATE INDEX idx_ledger_codes_tax_rule ON finance.ledger_codes (property_id, tax
 CREATE TABLE IF NOT EXISTS
     sales_ledgers.accounts (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
+        property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE NOT NULL,
         company_profile_id UUID REFERENCES identity.company_profiles (id) ON DELETE SET NULL,
-        credit_limit_pence INT DEFAULT 0, -- Stored in pence to avoid floating point issues
-        payment_terms_days INT DEFAULT 0, -- Number of days for payment terms
+        name TEXT NOT NULL CHECK (char_length(name) <= 100),
+        code TEXT NOT NULL CHECK (char_length(code) <= 10),
+        credit_limit_pence INT DEFAULT 0 CHECK (credit_limit_pence >= 0), -- Stored in pence to avoid floating point issues
+        payment_terms_days INT DEFAULT 0 CHECK (payment_terms_days >= 0), -- Number of days for payment terms
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
-        UNIQUE (property_id, company_profile_id)
+        UNIQUE (property_id, id),
+        UNIQUE (property_id, name),
+        UNIQUE (property_id, code),
+        UNIQUE (property_id, company_profile_id),
+
+        -- Ensure the company profile belongs to the same property
+        FOREIGN KEY (property_id, company_profile_id)
+            REFERENCES identity.company_profiles (property_id, id) ON DELETE SET NULL
     );
 
 CREATE INDEX idx_accounts_property ON sales_ledgers.accounts (property_id);
-CREATE INDEX idx_accounts_company_profile ON sales_ledgers.accounts (company_profile_id);
+CREATE INDEX idx_property_accounts_company_profile ON sales_ledgers.accounts (property_id, company_profile_id);
 
 -- Create group table (set master_folio_id to null for now)
 CREATE TABLE IF NOT EXISTS

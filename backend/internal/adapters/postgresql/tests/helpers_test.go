@@ -541,7 +541,7 @@ func GenerateTestCompanyProfile(t *testing.T, ctx context.Context, propertyID uu
 		HasCreditFacility: true,
 	}
 
-	query := `INSERT INTO pricing.company_profiles (property_id, tax_id, company_name, contact_email, contact_phone, billing_address
+	query := `INSERT INTO identity.company_profiles (property_id, tax_id, company_name, contact_email, contact_phone, billing_address
 			  , company_notes, has_credit_facility)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			RETURNING id`
@@ -556,7 +556,7 @@ func GenerateTestCompanyProfile(t *testing.T, ctx context.Context, propertyID uu
 		companyProfile.CompanyNotes,
 		companyProfile.HasCreditFacility,
 	).Scan(&companyProfile.ID)
-	assert.NoError(t, err)
+	assert.NoError(t, err, "Error creating test company profile")
 
 	return &companyProfile
 }
@@ -663,4 +663,82 @@ type TestLedgerCode struct {
 	Code        string
 	Description string
 	TaxRuleID   uuid.UUID
+}
+
+// GenerateTestLedgerCode creates a test ledger code for the given property.
+// If propertyID is uuid.Nil a new property is created automatically.
+// If taxRuleID is uuid.Nil a new tax rule is created automatically under the property.
+func GenerateTestLedgerCode(t *testing.T, ctx context.Context, propertyID, taxRuleID uuid.UUID) *TestLedgerCode {
+	if propertyID == uuid.Nil {
+		propertyID = GenerateTestProperty(t, ctx).ID
+	}
+	if taxRuleID == uuid.Nil {
+		taxRuleID = GenerateTestTaxRule(t, ctx, propertyID).ID
+	}
+
+	ledgerCode := TestLedgerCode{
+		PropertyID:  propertyID,
+		Code:        "LC" + uuid.New().String()[:5],
+		Description: "Test ledger code description",
+		TaxRuleID:   taxRuleID,
+	}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO finance.ledger_codes (property_id, code, description, tax_rule)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id`,
+		ledgerCode.PropertyID,
+		ledgerCode.Code,
+		ledgerCode.Description,
+		ledgerCode.TaxRuleID,
+	).Scan(&ledgerCode.ID)
+	assert.NoError(t, err)
+
+	return &ledgerCode
+}
+
+type TestSLAccount struct {
+	ID               uuid.UUID
+	PropertyID       uuid.UUID
+	CompanyProfileID uuid.UUID
+	Name             string
+	Code             string
+	PaymentTermDays  int
+	CreditLimitPence int
+}
+
+// GenerateTestSLAccount creates a test sales ledger account for the given property.
+// If propertyID is uuid.Nil a new property is created automatically.
+// If companyProfileID is uuid.Nil a new company profile is created automatically under the property.
+func GenerateTestSLAccount(t *testing.T, ctx context.Context, propertyID, companyProfileID uuid.UUID) *TestSLAccount {
+	if propertyID == uuid.Nil {
+		propertyID = GenerateTestProperty(t, ctx).ID
+	}
+	if companyProfileID == uuid.Nil {
+		companyProfileID = GenerateTestCompanyProfile(t, ctx, propertyID).ID
+	}
+
+	account := TestSLAccount{
+		PropertyID:       propertyID,
+		CompanyProfileID: companyProfileID,
+		Name:             "SL Account " + uuid.New().String()[:8],
+		Code:             "SLA" + uuid.New().String()[:5],
+		PaymentTermDays:  30,
+		CreditLimitPence: 500000, // £5000.00
+	}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO sales_ledgers.accounts (property_id, company_profile_id, name, code, payment_terms_days, credit_limit_pence)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id`,
+		account.PropertyID,
+		account.CompanyProfileID,
+		account.Name,
+		account.Code,
+		account.PaymentTermDays,
+		account.CreditLimitPence,
+	).Scan(&account.ID)
+	assert.NoError(t, err)
+
+	return &account
 }

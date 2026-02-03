@@ -164,7 +164,7 @@ CREATE INDEX idx_property_rate_plans_active ON pricing.rate_plans(property_id, i
 CREATE TABLE IF NOT EXISTS
     identity.company_profiles (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
+        property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE NOT NULL,
         tax_id TEXT, -- e.g., VAT number
         negotiated_rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE SET NULL,
         company_name TEXT NOT NULL CHECK (char_length(company_name) <= 50 AND char_length(company_name) >= 2),
@@ -182,7 +182,8 @@ CREATE TABLE IF NOT EXISTS
             ON DELETE SET NULL,
 
         UNIQUE (property_id, company_name),
-        UNIQUE(tax_id, property_id)
+        UNIQUE(tax_id, property_id),
+        UNIQUE(property_id, id)
     );
 
 CREATE INDEX idx_company_profiles_property ON identity.company_profiles (property_id);

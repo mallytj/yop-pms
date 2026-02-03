@@ -51,7 +51,6 @@ type FKExistenceTest struct {
 //  2. Insert with RealID at the same index → expects success.
 func RunFKExistenceTests(t *testing.T, ctx context.Context, db *pgxpool.Pool, query string, cases []FKExistenceTest) {
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 
