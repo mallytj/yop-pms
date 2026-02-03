@@ -125,6 +125,7 @@ func TestInitMigration(t *testing.T) {
 			{"finance.tax_rules", "TC-TAXR-01"},
 			{"finance.ledger_codes", "TC-LEDC-01"},
 			{"sales_ledgers.accounts", "TC-SLACC-01"},
+			{"operations.reservation_groups", "TC-RGRP-01"},
 		}
 
 		for _, tt := range tableTests {
@@ -197,6 +198,7 @@ func TestInitMigration(t *testing.T) {
 			{"idx_ledger_codes_tax_rule", "TC-LEDC-09"},
 			{"idx_accounts_property", "TC-SLACC-07"},
 			{"idx_property_accounts_company_profile", "TC-SLACC-08"},
+			{"idx_reservation_groups_property", "TC-RGRP-11"},
 		}
 
 		for _, it := range indexTests {

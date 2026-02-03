@@ -204,3 +204,14 @@ func StructToSlice(s interface{}) []interface{} {
 
 	return values
 }
+
+// MatchRegex checks if the input string matches the provided regex pattern.
+// Returns true if it matches, false otherwise.
+// Example usage: MatchRegex("^GRP-\\d{5}$", "GRP-12345") => true
+func MatchRegex(pattern, input string) (bool, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return false, err
+	}
+	return re.MatchString(input), nil
+}

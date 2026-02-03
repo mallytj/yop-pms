@@ -67,10 +67,10 @@ CREATE TABLE IF NOT EXISTS
         master_folio_id UUID NULL, -- To be set later
         sequential SERIAL NOT NULL,
         code TEXT GENERATED ALWAYS AS (
-          'GRP-' || LPAD(sequential::TEXT, 6, '0')
-        ) STORED, -- e.g., GRP-000123
-        name TEXT,
-        notes TEXT,
+          'GRP-' || LPAD(sequential::TEXT, 5, '0')
+        ) STORED, -- e.g., GRP-00123
+        name TEXT CHECK (char_length(name) <= 50),
+        notes TEXT CHECK (char_length(notes) <= 2500),
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes

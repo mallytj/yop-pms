@@ -742,3 +742,39 @@ func GenerateTestSLAccount(t *testing.T, ctx context.Context, propertyID, compan
 
 	return &account
 }
+
+type TestReservationGroup struct {
+	ID            uuid.UUID
+	PropertyID    uuid.UUID
+	MasterFolioID uuid.UUID
+	Sequential    int
+	Code          string
+	Name          string
+	Notes         string
+}
+
+// GenerateTestReservationGroup creates a test reservation group for the given property.
+// If propertyID is uuid.Nil a new property is created automatically.
+func GenerateTestReservationGroup(t *testing.T, ctx context.Context, propertyID uuid.UUID) *TestReservationGroup {
+	if propertyID == uuid.Nil {
+		propertyID = GenerateTestProperty(t, ctx).ID
+	}
+
+	group := TestReservationGroup{
+		PropertyID: propertyID,
+		Name:       "Reservation Group " + uuid.New().String()[:8],
+		Notes:      "Test reservation group notes",
+	}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO operations.reservation_groups (property_id name, notes)
+			VALUES ($1, $2, $3)
+			RETURNING id, sequential`,
+		group.PropertyID,
+		group.Name,
+		group.Notes,
+	).Scan(&group.ID, &group.Sequential)
+	assert.NoError(t, err)
+
+	return &group
+}
