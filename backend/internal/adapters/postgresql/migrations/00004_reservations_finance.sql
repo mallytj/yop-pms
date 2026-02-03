@@ -97,7 +97,8 @@ CREATE TABLE IF NOT EXISTS
         status operations.reservation_status NOT NULL DEFAULT 'hold',
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
-        deleted_at TIMESTAMPTZ DEFAULT NULL -- For soft deletes
+        deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+        UNIQUE (property_id, id)
     );
 
 CREATE INDEX idx_reservations_property ON operations.reservations (property_id);
@@ -113,13 +114,14 @@ CREATE INDEX idx_reservations_source ON operations.reservations (property_id, so
 CREATE TABLE IF NOT EXISTS
     operations.reservation_items (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
         reservation_id UUID REFERENCES operations.reservations (id) ON DELETE CASCADE,
         booked_room_type_id UUID REFERENCES inventory.room_types (id) ON DELETE SET NULL,
         assigned_room_id UUID REFERENCES inventory.rooms (id) ON DELETE SET NULL,
         rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE SET NULL, -- The rate plan for the majority of the stay,
-        stay_period TSTZRANGE NOT NULL,
-        base_rate_pence INT NOT NULL DEFAULT 0, -- The total stay base rate in pence Gets modified by booked_daily_rates for each day
-        adults_count INT NOT NULL DEFAULT 2,
+        stay_period TSTZRANGE NOT NULL CHECK (lower(stay_period) IS NOT NULL AND upper(stay_period) IS NOT NULL AND lower(stay_period) > NOW()), -- [check-in, check-out)
+        base_rate_pence INT NOT NULL DEFAULT 0 CHECK (base_rate_pence >= 0), -- The total stay base rate in pence Gets modified by booked_daily_rates for each day
+        adults_count INT NOT NULL DEFAULT 2 CHECK(adults_count >= 1),
         children_count INT NOT NULL DEFAULT 0,
         status operations.reservation_item_status NOT NULL DEFAULT 'booked',
         created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -130,7 +132,22 @@ CREATE TABLE IF NOT EXISTS
         CONSTRAINT no_overlapping_room_stays EXCLUDE USING GIST (
             assigned_room_id WITH =,
             stay_period WITH &&
-        ) WHERE (deleted_at IS NULL AND assigned_room_id IS NOT NULL)
+        ) WHERE (deleted_at IS NULL AND assigned_room_id IS NOT NULL),
+        -- Ensures the reservation belongs to the same property
+        FOREIGN KEY (property_id, reservation_id)
+            REFERENCES operations.reservations (property_id, id) ON DELETE CASCADE,
+        -- Ensures the room type belongs to the same property
+        FOREIGN KEY (property_id, booked_room_type_id)
+            REFERENCES inventory.room_types (property_id, id) ON DELETE SET NULL,
+
+        -- Ensures the room belongs to the same property
+        FOREIGN KEY (property_id, assigned_room_id)
+            REFERENCES inventory.rooms (property_id, id) ON DELETE SET NULL,
+
+        -- Ensures the rate plan belongs to the same property
+        FOREIGN KEY (property_id, rate_plan_id)
+            REFERENCES pricing.rate_plans (property_id, id) ON DELETE SET NULL
+
     );
 
 CREATE INDEX idx_reservation_items_reservation ON operations.reservation_items (reservation_id);
@@ -139,6 +156,10 @@ CREATE INDEX idx_reservation_items_booked_room_type ON operations.reservation_it
 CREATE INDEX idx_reservation_items_rate_plan ON operations.reservation_items (rate_plan_id);
 CREATE INDEX idx_reservation_items_status ON operations.reservation_items (status);
 CREATE INDEX idx_reservation_items_stay_period ON operations.reservation_items USING GIST (stay_period);
+
+CREATE TRIGGER trg_check_room_occupancy
+    BEFORE INSERT OR UPDATE ON operations.reservation_items
+    FOR EACH ROW EXECUTE FUNCTION operations.fn_validate_room_occupancy();
 
 CREATE TABLE IF NOT EXISTS
     relations.reservation_item_guests (

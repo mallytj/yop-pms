@@ -104,6 +104,37 @@ END;
 $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
 
+-- Function for checking the occupanncy bounds are valid
+-- +goose StatementBegin
+CREATE OR REPLACE FUNCTION operations.fn_validate_room_occupancy()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_min_occ INT;
+    v_max_occ INT;
+BEGIN
+    -- Look up the occupancy rules for the specific room type
+    SELECT min_occupancy, max_occupancy 
+    INTO v_min_occ, v_max_occ
+    FROM inventory.room_types 
+    WHERE id = NEW.booked_room_type_id;
+
+    -- Check Max
+    IF (NEW.adults_count + NEW.children_count) > v_max_occ THEN
+        RAISE EXCEPTION 'Total occupancy (%) exceeds room type maximum (%)', 
+            (NEW.adults_count + NEW.children_count), v_max_occ;
+    END IF;
+
+    -- Check Min
+    IF (NEW.adults_count + NEW.children_count) < v_min_occ THEN
+        RAISE EXCEPTION 'Total occupancy (%) is below room type minimum (%)', 
+            (NEW.adults_count + NEW.children_count), v_min_occ;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+-- +goose StatementEnd
+
 
 -- +goose Down
 DROP FUNCTION IF EXISTS operations.check_licence_is_active();

@@ -791,3 +791,96 @@ type TestReservation struct {
 	Notes          string
 	Status         string
 }
+
+// GenerateTestReservation creates a test reservation for the given property and primary guest.
+// If propertyID is uuid.Nil a new property is created automatically.
+// If primaryGuestID is uuid.Nil a new guest is created automatically under the property.
+func GenerateTestReservation(t *testing.T, ctx context.Context, propertyID, primaryGuestID uuid.UUID) *TestReservation {
+	if propertyID == uuid.Nil {
+		propertyID = GenerateTestProperty(t, ctx).ID
+	}
+	if primaryGuestID == uuid.Nil {
+		primaryGuestID = GenerateTestGuest(t, ctx, propertyID).ID
+	}
+
+	reservation := TestReservation{
+		PropertyID:     propertyID,
+		PrimaryGuestID: primaryGuestID,
+		Source:         "website",
+		Notes:          "Test reservation notes",
+		Status:         "confirmed",
+	}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO operations.reservations (property_id, primary_guest_id, source, notes, status)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id, sequential`,
+		reservation.PropertyID,
+		reservation.PrimaryGuestID,
+		reservation.Source,
+		reservation.Notes,
+		reservation.Status,
+	).Scan(&reservation.ID, &reservation.Sequential)
+	assert.NoError(t, err)
+
+	return &reservation
+}
+
+type TestReservationItem struct {
+	ID               uuid.UUID
+	PropertyID       uuid.UUID
+	ReservationID    uuid.UUID
+	BookedRoomTypeID uuid.UUID
+	AssignedRoomID   *uuid.UUID
+	RatePlanID       uuid.UUID
+	StayPeriod       pgtype.Range[pgtype.Timestamptz]
+	BaseRatePence    int
+	AdultsCount      int
+	ChildrenCount    int
+	Status           string
+}
+
+// GenerateTestReservationItem creates a test reservation item for the given reservation.
+func GenerateTestReservationItem(t *testing.T, ctx context.Context, reservationID uuid.UUID) *TestReservationItem {
+	reservationItem := &TestReservationItem{}
+
+	// Create dependent entities
+	roomType := GenerateTestRoomType(t, ctx, uuid.Nil)
+	ratePlan := GenerateTestRatePlan(t, ctx, roomType.PropertyID)
+
+	// Define stay period
+	checkIn := time.Now().AddDate(0, 0, 7) // 7 days from now
+	checkOut := checkIn.AddDate(0, 0, 3)   // 3 nights stay
+	stayPeriod := *hf.ToPgTstzRange(checkIn, checkOut)
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO operations.reservation_items (property_id, reservation_id, booked_room_type_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status)
+			VALUES ($1, $2, $3, tstzrange($4, $5), $6, $7, $8, $9, $10)
+			RETURNING id, property_id, reservation_id, booked_room_type_id, assigned_room_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status`,
+		roomType.PropertyID,
+		reservationID,
+		roomType.ID,
+		ratePlan.ID,
+		stayPeriod.Lower,
+		stayPeriod.Upper,
+		15000, // £150.00
+		2,
+		0,
+		"confirmed",
+	).Scan(
+		&reservationItem.ID,
+		&reservationItem.PropertyID,
+		&reservationItem.ReservationID,
+		&reservationItem.BookedRoomTypeID,
+		&reservationItem.AssignedRoomID,
+		&reservationItem.RatePlanID,
+		&reservationItem.StayPeriod,
+		&reservationItem.BaseRatePence,
+		&reservationItem.AdultsCount,
+		&reservationItem.ChildrenCount,
+		&reservationItem.Status,
+	)
+	assert.NoError(t, err)
+
+	return reservationItem
+}

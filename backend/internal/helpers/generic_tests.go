@@ -79,3 +79,32 @@ func RunFKExistenceTests(t *testing.T, ctx context.Context, db *pgxpool.Pool, qu
 		})
 	}
 }
+
+// TODO implement in tests, but not necessary yet
+// Do when more time is available
+
+// PropertyConsistencyTest describes a test that modifies one of the foreign key
+// parameters to reference an entity from a different property, expecting a
+// foreign key violation due to property mismatch.
+type PropertyConsistencyTest struct {
+	Name   string
+	Modify func(params []interface{})
+}
+
+func RunPropertyConsistencyTests(t *testing.T, ctx context.Context, db *pgxpool.Pool, query string, baseParams []interface{}, tests []PropertyConsistencyTest) {
+	for _, tc := range tests {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			params := make([]interface{}, len(baseParams))
+			copy(params, baseParams)
+
+			tc.Modify(params)
+
+			_, err := db.Exec(ctx, query, params...)
+
+			assert.True(t, CheckErrorCode(err, ForeignKeyViolationCode),
+				"Expected foreign key violation error due to property mismatch, got: %v", err)
+		})
+	}
+}

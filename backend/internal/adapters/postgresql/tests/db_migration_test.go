@@ -127,6 +127,7 @@ func TestInitMigration(t *testing.T) {
 			{"sales_ledgers.accounts", "TC-SLACC-01"},
 			{"operations.reservation_groups", "TC-RGRP-01"},
 			{"operations.reservations", "TC-RESV-01"},
+			{"operations.reservation_items", "TC-RESI-01"},
 		}
 
 		for _, tt := range tableTests {
@@ -206,6 +207,12 @@ func TestInitMigration(t *testing.T) {
 			{"idx_reservations_travel_agent", "TC-RESV-14"},
 			{"idx_reservations_status", "TC-RESV-15"},
 			{"idx_reservations_source", "TC-RESV-16"},
+			{"idx_reservation_items_reservation", "TC-RESI-21"},
+			{"idx_reservation_items_assigned_room", "TC-RESI-22"},
+			{"idx_reservation_items_booked_room_type", "TC-RESI-23"},
+			{"idx_reservation_items_rate_plan", "TC-RESI-24"},
+			{"idx_reservation_items_status", "TC-RESI-25"},
+			{"idx_reservation_items_stay_period", "TC-RESI-26"},
 		}
 
 		for _, it := range indexTests {
@@ -231,6 +238,7 @@ func TestInitMigration(t *testing.T) {
 		t.Parallel()
 		functionTests := []ExistenceTest{
 			{"operations.check_licence_is_active", "TC-PROP-06"},
+			{"operations.fn_validate_room_occupancy", "TC-RESI-31"},
 		}
 
 		for _, ft := range functionTests {
