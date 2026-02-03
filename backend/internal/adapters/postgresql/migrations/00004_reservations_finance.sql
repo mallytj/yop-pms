@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS
         ) STORED, -- e.g., RES-000123
         source operations.reservation_source NOT NULL DEFAULT 'internal',
         travel_agent_id UUID REFERENCES identity.travel_agents (id) ON DELETE SET NULL,
-        notes TEXT,
+        notes TEXT CHECK (char_length(notes) <= 2500),
         status operations.reservation_status NOT NULL DEFAULT 'hold',
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -101,11 +101,11 @@ CREATE TABLE IF NOT EXISTS
     );
 
 CREATE INDEX idx_reservations_property ON operations.reservations (property_id);
-CREATE INDEX idx_reservations_primary_guest ON operations.reservations (primary_guest_id);
-CREATE INDEX idx_reservations_group ON operations.reservations (group_id);
-CREATE INDEX idx_reservations_travel_agent ON operations.reservations (travel_agent_id);
-CREATE INDEX idx_reservations_status ON operations.reservations (status);
-CREATE INDEX idx_reservations_source ON operations.reservations (source);
+CREATE INDEX idx_reservations_primary_guest ON operations.reservations (property_id, primary_guest_id);
+CREATE INDEX idx_reservations_group ON operations.reservations (property_id, group_id);
+CREATE INDEX idx_reservations_travel_agent ON operations.reservations (property_id, travel_agent_id);
+CREATE INDEX idx_reservations_status ON operations.reservations (property_id, status);
+CREATE INDEX idx_reservations_source ON operations.reservations (property_id, source);
 
 
 

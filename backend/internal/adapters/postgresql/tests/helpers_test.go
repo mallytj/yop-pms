@@ -767,7 +767,7 @@ func GenerateTestReservationGroup(t *testing.T, ctx context.Context, propertyID 
 	}
 
 	err := testDB.QueryRow(ctx,
-		`INSERT INTO operations.reservation_groups (property_id name, notes)
+		`INSERT INTO operations.reservation_groups (property_id, name, notes)
 			VALUES ($1, $2, $3)
 			RETURNING id, sequential`,
 		group.PropertyID,
@@ -777,4 +777,17 @@ func GenerateTestReservationGroup(t *testing.T, ctx context.Context, propertyID 
 	assert.NoError(t, err)
 
 	return &group
+}
+
+type TestReservation struct {
+	ID             uuid.UUID
+	PropertyID     uuid.UUID
+	PrimaryGuestID uuid.UUID
+	GroupID        *uuid.UUID
+	Sequential     int
+	Code           string
+	Source         string
+	TravelAgentID  *uuid.UUID
+	Notes          string
+	Status         string
 }
