@@ -1,0 +1,142 @@
+package helpers
+
+import (
+	"context"
+	"fmt"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stretchr/testify/assert"
+)
+
+type ConstraintTest struct {
+	Name        string
+	Field       string
+	Value       interface{}
+	ExpectedErr string // e.g., hf.CheckViolationCode
+	FieldIndex  int    // Index of the field in the parameter list
+}
+
+func RunConstraintTests(t *testing.T, ctx context.Context, db *pgxpool.Pool, query string, baseParams []interface{}, cases []ConstraintTest) {
+	for _, tc := range cases {
+		tc := tc // capture range variable
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			testParams := make([]interface{}, len(baseParams))
+			copy(testParams, baseParams)
+
+			testParams[tc.FieldIndex] = tc.Value
+
+			_, err := db.Exec(ctx, query, testParams...)
+
+			assert.True(t, CheckErrorCode(err, tc.ExpectedErr),
+				"Expected error code %s for field %s, but got: %v", tc.ExpectedErr, tc.Field, err)
+		})
+	}
+}
+
+// FKExistenceTest describes a single foreign-key existence check.
+// FakeID is the index in baseParams that holds the FK column to override.
+// RealID is the valid parent ID that should be substituted for the "pass" case.
+type FKExistenceTest struct {
+	Name       string
+	FakeIDIdx  int       // index in baseParams to replace with a non-existent UUID
+	RealID     uuid.UUID // valid parent ID for the success case
+	BaseParams []interface{}
+}
+
+// RunFKExistenceTests runs the standard two-part FK check for each case:
+//  1. Insert with a random (non-existent) UUID at FakeIDIdx → expects ForeignKeyViolationCode.
+//  2. Insert with RealID at the same index → expects success.
+func RunFKExistenceTests(t *testing.T, ctx context.Context, db *pgxpool.Pool, query string, cases []FKExistenceTest) {
+	// Preliminary deletion to avoid unique constraint violations
+	_, err := db.Exec(ctx, "DELETE FROM "+ExtractTableNameFromInsertQuery(query))
+	if err != nil {
+		t.Fatalf("Failed to clean up database before FK tests: %v", err)
+	}
+	for _, tc := range cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			t.Run("Fail when parent does not exist", func(t *testing.T) {
+				// Can not be ran in parallel, due to unique constraints
+
+				params := make([]interface{}, len(tc.BaseParams))
+				copy(params, tc.BaseParams)
+				params[tc.FakeIDIdx] = uuid.New()
+
+				_, err := db.Exec(ctx, query, params...)
+				assert.True(t, CheckErrorCode(err, ForeignKeyViolationCode),
+					"Expected foreign key violation error, got: %v", err)
+			})
+
+			t.Run("Pass when parent exists", func(t *testing.T) {
+				// Can not be ran in parallel, due to unique constraints
+
+				params := make([]interface{}, len(tc.BaseParams))
+				copy(params, tc.BaseParams)
+				params[tc.FakeIDIdx] = tc.RealID
+
+				_, err := db.Exec(ctx, query, params...)
+				assert.NoError(t, err, "Expected no error with valid parent ID, got: %v", err)
+			})
+
+			t.Cleanup(func() {
+				// Delete all data in any table
+				// to avoid unique constraint violations in subsequent tests
+				_, err := db.Exec(ctx, "DELETE FROM "+ExtractTableNameFromInsertQuery(query))
+				if err != nil {
+					t.Fatalf("Failed to clean up database: %v", err)
+				}
+			})
+		})
+	}
+}
+
+// ExtractTableNameFromInsertQuery extracts the table name from a simple INSERT INTO query.
+func ExtractTableNameFromInsertQuery(query string) string {
+	// This is a very naive implementation and assumes the query is well-formed.
+	var tableName string
+	_, err := fmt.Sscanf(query, "INSERT INTO %s", &tableName)
+	if err != nil {
+		return ""
+	}
+	// Remove any trailing characters like '('
+	for i, char := range tableName {
+		if char == '(' {
+			return tableName[:i]
+		}
+	}
+	return tableName
+}
+
+// TODO implement in tests, but not necessary yet
+// Do when more time is available
+
+// PropertyConsistencyTest describes a test that modifies one of the foreign key
+// parameters to reference an entity from a different property, expecting a
+// foreign key violation due to property mismatch.
+type PropertyConsistencyTest struct {
+	Name   string
+	Modify func(params []interface{})
+}
+
+func RunPropertyConsistencyTests(t *testing.T, ctx context.Context, db *pgxpool.Pool, query string, baseParams []interface{}, tests []PropertyConsistencyTest) {
+	for _, tc := range tests {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			params := make([]interface{}, len(baseParams))
+			copy(params, baseParams)
+
+			tc.Modify(params)
+
+			_, err := db.Exec(ctx, query, params...)
+
+			assert.True(t, CheckErrorCode(err, ForeignKeyViolationCode),
+				"Expected foreign key violation error due to property mismatch, got: %v", err)
+		})
+	}
+}

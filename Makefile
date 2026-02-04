@@ -1,4 +1,4 @@
-.PHONY: help setup db-up db-down db-reset build-backend build-frontend build test-backend test-frontend test run-backend run-frontend clean
+.PHONY: help setup db-up db-down db-reset build-backend build-frontend build test-backend test-frontend test run-backend run-frontend clean build-model
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'

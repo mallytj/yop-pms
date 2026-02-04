@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
+	"time"
 
 	"regexp"
 	"unicode/utf8"
@@ -12,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -105,6 +108,21 @@ func ToPgBoolPtr(b bool) *pgtype.Bool {
 	return &pgBool
 }
 
+// ToPgTstzRange converts a start date and end date to a pgtype.Tstzrange pointer.
+// Example usage: ToPgTstzRange(startTime, endTime)
+// returns &pgtype.Tstzrange{Lower: startTime, Upper: endTime, Valid: true}
+func ToPgTstzRange(start, end time.Time) *pgtype.Range[pgtype.Timestamptz] {
+	pgRange := pgtype.Range[pgtype.Timestamptz]{
+			Lower: pgtype.Timestamptz{Time: start, Valid: true},
+			Upper: pgtype.Timestamptz{Time: end, Valid: true},
+			Valid: true,
+			LowerType: pgtype.Inclusive,
+			UpperType: pgtype.Exclusive,
+		}
+
+	return &pgRange
+}
+
 // ExtractAndParseUUIDParam extracts a parameter from the URL and parses it as a UUID.
 // Returns the parsed UUID or an error if extraction or parsing fails.
 // Example usage: ExtractAndParseUUIDParam(r, "userID") => uuid.UUID, nil
@@ -131,4 +149,69 @@ func ExtractAndParseUUIDParam(r *http.Request, param string) (uuid.UUID, error) 
 // Returns true if the parameter is provided, false otherwise.
 func ParamIsProvided(param *string) bool {
 	return param != nil && *param != ""
+}
+
+// Lpad pads the input string s with the padStr character on the left until it reaches the overallLength.
+// If s is already longer than or equal to overallLength, it returns s unchanged.
+func Lpad(s, padStr string, overallLength int) string {
+	if len(s) >= overallLength {
+		return s
+	}
+	padLength := overallLength - len(s)
+	buffer := make([]rune, padLength)
+	for i := 0; i < padLength; i++ {
+		buffer[i] = rune(padStr[0]) // Assuming padStr is a single character
+	}
+	return string(buffer) + s
+}
+
+// hashPassword hashes the provided password using bcrypt.
+// Returns the hashed password as a string or an error if hashing fails.
+// Example usage: hashPassword("mysecretpassword") => "$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36Z1Z6Fh5j6K5j6K5j6K5j6"
+func HashPassword(password string) (string, error) {
+	// Generate the bcrypt hash of the password
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+
+	// Handle potential error during hashing
+	if err != nil {
+		return "", err
+	}
+
+	// Convert hashed bytes to string
+	hashedPassword := string(hashedBytes)
+
+	// Return the hashed password
+	return hashedPassword, nil
+}
+
+// StructToSlice converts a struct into a slice of its field values, excluding
+// any field named "ID".
+func StructToSlice(s interface{}) []interface{} {
+	v := reflect.ValueOf(s)
+
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	values := make([]interface{}, 0, v.NumField())
+
+	for i := 0; i < v.NumField(); i++ {
+		if v.Type().Field(i).Name == "ID" {
+			continue
+		}
+		values = append(values, v.Field(i).Interface())
+	}
+
+	return values
+}
+
+// MatchRegex checks if the input string matches the provided regex pattern.
+// Returns true if it matches, false otherwise.
+// Example usage: MatchRegex("^GRP-\\d{5}$", "GRP-12345") => true
+func MatchRegex(pattern, input string) (bool, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return false, err
+	}
+	return re.MatchString(input), nil
 }

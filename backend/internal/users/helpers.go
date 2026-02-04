@@ -196,7 +196,7 @@ func validateUpdateUserParams(params *updateUserParams) error {
 // hashPassword hashes the provided password using bcrypt.
 // Returns the hashed password as a string or an error if hashing fails.
 // Example usage: hashPassword("mysecretpassword") => "$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36Z1Z6Fh5j6K5j6K5j6K5j6"
-func hashPassword(password string) (string, error) {
+func HashPassword(password string) (string, error) {
 	// Generate the bcrypt hash of the password
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
