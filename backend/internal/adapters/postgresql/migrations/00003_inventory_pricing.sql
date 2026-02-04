@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS
         ),
         contact_email TEXT,
         contact_phone TEXT,
-        billing_address TEXT CHECK (char_length(billing_address)<=200),
+        billing_address TEXT CHECK (char_length(billing_address)<=300),
         company_notes TEXT CHECK (char_length(company_notes)<=1500),
         has_credit_facility BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT NOW(),
