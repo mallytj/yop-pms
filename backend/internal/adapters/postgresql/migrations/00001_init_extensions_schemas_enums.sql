@@ -135,9 +135,38 @@ END;
 $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
 
+-- Function for calculating final price from base price and adjustment
+-- +goose StatementBegin
+CREATE OR REPLACE FUNCTION pricing.fn_calculate_final_price() 
+RETURNS TRIGGER AS $$
+DECLARE 
+    v_final_price INT;
+BEGIN
+    IF NEW.adjustment IS NULL OR NEW.adjustment = '{}' THEN
+        v_final_price := NEW.base_price_pence;
+    ELSIF NEW.adjustment->>'type' = 'percentage' THEN
+        v_final_price := NEW.base_price_pence + (
+            (NEW.base_price_pence * (NEW.adjustment->>'value')::INT) / 100
+        )::INT;
+    ELSIF NEW.adjustment->>'type' = 'fixed' THEN
+        v_final_price := NEW.base_price_pence + (NEW.adjustment->>'value')::INT;
+    ELSE
+        v_final_price := NEW.base_price_pence;
+    END IF;
+    IF v_final_price < 0 THEN
+        NEW.final_price_pence := 0;
+        RAISE EXCEPTION 'Final price cannot be negative';
+    END IF;
+    NEW.final_price_pence := v_final_price;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 -- +goose Down
 DROP FUNCTION IF EXISTS operations.check_licence_is_active();
+DROP FUNCTION IF EXISTS operations.fn_validate_room_occupancy();
+DROP FUNCTION IF EXISTS pricing.fn_calculate_final_price(INT, JSONB);
 DROP SCHEMA IF EXISTS relations CASCADE;
 DROP SCHEMA IF EXISTS inventory CASCADE;
 DROP SCHEMA IF EXISTS pricing CASCADE;

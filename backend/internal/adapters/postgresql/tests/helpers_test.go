@@ -487,7 +487,7 @@ func GenerateTestRatePlan(t *testing.T, ctx context.Context, propertyID uuid.UUI
 	ratePlan := TestRatePlan{
 		PropertyID:       propertyID,
 		Name:             "Rate Plan " + uuid.New().String()[:8],
-		Code:             "RP" + uuid.New().String()[:1],
+		Code:             "RP" + uuid.New().String()[:3],
 		Description:      "Test rate plan description",
 		IsActive:         true,
 		CurrencyCode:     "GBP",
@@ -840,13 +840,106 @@ type TestReservationItem struct {
 	Status           string
 }
 
+type TestBookedDailyRate struct {
+	ID                        uuid.UUID
+	ReservationItemID         uuid.UUID
+	CalendarDate              string
+	RatePlanID                uuid.UUID
+	BasePricePence            int
+	Adjustment                *string // JSONB as string
+	AdjustmentApproved        bool
+	AdjustmentApprovedByUserID *uuid.UUID
+	FinalPricePence           int
+}
+
+type TestFolio struct {
+	ID            uuid.UUID
+	PropertyID    uuid.UUID
+	ReservationID *uuid.UUID
+	SalesLedgerID *uuid.UUID
+	FolioPart     string
+	BalancePence  int
+}
+
+type TestFolioTransaction struct {
+	ID                uuid.UUID
+	FolioID           uuid.UUID
+	LedgerCodeID      *uuid.UUID
+	Description       string
+	NetUnitPricePence int
+	Quantity          int
+	TaxRuleID         *uuid.UUID
+	TotalNetPricePence int
+	TaxRateSnapshot   float64
+	TaxAmountPence    int
+	GrossAmountPence  int
+	PostedAt          *time.Time
+	PostedByUserID    *uuid.UUID
+	Status            string
+}
+
+type TestInvoice struct {
+	ID               uuid.UUID
+	PropertyID       uuid.UUID
+	FolioID          *uuid.UUID
+	PropertyCode     string
+	FiscalYear       int
+	FiscalSequential int
+	InvoiceNumber    string
+	BillingAddress   string
+	IsProForma       bool
+	IssueDate        time.Time
+	DueDate          time.Time
+}
+
+type TestSLTransaction struct {
+	ID              uuid.UUID
+	LedgerAccountID uuid.UUID
+	SourceInvoiceID *uuid.UUID
+	AmountPence     int
+	DueDate         time.Time
+	IsFullyPaid     bool
+	PostedAt        time.Time
+	PostedByUserID  uuid.UUID
+	Type            string
+}
+
+type TestCheckoutSession struct {
+	ID              uuid.UUID
+	PropertyID      uuid.UUID
+	ReservationID   uuid.UUID
+	PaymentIntentID string
+	ExpiresAt       time.Time
+	Status          string
+	IdempotencyKey  *string
+}
+
+type TestRoomInventoryLedger struct {
+	ID                uuid.UUID
+	RoomID            uuid.UUID
+	ReservationID     *uuid.UUID
+	CheckoutSessionID *uuid.UUID
+	CalendarDate      string
+	Status            string
+}
+
+type TestHousekeepingLog struct {
+	ID         uuid.UUID
+	PropertyID uuid.UUID
+	UserID     *uuid.UUID
+	RoomID     uuid.UUID
+	StatusTo   string
+	StatusFrom string
+	Notes      string
+}
+
 // GenerateTestReservationItem creates a test reservation item for the given reservation.
-func GenerateTestReservationItem(t *testing.T, ctx context.Context, reservationID uuid.UUID) *TestReservationItem {
+func GenerateTestReservationItem(t *testing.T, ctx context.Context, reservationID uuid.UUID, propertyID uuid.UUID) *TestReservationItem {
 	reservationItem := &TestReservationItem{}
 
 	// Create dependent entities
-	roomType := GenerateTestRoomType(t, ctx, uuid.Nil)
-	ratePlan := GenerateTestRatePlan(t, ctx, roomType.PropertyID)
+	roomType := GenerateTestRoomType(t, ctx, propertyID)
+	ratePlan := GenerateTestRatePlan(t, ctx, propertyID)
 
 	// Define stay period
 	checkIn := time.Now().AddDate(0, 0, 7) // 7 days from now
@@ -855,18 +948,17 @@ func GenerateTestReservationItem(t *testing.T, ctx context.Context, reservationI
 
 	err := testDB.QueryRow(ctx,
 		`INSERT INTO operations.reservation_items (property_id, reservation_id, booked_room_type_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status)
-			VALUES ($1, $2, $3, tstzrange($4, $5), $6, $7, $8, $9, $10)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING id, property_id, reservation_id, booked_room_type_id, assigned_room_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status`,
-		roomType.PropertyID,
+		propertyID,
 		reservationID,
 		roomType.ID,
 		ratePlan.ID,
-		stayPeriod.Lower,
-		stayPeriod.Upper,
+		stayPeriod,
 		15000, // £150.00
 		2,
 		0,
-		"confirmed",
+		"booked",
 	).Scan(
 		&reservationItem.ID,
 		&reservationItem.PropertyID,
@@ -883,4 +975,309 @@ func GenerateTestReservationItem(t *testing.T, ctx context.Context, reservationI
 	assert.NoError(t, err)
 
 	return reservationItem
+}
+
+// GenerateTestBookedDailyRate creates a test booked daily rate for the given reservation item.
+// If reservationItemID is uuid.Nil a new reservation item is created automatically.
+// If ratePlanID is uuid.Nil a new rate plan is created automatically.
+func GenerateTestBookedDailyRate(t *testing.T, ctx context.Context, reservationItemID, ratePlanID uuid.UUID, calendarDate string) *TestBookedDailyRate {
+	var propertyID uuid.UUID
+
+	if reservationItemID == uuid.Nil {
+		property := GenerateTestProperty(t, ctx)
+		propertyID = property.ID
+		reservation := GenerateTestReservation(t, ctx, propertyID, uuid.Nil)
+		item := GenerateTestReservationItem(t, ctx, reservation.ID, propertyID)
+		reservationItemID = item.ID
+	}
+
+	if ratePlanID == uuid.Nil {
+		if propertyID == uuid.Nil {
+			propertyID = GenerateTestProperty(t, ctx).ID
+		}
+		ratePlanID = GenerateTestRatePlan(t, ctx, propertyID).ID
+	}
+
+	rate := &TestBookedDailyRate{}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO pricing.booked_daily_rates (reservation_item_id, calendar_date, rate_plan_id, base_price_pence)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id, reservation_item_id, calendar_date, rate_plan_id, base_price_pence, adjustment_approved, final_price_pence`,
+		reservationItemID,
+		calendarDate,
+		ratePlanID,
+		10000, // £100.00
+	).Scan(
+		&rate.ID,
+		&rate.ReservationItemID,
+		&rate.CalendarDate,
+		&rate.RatePlanID,
+		&rate.BasePricePence,
+		&rate.AdjustmentApproved,
+		&rate.FinalPricePence,
+	)
+	assert.NoError(t, err)
+
+	return rate
+}
+
+// GenerateTestFolio creates a test folio for the given property.
+// If propertyID is uuid.Nil a new property is created automatically.
+func GenerateTestFolio(t *testing.T, ctx context.Context, propertyID uuid.UUID) *TestFolio {
+	if propertyID == uuid.Nil {
+		propertyID = GenerateTestProperty(t, ctx).ID
+	}
+
+	folio := &TestFolio{}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO finance.folios (property_id, folio_part, balance_pence)
+			VALUES ($1, $2, $3)
+			RETURNING id, property_id, reservation_id, sales_ledger_id, folio_part, balance_pence`,
+		propertyID,
+		"A",
+		0,
+	).Scan(
+		&folio.ID,
+		&folio.PropertyID,
+		&folio.ReservationID,
+		&folio.SalesLedgerID,
+		&folio.FolioPart,
+		&folio.BalancePence,
+	)
+	assert.NoError(t, err)
+
+	return folio
+}
+
+// GenerateTestFolioTransaction creates a test folio transaction for the given folio.
+// If folioID is uuid.Nil a new folio is created automatically.
+func GenerateTestFolioTransaction(t *testing.T, ctx context.Context, folioID uuid.UUID, taxRateSnapshot float64) *TestFolioTransaction {
+	var propertyID uuid.UUID
+
+	if folioID == uuid.Nil {
+		property := GenerateTestProperty(t, ctx)
+		propertyID = property.ID
+		folio := GenerateTestFolio(t, ctx, propertyID)
+		folioID = folio.ID
+	}
+
+	tx := &TestFolioTransaction{}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO finance.folio_transactions (folio_id, description, net_unit_price_pence, quantity, tax_rate_snapshot, status)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id, folio_id, ledger_code_id, description, net_unit_price_pence, quantity, tax_rule_id,
+			          total_net_price_pence, tax_rate_snapshot, tax_amount_pence, gross_amount_pence, posted_at, posted_by_user_id, status`,
+		folioID,
+		"Test transaction",
+		5000, // £50.00
+		1,
+		taxRateSnapshot,
+		"pending",
+	).Scan(
+		&tx.ID,
+		&tx.FolioID,
+		&tx.LedgerCodeID,
+		&tx.Description,
+		&tx.NetUnitPricePence,
+		&tx.Quantity,
+		&tx.TaxRuleID,
+		&tx.TotalNetPricePence,
+		&tx.TaxRateSnapshot,
+		&tx.TaxAmountPence,
+		&tx.GrossAmountPence,
+		&tx.PostedAt,
+		&tx.PostedByUserID,
+		&tx.Status,
+	)
+	assert.NoError(t, err)
+
+	return tx
+}
+
+// GenerateTestInvoice creates a test invoice for the given property.
+// If propertyID is uuid.Nil a new property is created automatically.
+func GenerateTestInvoice(t *testing.T, ctx context.Context, propertyID uuid.UUID) *TestInvoice {
+	if propertyID == uuid.Nil {
+		propertyID = GenerateTestProperty(t, ctx).ID
+	}
+
+	invoice := &TestInvoice{}
+
+	// Generate a unique fiscal sequential number
+	fiscalSeq := rand.Intn(999999) + 1
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO finance.invoices (property_id, property_code, fiscal_year, fiscal_sequential, billing_address)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id, property_id, folio_id, property_code, fiscal_year, fiscal_sequential, invoice_number, billing_address, is_pro_forma, issue_date, due_date`,
+		propertyID,
+		"RES",
+		2024,
+		fiscalSeq,
+		"123 Test Street, Test City, TC1 2AB",
+	).Scan(
+		&invoice.ID,
+		&invoice.PropertyID,
+		&invoice.FolioID,
+		&invoice.PropertyCode,
+		&invoice.FiscalYear,
+		&invoice.FiscalSequential,
+		&invoice.InvoiceNumber,
+		&invoice.BillingAddress,
+		&invoice.IsProForma,
+		&invoice.IssueDate,
+		&invoice.DueDate,
+	)
+	assert.NoError(t, err)
+
+	return invoice
+}
+
+// GenerateTestSLTransaction creates a test sales ledger transaction.
+// If ledgerAccountID is uuid.Nil a new ledger account is created automatically.
+// If postedByUserID is uuid.Nil a new user is created automatically.
+func GenerateTestSLTransaction(t *testing.T, ctx context.Context, ledgerAccountID, postedByUserID uuid.UUID) *TestSLTransaction {
+	if ledgerAccountID == uuid.Nil {
+		account := GenerateTestSLAccount(t, ctx, uuid.Nil, uuid.Nil)
+		ledgerAccountID = account.ID
+	}
+	if postedByUserID == uuid.Nil {
+		user := GenerateTestUser(t, ctx)
+		postedByUserID = user.ID
+	}
+
+	tx := &TestSLTransaction{}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO sales_ledgers.transactions (ledger_account_id, amount_pence, posted_by_user_id, type)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id, ledger_account_id, source_invoice_id, amount_pence, due_date, is_fully_paid, posted_at, posted_by_user_id, type`,
+		ledgerAccountID,
+		10000, // £100.00
+		postedByUserID,
+		"charge",
+	).Scan(
+		&tx.ID,
+		&tx.LedgerAccountID,
+		&tx.SourceInvoiceID,
+		&tx.AmountPence,
+		&tx.DueDate,
+		&tx.IsFullyPaid,
+		&tx.PostedAt,
+		&tx.PostedByUserID,
+		&tx.Type,
+	)
+	assert.NoError(t, err)
+
+	return tx
+}
+
+// GenerateTestCheckoutSession creates a test checkout session.
+// If propertyID is uuid.Nil a new property is created automatically.
+// If reservationID is uuid.Nil a new reservation is created automatically.
+func GenerateTestCheckoutSession(t *testing.T, ctx context.Context, propertyID, reservationID uuid.UUID) *TestCheckoutSession {
+	if propertyID == uuid.Nil {
+		property := GenerateTestProperty(t, ctx)
+		propertyID = property.ID
+	}
+	if reservationID == uuid.Nil {
+		reservation := GenerateTestReservation(t, ctx, propertyID, uuid.Nil)
+		reservationID = reservation.ID
+	}
+
+	session := &TestCheckoutSession{}
+	paymentIntentID := "pi_" + uuid.New().String()[:24]
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO operations.checkout_sessions (property_id, reservation_id, payment_intent_id, status)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id, property_id, reservation_id, payment_intent_id, expires_at, status, idempotency_key`,
+		propertyID,
+		reservationID,
+		paymentIntentID,
+		"pending",
+	).Scan(
+		&session.ID,
+		&session.PropertyID,
+		&session.ReservationID,
+		&session.PaymentIntentID,
+		&session.ExpiresAt,
+		&session.Status,
+		&session.IdempotencyKey,
+	)
+	assert.NoError(t, err)
+
+	return session
+}
+
+// GenerateTestRoomInventoryLedger creates a test room inventory ledger entry.
+// If roomID is uuid.Nil a new room is created automatically.
+func GenerateTestRoomInventoryLedger(t *testing.T, ctx context.Context, roomID uuid.UUID, calendarDate string, status string, reservationID, checkoutSessionID *uuid.UUID) *TestRoomInventoryLedger {
+	if roomID == uuid.Nil {
+		room := GenerateTestRoom(t, ctx, uuid.Nil, uuid.Nil)
+		roomID = room.ID
+	}
+
+	entry := &TestRoomInventoryLedger{}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO inventory.room_inventory_ledger (room_id, reservation_id, checkout_session_id, calendar_date, status)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING id, room_id, reservation_id, checkout_session_id, calendar_date, status`,
+		roomID,
+		reservationID,
+		checkoutSessionID,
+		calendarDate,
+		status,
+	).Scan(
+		&entry.ID,
+		&entry.RoomID,
+		&entry.ReservationID,
+		&entry.CheckoutSessionID,
+		&entry.CalendarDate,
+		&entry.Status,
+	)
+	assert.NoError(t, err)
+
+	return entry
+}
+
+// GenerateTestHousekeepingLog creates a test housekeeping log entry.
+// If propertyID is uuid.Nil a new property is created automatically.
+// If roomID is uuid.Nil a new room is created automatically.
+func GenerateTestHousekeepingLog(t *testing.T, ctx context.Context, propertyID, roomID uuid.UUID) *TestHousekeepingLog {
+	if propertyID == uuid.Nil {
+		property := GenerateTestProperty(t, ctx)
+		propertyID = property.ID
+	}
+	if roomID == uuid.Nil {
+		room := GenerateTestRoom(t, ctx, propertyID, uuid.Nil)
+		roomID = room.ID
+	}
+
+	log := &TestHousekeepingLog{}
+
+	err := testDB.QueryRow(ctx,
+		`INSERT INTO inventory.housekeeping_logs (property_id, room_id, status_from, status_to)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id, property_id, user_id, room_id, status_to, status_from, notes`,
+		propertyID,
+		roomID,
+		"dirty",
+		"clean",
+	).Scan(
+		&log.ID,
+		&log.PropertyID,
+		&log.UserID,
+		&log.RoomID,
+		&log.StatusTo,
+		&log.StatusFrom,
+		&log.Notes,
+	)
+	assert.NoError(t, err)
+
+	return log
 }

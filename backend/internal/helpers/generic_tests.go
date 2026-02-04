@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -50,6 +51,11 @@ type FKExistenceTest struct {
 //  1. Insert with a random (non-existent) UUID at FakeIDIdx → expects ForeignKeyViolationCode.
 //  2. Insert with RealID at the same index → expects success.
 func RunFKExistenceTests(t *testing.T, ctx context.Context, db *pgxpool.Pool, query string, cases []FKExistenceTest) {
+	// Preliminary deletion to avoid unique constraint violations
+	_, err := db.Exec(ctx, "DELETE FROM "+ExtractTableNameFromInsertQuery(query))
+	if err != nil {
+		t.Fatalf("Failed to clean up database before FK tests: %v", err)
+	}
 	for _, tc := range cases {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
@@ -76,8 +82,34 @@ func RunFKExistenceTests(t *testing.T, ctx context.Context, db *pgxpool.Pool, qu
 				_, err := db.Exec(ctx, query, params...)
 				assert.NoError(t, err, "Expected no error with valid parent ID, got: %v", err)
 			})
+
+			t.Cleanup(func() {
+				// Delete all data in any table
+				// to avoid unique constraint violations in subsequent tests
+				_, err := db.Exec(ctx, "DELETE FROM "+ExtractTableNameFromInsertQuery(query))
+				if err != nil {
+					t.Fatalf("Failed to clean up database: %v", err)
+				}
+			})
 		})
 	}
+}
+
+// ExtractTableNameFromInsertQuery extracts the table name from a simple INSERT INTO query.
+func ExtractTableNameFromInsertQuery(query string) string {
+	// This is a very naive implementation and assumes the query is well-formed.
+	var tableName string
+	_, err := fmt.Sscanf(query, "INSERT INTO %s", &tableName)
+	if err != nil {
+		return ""
+	}
+	// Remove any trailing characters like '('
+	for i, char := range tableName {
+		if char == '(' {
+			return tableName[:i]
+		}
+	}
+	return tableName
 }
 
 // TODO implement in tests, but not necessary yet

@@ -146,16 +146,17 @@ CREATE TABLE IF NOT EXISTS
 
         -- Ensures the rate plan belongs to the same property
         FOREIGN KEY (property_id, rate_plan_id)
-            REFERENCES pricing.rate_plans (property_id, id) ON DELETE SET NULL
+            REFERENCES pricing.rate_plans (property_id, id) ON DELETE SET NULL,
 
+        UNIQUE (property_id, id)
     );
 
-CREATE INDEX idx_reservation_items_reservation ON operations.reservation_items (reservation_id);
-CREATE INDEX idx_reservation_items_assigned_room ON operations.reservation_items (assigned_room_id);
-CREATE INDEX idx_reservation_items_booked_room_type ON operations.reservation_items (booked_room_type_id);
-CREATE INDEX idx_reservation_items_rate_plan ON operations.reservation_items (rate_plan_id);
-CREATE INDEX idx_reservation_items_status ON operations.reservation_items (status);
-CREATE INDEX idx_reservation_items_stay_period ON operations.reservation_items USING GIST (stay_period);
+CREATE INDEX idx_reservation_items_reservation ON operations.reservation_items (property_id, reservation_id);
+CREATE INDEX idx_reservation_items_assigned_room ON operations.reservation_items (property_id, assigned_room_id);
+CREATE INDEX idx_reservation_items_booked_room_type ON operations.reservation_items (property_id, booked_room_type_id);
+CREATE INDEX idx_reservation_items_rate_plan ON operations.reservation_items (property_id, rate_plan_id);
+CREATE INDEX idx_reservation_items_status ON operations.reservation_items (property_id, status);
+CREATE INDEX idx_reservation_items_stay_period ON operations.reservation_items USING GIST (property_id, stay_period);
 
 CREATE TRIGGER trg_check_room_occupancy
     BEFORE INSERT OR UPDATE ON operations.reservation_items
@@ -163,18 +164,23 @@ CREATE TRIGGER trg_check_room_occupancy
 
 CREATE TABLE IF NOT EXISTS
     relations.reservation_item_guests (
+        property_id UUID REFERENCES operations.properties (id) ON DELETE CASCADE,
         reservation_item_id UUID REFERENCES operations.reservation_items (id) ON DELETE CASCADE,
         guest_id UUID REFERENCES identity.guests (id) ON DELETE CASCADE,
         role operations.reservation_guest_role NOT NULL DEFAULT 'additional',
         created_at TIMESTAMPTZ DEFAULT now(),
         updated_at TIMESTAMPTZ DEFAULT now(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+        FOREIGN KEY (property_id, reservation_item_id)
+            REFERENCES operations.reservation_items (property_id, id) ON DELETE CASCADE,
+        FOREIGN KEY (property_id, guest_id)
+            REFERENCES identity.guests (property_id, id) ON DELETE CASCADE,
         PRIMARY KEY (reservation_item_id, guest_id)
     );
 
-CREATE INDEX idx_reservation_item_guests_guest ON relations.reservation_item_guests (guest_id);
-CREATE INDEX idx_reservation_item_guests_reservation ON relations.reservation_item_guests (reservation_item_id);
-CREATE INDEX idx_reservation_item_guests_role ON relations.reservation_item_guests (role);
+CREATE INDEX idx_reservation_item_guests_guest ON relations.reservation_item_guests (property_id, guest_id);
+CREATE INDEX idx_reservation_item_guests_reservation_item ON relations.reservation_item_guests (property_id, reservation_item_id);
+CREATE INDEX idx_reservation_item_guests_role ON relations.reservation_item_guests (property_id, role);
 
 -- Create booked daily rates table
 CREATE TABLE IF NOT EXISTS
@@ -183,7 +189,7 @@ CREATE TABLE IF NOT EXISTS
         reservation_item_id UUID REFERENCES operations.reservation_items (id) ON DELETE CASCADE,
         calendar_date DATE NOT NULL,
         rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE SET NULL,
-        base_price_pence INT NOT NULL DEFAULT 0, -- Daily price in pence
+        base_price_pence INT NOT NULL DEFAULT 0 CHECK (base_price_pence >= 0), -- Daily price in pence
         adjustment JSONB CHECK (
             adjustment IS NULL
             OR (
@@ -199,9 +205,9 @@ CREATE TABLE IF NOT EXISTS
         adjustment_approved_by_user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
         final_price_pence INT NOT NULL GENERATED ALWAYS AS (
             CASE
-                WHEN adjustment IS NULL THEN base_price_pence
+                WHEN adjustment IS NULL OR adjustment = '{}' THEN base_price_pence
                 WHEN adjustment->>'type'='percentage' THEN base_price_pence+(
-                    (base_price_pence*(adjustment->>'value')::NUMERIC)/100
+                    (base_price_pence*(adjustment->>'value')::INT)/100
                 )::INT
                 WHEN adjustment->>'type'='fixed' THEN base_price_pence+(adjustment->>'value')::INT
                 ELSE base_price_pence
@@ -212,6 +218,11 @@ CREATE TABLE IF NOT EXISTS
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
         UNIQUE (reservation_item_id, calendar_date)
     );
+
+
+CREATE TRIGGER trg_calculate_final_price
+    BEFORE INSERT OR UPDATE ON pricing.booked_daily_rates
+    FOR EACH ROW EXECUTE FUNCTION pricing.fn_calculate_final_price();
 
 CREATE INDEX idx_booked_daily_rates_calendar_date ON pricing.booked_daily_rates (calendar_date);
 CREATE INDEX idx_booked_daily_rates_reservation_item ON pricing.booked_daily_rates (reservation_item_id);

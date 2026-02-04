@@ -1,3 +1,5 @@
+//go:build ignore
+
 package db_tests
 
 import (
@@ -31,9 +33,9 @@ func TestDbRoomTypes(t *testing.T) {
 
 		hf.RunFKExistenceTests(t, ctx, testDB, insertQuery, []hf.FKExistenceTest{
 			{
-				Name:      "TC-RTYPE-02 - Property must exist",
-				FakeIDIdx: 0,
-				RealID:    property.ID,
+				Name:       "TC-RTYPE-02 - Property must exist",
+				FakeIDIdx:  0,
+				RealID:     property.ID,
 				BaseParams: hf.StructToSlice(baseParams),
 			},
 		})

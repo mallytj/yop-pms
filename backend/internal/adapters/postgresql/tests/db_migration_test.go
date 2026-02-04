@@ -1,3 +1,5 @@
+// go:build !ignore
+
 package db_tests
 
 import (
@@ -79,6 +81,15 @@ func TestInitMigration(t *testing.T) {
 			{"operations.reservation_guest_role", "TC-RESG-04"},
 			{"operations.reservation_item_status", "TC-RESI-19"},
 			{"inventory.maintenance_block_type", "TC-MAINT-05"},
+			// Folio & Finance enums
+			{"finance.folio_part", "TC-FOLIO-05"},
+			{"finance.folio_transaction_status", "TC-FOLTX-16"},
+			// Sales Ledger enums
+			{"sales_ledgers.transaction_type", "TC-SLTX-09"},
+			// Operations enums
+			{"operations.checkout_session_status", "TC-COSES-07"},
+			// Inventory enums
+			{"inventory.inventory_status", "TC-RILE-06"},
 		}
 
 		for _, et := range enumTests {
@@ -128,6 +139,20 @@ func TestInitMigration(t *testing.T) {
 			{"operations.reservation_groups", "TC-RGRP-01"},
 			{"operations.reservations", "TC-RESV-01"},
 			{"operations.reservation_items", "TC-RESI-01"},
+			{"relations.reservation_item_guests", "TC-RESG-01"},
+			// Pricing tables
+			{"pricing.booked_daily_rates", "TC-BDR-01"},
+			// Finance tables
+			{"finance.folios", "TC-FOLIO-01"},
+			{"finance.folio_transactions", "TC-FOLTX-01"},
+			{"finance.invoices", "TC-INVO-01"},
+			// Sales Ledger tables
+			{"sales_ledgers.transactions", "TC-SLTX-01"},
+			// Operations tables
+			{"operations.checkout_sessions", "TC-COSES-01"},
+			// Inventory tables
+			{"inventory.room_inventory_ledger", "TC-RILE-01"},
+			{"inventory.housekeeping_logs", "TC-HSKL-01"},
 		}
 
 		for _, tt := range tableTests {
@@ -213,6 +238,59 @@ func TestInitMigration(t *testing.T) {
 			{"idx_reservation_items_rate_plan", "TC-RESI-24"},
 			{"idx_reservation_items_status", "TC-RESI-25"},
 			{"idx_reservation_items_stay_period", "TC-RESI-26"},
+			{"idx_reservation_item_guests_guest", "TC-RESG-05"},
+			{"idx_reservation_item_guests_reservation_item", "TC-RESG-06"},
+			{"idx_reservation_item_guests_role", "TC-RESG-07"},
+			// Booked Daily Rates indexes
+			{"idx_booked_daily_rates_calendar_date", "TC-BDR-13"},
+			{"idx_booked_daily_rates_reservation_item", "TC-BDR-14"},
+			{"idx_booked_daily_rates_rate_plan", "TC-BDR-15"},
+			{"idx_booked_daily_rates_adjustment_approved", "TC-BDR-16"},
+			{"idx_booked_daily_rates_adjustment_approved_by", "TC-BDR-17"},
+			{"idx_booked_daily_rates_rate_plan_date", "TC-BDR-18"},
+			// Folios indexes
+			{"idx_folios_property", "TC-FOLIO-09"},
+			{"idx_folios_reservation", "TC-FOLIO-10"},
+			{"idx_folios_sales_ledger", "TC-FOLIO-11"},
+			// Folio Transactions indexes
+			{"idx_folio_transactions_folio", "TC-FOLTX-17"},
+			{"idx_folio_transactions_ledger_code", "TC-FOLTX-18"},
+			{"idx_folio_transactions_tax_rule", "TC-FOLTX-19"},
+			{"idx_folio_transactions_posted_by", "TC-FOLTX-20"},
+			{"idx_folio_transactions_status", "TC-FOLTX-21"},
+			// Invoices indexes
+			{"idx_invoices_folio", "TC-INVO-13"},
+			{"idx_invoices_property", "TC-INVO-14"},
+			{"idx_invoices_property_fiscal_year", "TC-INVO-15"},
+			{"idx_invoices_property_issue_date", "TC-INVO-16"},
+			{"idx_invoices_property_due_date", "TC-INVO-17"},
+			// Sales Ledger Transactions indexes
+			{"idx_sales_ledger_transactions_account", "TC-SLTX-10"},
+			{"idx_sales_ledger_transactions_invoice", "TC-SLTX-11"},
+			{"idx_sales_ledger_transactions_posted_by", "TC-SLTX-12"},
+			{"idx_sales_ledger_transactions_type", "TC-SLTX-13"},
+			{"idx_sales_ledger_transactions_due_date", "TC-SLTX-14"},
+			{"idx_sales_ledger_transactions_posted_at", "TC-SLTX-15"},
+			{"idx_sales_ledger_transactions_fully_paid", "TC-SLTX-16"},
+			// Checkout Sessions indexes
+			{"idx_checkout_sessions_property", "TC-COSES-08"},
+			{"idx_checkout_sessions_reservation", "TC-COSES-09"},
+			{"idx_checkout_sessions_expires_at", "TC-COSES-10"},
+			{"idx_checkout_sessions_status", "TC-COSES-11"},
+			{"idx_checkout_sessions_payment_intent", "TC-COSES-12"},
+			// Room Inventory Ledger indexes
+			{"idx_inventory_dates_n_rooms_available", "TC-RILE-10"},
+			{"idx_availability_date", "TC-RILE-11"},
+			{"idx_room_inventory_ledger_room_date", "TC-RILE-12"},
+			{"idx_room_inventory_ledger_calendar_date", "TC-RILE-13"},
+			{"idx_room_inventory_ledger_status", "TC-RILE-14"},
+			{"idx_room_inventory_ledger_reservation", "TC-RILE-15"},
+			{"idx_room_inventory_ledger_checkout_session", "TC-RILE-16"},
+			{"idx_room_inventory_ledger_room", "TC-RILE-17"},
+			// Housekeeping Logs indexes
+			{"idx_housekeeping_logs_property", "TC-HSKL-07"},
+			{"idx_housekeeping_logs_user", "TC-HSKL-08"},
+			{"idx_housekeeping_logs_room", "TC-HSKL-09"},
 		}
 
 		for _, it := range indexTests {

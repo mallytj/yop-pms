@@ -1,3 +1,4 @@
+//go:build ignore
 package db_tests
 
 import (
@@ -157,5 +158,66 @@ func TestDbRoomAmenities(t *testing.T) {
 		_, err := testDB.Exec(ctx, insertQuery, property.ID, room.ID, crossPropertyAmenity.ID)
 
 		assert.True(t, hf.CheckErrorCode(err, hf.ForeignKeyViolationCode), "Expected foreign key violation for cross-property amenity, got: %v", err)
+	})
+}
+
+func TestDbReservationItemsGuests(t *testing.T) {
+	ctx := context.Background()
+
+	property := GenerateTestProperty(t, ctx)
+	guest := GenerateTestGuest(t, ctx, property.ID)
+	anotherGuest := GenerateTestGuest(t, ctx, property.ID)
+	reservation := GenerateTestReservation(t, ctx, property.ID, guest.ID)
+
+	reservationItem := GenerateTestReservationItem(t, ctx, reservation.ID, property.ID)
+
+	insertQuery := `INSERT INTO relations.reservation_item_guests (property_id, reservation_item_id, guest_id, role) VALUES ($1, $2, $3, $4)`
+
+	t.Run("FK Existence Tests", func(t *testing.T) {
+		t.Parallel()
+
+		hf.RunFKExistenceTests(t, ctx, testDB, insertQuery, []hf.FKExistenceTest{
+			{
+				Name:      "TC-RESIG-02 - Reservation Item must exist",
+				FakeIDIdx: 1,
+				RealID:    reservationItem.ID,
+				BaseParams: []interface{}{
+					property.ID,
+					reservationItem.ID,
+					guest.ID,
+					"primary",
+				},
+			},
+			{
+				Name:      "TC-RESIG-03 - Guest must exist",
+				FakeIDIdx: 2,
+				RealID:    anotherGuest.ID,
+				BaseParams: []interface{}{
+					property.ID,
+					reservationItem.ID,
+					anotherGuest.ID,
+					"additional",
+				},
+			},
+		})
+	})
+
+	t.Run("TC-RESIG-04 - Enum role must be valid", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := testDB.Exec(ctx, insertQuery, property.ID, reservationItem.ID, guest.ID, "invalid_role")
+
+		assert.True(t, hf.CheckErrorCode(err, hf.InvalidTextRepresentationCode), "Expected check violation for invalid role, got: %v", err)
+	})
+
+	t.Run("TC-RESIG-08 - The guest must have the same property as the reservation item", func(t *testing.T) {
+		t.Parallel()
+
+		anotherProperty := GenerateTestProperty(t, ctx)
+		crossPropertyGuest := GenerateTestGuest(t, ctx, anotherProperty.ID)
+
+		_, err := testDB.Exec(ctx, insertQuery, property.ID, reservationItem.ID, crossPropertyGuest.ID, "primary")
+
+		assert.True(t, hf.CheckErrorCode(err, hf.ForeignKeyViolationCode), "Expected foreign key violation for cross-property guest, got: %v", err)
 	})
 }

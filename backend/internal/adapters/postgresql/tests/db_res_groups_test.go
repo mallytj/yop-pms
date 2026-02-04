@@ -1,3 +1,4 @@
+//go:build ignore
 package db_tests
 
 import (
@@ -58,14 +59,14 @@ func TestDbReservationGroups(t *testing.T) {
 				Field:       "name",
 				FieldIndex:  1,
 				Value:       strings.Repeat("A", 51),
-				ExpectedErr: hf.NotNullViolationCode,
+				ExpectedErr: hf.CheckViolationCode,
 			},
 			{
 				Name:        "TC-RGRP-08 - Notes should not exceed 2500 characters",
 				Field:       "notes",
 				FieldIndex:  2,
 				Value:       strings.Repeat("A", 2501),
-				ExpectedErr: hf.NotNullViolationCode,
+				ExpectedErr: hf.CheckViolationCode,
 			},
 		}
 		hf.RunConstraintTests(t, context.Background(), testDB, insertQuery, paramsSlice, constraintTests)

@@ -69,7 +69,7 @@ CREATE INDEX idx_users_email ON auth.users(email);
 CREATE TABLE identity.guests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID REFERENCES operations.properties(id) ON DELETE CASCADE,
- first_name TEXT NOT NULL CHECK (char_length(first_name) <= 50 AND first_name ~ '^[a-zA-Z''-]+$'),
+  first_name TEXT NOT NULL CHECK (char_length(first_name) <= 50 AND first_name ~ '^[a-zA-Z''-]+$'),
   last_name TEXT NOT NULL CHECK (char_length(last_name) <= 50 AND last_name ~ '^[a-zA-Z''-]+$'),
   email TEXT,
   phone_number TEXT,
@@ -79,7 +79,8 @@ CREATE TABLE identity.guests (
   is_anonymised BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
-  deleted_at TIMESTAMPTZ
+  deleted_at TIMESTAMPTZ,
+  UNIQUE (property_id, id)
 );
 
 CREATE INDEX idx_property_guests_name ON identity.guests(property_id, last_name, first_name);

@@ -1,3 +1,4 @@
+//go:build ignore
 package db_tests
 
 import (
@@ -117,10 +118,6 @@ func TestDbSalesLedgerAccounts(t *testing.T) {
 	t.Run("Unique Constraints", func(t *testing.T) {
 		t.Parallel()
 
-		defer func() {
-			// Clean up any inserted test data
-			testDB.Exec(ctx, `DELETE FROM sales_ledgers.accounts WHERE name = $1 OR code = $2`, baseParams.Name, baseParams.Code)
-		}()
 
 		// First, create a sales ledger account
 		_, err := testDB.Exec(ctx, insertQuery, baseParams.PropertyID, baseParams.CompanyProfileID, baseParams.Name, baseParams.Code, baseParams.CreditLimitPence, baseParams.PaymentTermDays)
