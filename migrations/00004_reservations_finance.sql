@@ -5,7 +5,7 @@
 -- ========================================================
 
 CREATE TABLE finance.tax_rules (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     name TEXT NOT NULL CHECK (char_length(name) <= 50),
     description TEXT CHECK (char_length(description) <= 250),
@@ -22,7 +22,7 @@ CREATE POLICY tax_rules_isolation ON finance.tax_rules USING (property_id = curr
 CREATE UNIQUE INDEX idx_tax_rules_name_act ON finance.tax_rules (property_id, name) WHERE (deleted_at IS NULL);
 
 CREATE TABLE finance.ledger_codes (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     code CITEXT NOT NULL CHECK (char_length(code) <= 50),
     description TEXT CHECK (char_length(description) <= 250),
@@ -43,7 +43,7 @@ CREATE UNIQUE INDEX idx_ledger_codes_code_act ON finance.ledger_codes (property_
 -- ========================================================
 
 CREATE TABLE sales_ledgers.accounts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     company_profile_id UUID REFERENCES identity.company_profiles (id) ON DELETE SET NULL,
     name TEXT NOT NULL CHECK (char_length(name) <= 100),
@@ -67,7 +67,7 @@ CREATE UNIQUE INDEX idx_accounts_company_act ON sales_ledgers.accounts (property
 -- ========================================================
 
 CREATE TABLE operations.reservation_groups (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     master_folio_id UUID, -- Circular ref; FK added after folios table
     sequential SERIAL NOT NULL,
@@ -84,7 +84,7 @@ ALTER TABLE operations.reservation_groups ENABLE ROW LEVEL SECURITY;
 CREATE POLICY res_groups_isolation ON operations.reservation_groups USING (property_id = current_setting('app.current_property_id')::uuid);
 
 CREATE TABLE operations.reservations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     primary_guest_id UUID NOT NULL REFERENCES identity.guests (id) ON DELETE RESTRICT,
     group_id UUID REFERENCES operations.reservation_groups (id) ON DELETE SET NULL,
@@ -112,7 +112,7 @@ CREATE POLICY reservations_isolation ON operations.reservations USING (property_
 -- ========================================================
 
 CREATE TABLE operations.reservation_items (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     reservation_id UUID NOT NULL REFERENCES operations.reservations (id) ON DELETE RESTRICT,
     booked_room_type_id UUID NOT NULL REFERENCES inventory.room_types (id) ON DELETE RESTRICT,
@@ -164,7 +164,7 @@ CREATE POLICY res_item_guests_isolation ON relations.reservation_item_guests USI
 -- ========================================================
 
 CREATE TABLE pricing.booked_daily_rates (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     reservation_item_id UUID NOT NULL REFERENCES operations.reservation_items (id) ON DELETE RESTRICT,
     calendar_date DATE NOT NULL,
@@ -186,7 +186,7 @@ ALTER TABLE pricing.booked_daily_rates ENABLE ROW LEVEL SECURITY;
 CREATE POLICY daily_rates_isolation ON pricing.booked_daily_rates USING (property_id = current_setting('app.current_property_id')::uuid);
 
 CREATE TABLE finance.folios (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     reservation_id UUID REFERENCES operations.reservations (id) ON DELETE SET NULL,
     sales_ledger_id UUID REFERENCES sales_ledgers.accounts (id) ON DELETE SET NULL,
@@ -207,7 +207,7 @@ CREATE POLICY folios_isolation ON finance.folios USING (property_id = current_se
 ALTER TABLE operations.reservation_groups ADD CONSTRAINT fk_res_groups_folio FOREIGN KEY (property_id, master_folio_id) REFERENCES finance.folios (property_id, id);
 
 CREATE TABLE finance.folio_transactions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     folio_id UUID NOT NULL REFERENCES finance.folios (id) ON DELETE RESTRICT,
     ledger_code_id UUID REFERENCES finance.ledger_codes (id) ON DELETE SET NULL,
@@ -235,7 +235,7 @@ CREATE POLICY folio_tx_isolation ON finance.folio_transactions USING (property_i
 -- ========================================================
 
 CREATE TABLE finance.invoices (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     folio_id UUID REFERENCES finance.folios (id) ON DELETE SET NULL,
     property_code CITEXT NOT NULL DEFAULT 'RES' CHECK (char_length(property_code) BETWEEN 3 AND 4),
@@ -258,7 +258,7 @@ ALTER TABLE finance.invoices ENABLE ROW LEVEL SECURITY;
 CREATE POLICY invoices_isolation ON finance.invoices USING (property_id = current_setting('app.current_property_id')::uuid);
 
 CREATE TABLE sales_ledgers.transactions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     ledger_account_id UUID NOT NULL REFERENCES sales_ledgers.accounts (id) ON DELETE RESTRICT,
     source_invoice_id UUID REFERENCES finance.invoices (id) ON DELETE SET NULL,
@@ -278,7 +278,7 @@ ALTER TABLE sales_ledgers.transactions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY sl_tx_isolation ON sales_ledgers.transactions USING (property_id = current_setting('app.current_property_id')::uuid);
 
 CREATE TABLE operations.checkout_sessions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     reservation_id UUID NOT NULL REFERENCES operations.reservations (id) ON DELETE RESTRICT,
     payment_intent_id TEXT UNIQUE NOT NULL,
@@ -300,7 +300,7 @@ CREATE POLICY checkout_isolation ON operations.checkout_sessions USING (property
 -- ========================================================
 
 CREATE TABLE inventory.room_inventory_ledger (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     room_id UUID NOT NULL REFERENCES inventory.rooms (id) ON DELETE RESTRICT,
     reservation_id UUID REFERENCES operations.reservations (id) ON DELETE SET NULL,
@@ -322,7 +322,7 @@ ALTER TABLE inventory.room_inventory_ledger ENABLE ROW LEVEL SECURITY;
 CREATE POLICY inv_ledger_isolation ON inventory.room_inventory_ledger USING (property_id = current_setting('app.current_property_id')::uuid);
 
 CREATE TABLE inventory.housekeeping_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
     room_id UUID NOT NULL REFERENCES inventory.rooms (id) ON DELETE RESTRICT,

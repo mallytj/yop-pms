@@ -108,29 +108,9 @@ RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
--- +goose StatementBegin
-CREATE OR REPLACE FUNCTION uuid_generate_v7() RETURNS uuid AS $$
-DECLARE v_time timestamp with time zone := clock_timestamp();
-v_secs bigint := extract(
-    epoch
-    from v_time
-);
-v_msecs bigint := (v_secs * 1000) + extract(
-    milliseconds
-    from v_time
-)::bigint % 1000;
-v_msecs_hex text := lpad(to_hex(v_msecs), 12, '0');
-v_random_hex text := encode(gen_random_bytes(8), 'hex');
-v_uuid_text text;
-BEGIN v_uuid_text := encode(decode(v_msecs_hex, 'hex'), 'hex') || '7' || substr(v_random_hex, 2, 3) || encode(decode(substr(v_random_hex, 5, 1), 'hex'), 'hex') || substr(v_random_hex, 6);
-RETURN v_uuid_text::uuid;  
-END;
 
-$$ LANGUAGE plpgsql;
--- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-DROP FUNCTION IF EXISTS uuid_generate_v7();
 DROP FUNCTION IF EXISTS operations.fn_chk_licence_is_active();
 DROP TYPE IF EXISTS operations.checkout_session_status;
 DROP TYPE IF EXISTS operations.reservation_guest_role;

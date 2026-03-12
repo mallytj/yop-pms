@@ -4,7 +4,7 @@
 -- 1. ROOM TYPES
 -- ========================================================
 CREATE TABLE inventory.room_types (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     name TEXT NOT NULL CHECK (char_length(name) <= 75),
     code CITEXT NOT NULL CHECK (char_length(code) <= 10),
@@ -28,7 +28,7 @@ CREATE UNIQUE INDEX idx_room_types_name_act ON inventory.room_types (property_id
 -- 2. ROOMS
 -- ========================================================
 CREATE TABLE inventory.rooms (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     room_type_id UUID REFERENCES inventory.room_types (id) ON DELETE SET NULL,
     name TEXT NOT NULL CHECK (char_length(name) <= 75),
@@ -66,7 +66,7 @@ CREATE POLICY rt_amenities_isolation ON relations.room_type_amenities USING (pro
 -- 4. MAINTENANCE BLOCKS
 -- ========================================================
 CREATE TABLE inventory.maintenance_blocks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     room_id UUID NOT NULL REFERENCES inventory.rooms (id) ON DELETE RESTRICT,
     block_period TSTZRANGE NOT NULL CHECK (upper(block_period) > lower(block_period)),
@@ -88,7 +88,7 @@ CREATE POLICY maint_isolation ON inventory.maintenance_blocks USING (property_id
 -- 5. RATE PLANS & PRICING
 -- ========================================================
 CREATE TABLE pricing.rate_plans (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     name TEXT NOT NULL CHECK (char_length(name) <= 50),
     code CITEXT NOT NULL CHECK (char_length(code) <= 10),
@@ -118,7 +118,7 @@ CREATE UNIQUE INDEX idx_rate_plans_code_act ON pricing.rate_plans (property_id, 
 -- 6. DAILY PRICE GRID
 -- ========================================================
 CREATE TABLE pricing.daily_price_grid (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     room_type_id UUID NOT NULL REFERENCES inventory.room_types (id) ON DELETE RESTRICT,
     rate_plan_id UUID NOT NULL REFERENCES pricing.rate_plans (id) ON DELETE RESTRICT,
@@ -144,7 +144,7 @@ CREATE UNIQUE INDEX idx_price_lookup ON pricing.daily_price_grid (property_id, r
 -- ========================================================
 
 CREATE TABLE pricing.base_rates (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     room_type_id UUID NOT NULL REFERENCES inventory.room_types (id) ON DELETE RESTRICT,
     rate_plan_id UUID NOT NULL REFERENCES pricing.rate_plans (id) ON DELETE RESTRICT,
@@ -166,7 +166,7 @@ ALTER TABLE pricing.base_rates ENABLE ROW LEVEL SECURITY;
 CREATE POLICY base_rates_isolation ON pricing.base_rates USING (property_id = current_setting('app.current_property_id')::uuid);
 
 CREATE TABLE pricing.seasonal_rates (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     room_type_id UUID NOT NULL REFERENCES inventory.room_types (id) ON DELETE RESTRICT,
     rate_plan_id UUID NOT NULL REFERENCES pricing.rate_plans (id) ON DELETE RESTRICT,
@@ -198,7 +198,7 @@ CREATE POLICY seasonal_rates_isolation ON pricing.seasonal_rates USING (property
 -- 7. COMPANY PROFILES (identity schema)
 -- ========================================================
 CREATE TABLE identity.company_profiles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     negotiated_rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE SET NULL,
     tax_id CITEXT, -- e.g., VAT number

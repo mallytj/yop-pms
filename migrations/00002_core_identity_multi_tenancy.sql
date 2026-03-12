@@ -4,7 +4,7 @@
 -- 1. LICENCES
 -- ========================================================
 CREATE TABLE operations.licences (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     licence_key CITEXT NOT NULL CHECK (licence_key ~ '^YOP-\d{5}$'),
     organisation_name TEXT NOT NULL CHECK (char_length(organisation_name) <= 50),
     contact_email CITEXT NOT NULL,
@@ -23,7 +23,7 @@ CREATE INDEX idx_licence_active ON operations.licences (is_active);
 -- 2. PROPERTIES
 -- ========================================================
 CREATE TABLE operations.properties (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     licence_id UUID NOT NULL REFERENCES operations.licences (id) ON DELETE RESTRICT,
     name TEXT NOT NULL CHECK (char_length(name) <= 50),
     address TEXT NOT NULL CHECK (char_length(address) <= 250),
@@ -51,7 +51,7 @@ CREATE UNIQUE INDEX idx_properties_addr_active ON operations.properties (licence
 -- 3. USERS
 -- ========================================================
 CREATE TABLE auth.users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     licence_id UUID NOT NULL REFERENCES operations.licences (id) ON DELETE RESTRICT,
     username CITEXT NOT NULL CHECK (char_length(username) <= 20 AND username ~ '^[a-zA-Z0-9_]+$'),
     email CITEXT NOT NULL,
@@ -79,7 +79,7 @@ CREATE UNIQUE INDEX idx_users_email_active ON auth.users (email) WHERE (deleted_
 -- 4. GUESTS
 -- ========================================================
 CREATE TABLE identity.guests (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     first_name TEXT NOT NULL CHECK (char_length(first_name) <= 50),
     last_name TEXT NOT NULL CHECK (char_length(last_name) <= 50),
@@ -106,7 +106,7 @@ CREATE INDEX idx_guests_search ON identity.guests (property_id, last_name, first
 -- 5. AUDIT LOGS
 -- ========================================================
 CREATE TABLE auth.audit_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE CASCADE,
     action auth.audit_log_action NOT NULL,
@@ -126,7 +126,7 @@ CREATE INDEX idx_audit_logs_property_entity ON auth.audit_logs (property_id, ent
 -- 6. AMENITIES
 -- ========================================================
 CREATE TABLE operations.amenities (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     name TEXT NOT NULL CHECK (char_length(name) <= 100),
     short_code TEXT CHECK (short_code ~ '^[A-Z0-9_/]{2,5}$'),
@@ -157,7 +157,7 @@ CREATE TABLE relations.property_amenities (
 
 -- Travel Agents
 CREATE TABLE identity.travel_agents (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     name TEXT NOT NULL CHECK (char_length(name) <= 100),
     contact_email CITEXT,
@@ -177,7 +177,7 @@ CREATE POLICY travel_agents_isolation_policy ON identity.travel_agents
 
 -- Identity Docs
 CREATE TABLE identity.identity_docs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     guest_id UUID NOT NULL REFERENCES identity.guests (id) ON DELETE RESTRICT,
     doc_type identity.identity_doc_type NOT NULL,
