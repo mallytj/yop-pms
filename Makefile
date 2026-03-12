@@ -46,5 +46,11 @@ clean: ## Clean build artifacts
 	rm -rf bin/
 	rm -rf backend/vendor/
 	rm -rf frontend/dist/
-	rm -rf frontend/.astro/
 	rm -rf frontend/node_modules/
+
+swag: ## Makes the swagger files
+	cd ./cmd/server && swag init --parseInternal --parseDependency --dir .,../internal/handlers,../internal/service
+
+dev: ## Runs the backend & frontend
+	docker-compose up -d
+	air & cd web && npm run dev

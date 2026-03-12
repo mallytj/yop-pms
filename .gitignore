@@ -1,0 +1,5 @@
+# Air temp files
+tmp/
+.claude/
+
+.env
