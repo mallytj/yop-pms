@@ -1,0 +1,15 @@
+name: Audit
+on: [push, pull_request]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.8"
+      - name: Install Dependencies
+        run: go mod download
+      - name: Run Audit
+        run: make audit

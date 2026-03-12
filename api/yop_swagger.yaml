@@ -1,0 +1,35 @@
+basePath: /v1
+definitions:
+  cmd_server.HealthResponse:
+    properties:
+      message:
+        example: Server is running
+        type: string
+      status:
+        example: ok
+        type: string
+      version:
+        example: 1.0.0
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: This is the backend API documentation for Yop PMS.
+  title: Yop PMS Backend API
+  version: "1.0"
+paths:
+  /healthz:
+    get:
+      description: Check if the server, database, and redis are alive
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/cmd_server.HealthResponse'
+      summary: Get Server Health
+      tags:
+      - System
+swagger: "2.0"
