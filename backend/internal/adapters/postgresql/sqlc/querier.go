@@ -6,31 +6,18 @@ package repo
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
-	AssertAvailabilityForRoomType(ctx context.Context, arg AssertAvailabilityForRoomTypeParams) (bool, error)
-	AssignRoomToReservationItem(ctx context.Context, arg AssignRoomToReservationItemParams) error
-	// param: ratePlanID UUID
-	// param: startDate DATE
-	// param: endDate DATE
-	// param: stayLength INT
-	AvailableRoomTypesWithPrice(ctx context.Context, arg AvailableRoomTypesWithPriceParams) ([]AvailableRoomTypesWithPriceRow, error)
-	// params: room_type_id UUID, start_date DATE, end_date DATE, required_count INT
-	CanBookRoomType(ctx context.Context, arg CanBookRoomTypeParams) (bool, error)
-	CancelReservationHold(ctx context.Context, id pgtype.UUID) error
-	ConfirmReservation(ctx context.Context, id pgtype.UUID) error
-	CountAvailableRoomsForRoomType(ctx context.Context, arg CountAvailableRoomsForRoomTypeParams) (int32, error)
-	CreateCheckoutSession(ctx context.Context, arg CreateCheckoutSessionParams) (OperationsCheckoutSession, error)
-	CreateReservationHold(ctx context.Context, arg CreateReservationHoldParams) (OperationsReservation, error)
+	CreateBookedDailyRate(ctx context.Context, arg CreateBookedDailyRateParams) (PricingBookedDailyRate, error)
 	CreateReservationItem(ctx context.Context, arg CreateReservationItemParams) (OperationsReservationItem, error)
-	ListAvailableRoomTypes(ctx context.Context, arg ListAvailableRoomTypesParams) ([]ListAvailableRoomTypesRow, error)
-	LockAvailableRoomsForStay(ctx context.Context, arg LockAvailableRoomsForStayParams) ([]LockAvailableRoomsForStayRow, error)
-	MarkInventorySold(ctx context.Context, arg MarkInventorySoldParams) error
-	ReleaseInventoryForReservation(ctx context.Context, reservationID pgtype.UUID) error
-	RoomTypeAvailabilityCalendar(ctx context.Context, arg RoomTypeAvailabilityCalendarParams) ([]RoomTypeAvailabilityCalendarRow, error)
+	GetRate(ctx context.Context, arg GetRateParams) (GetRateRow, error)
+	GetRatePlans(ctx context.Context) ([]GetRatePlansRow, error)
+	GetRatesForRange(ctx context.Context, arg GetRatesForRangeParams) ([]GetRatesForRangeRow, error)
+	GetReservationItemsForPlanner(ctx context.Context, arg GetReservationItemsForPlannerParams) ([]GetReservationItemsForPlannerRow, error)
+	GetRoomsForPlanner(ctx context.Context) ([]GetRoomsForPlannerRow, error)
+	SetCurrentPropertyID(ctx context.Context, propertyID string) error
+	UpdateReservationItem(ctx context.Context, arg UpdateReservationItemParams) (OperationsReservationItem, error)
 }
 
 var _ Querier = (*Queries)(nil)

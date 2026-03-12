@@ -1,0 +1,327 @@
+{
+    "schemes": [
+        "http"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "This is the backend API documentation for Yop PMS.",
+        "title": "Yop PMS Backend API",
+        "contact": {
+            "name": "API Support",
+            "url": "http://www.yop-pms.com/support",
+            "email": "support@yop-pms.com"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/v1",
+    "paths": {
+        "/planner": {
+            "get": {
+                "description": "Retrieve planner data for scheduling and resource management.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Planner"
+                ],
+                "summary": "Get Planner Data",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date for the planner data in YYYY-MM-DD format",
+                        "name": "startDate",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date for the planner data in YYYY-MM-DD format",
+                        "name": "endDate",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response with planner data",
+                        "schema": {
+                            "$ref": "#/definitions/service.PlannerData"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid Date Range or Format",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BadRequestError"
+                        }
+                    },
+                    "403": {
+                        "description": "User Not Authorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ForbiddenError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Database Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.InternalServerError"
+                        }
+                    }
+                }
+            }
+        },
+        "/reservation_item/{reservationID}": {
+            "put": {
+                "description": "Update details of a reservation item, such as assigned room, booked room type, check-in/check-out dates, or status. This allows for dynamic adjustments to reservations based on changes in availability or guest requests.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Update Reservation Item",
+                "parameters": [
+                    {
+                        "description": "Data for updating the reservation item",
+                        "name": "updateData",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.UpdateReservationItemData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response with planner data",
+                        "schema": {
+                            "$ref": "#/definitions/service.UpdateReservationItemData"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid Date Range or Format",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BadRequestError"
+                        }
+                    },
+                    "403": {
+                        "description": "User Not Authorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ForbiddenError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Database Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.InternalServerError"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "handlers.BadRequestError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "bad_request"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "The request could not be understood or was missing required parameters."
+                }
+            }
+        },
+        "handlers.ForbiddenError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "forbidden"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "You do not have permission to access this resource."
+                }
+            }
+        },
+        "handlers.InternalServerError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "internal_server_error"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "An unexpected error occurred. Please try again later."
+                }
+            }
+        },
+        "repo.OperationsReservationItemStatus": {
+            "type": "string",
+            "enum": [
+                "booked",
+                "checked_in",
+                "checked_out",
+                "no_show",
+                "cancelled",
+                "archived"
+            ],
+            "x-enum-varnames": [
+                "OperationsReservationItemStatusBooked",
+                "OperationsReservationItemStatusCheckedIn",
+                "OperationsReservationItemStatusCheckedOut",
+                "OperationsReservationItemStatusNoShow",
+                "OperationsReservationItemStatusCancelled",
+                "OperationsReservationItemStatusArchived"
+            ]
+        },
+        "service.PlannerData": {
+            "type": "object",
+            "properties": {
+                "end_date": {
+                    "type": "string",
+                    "example": "2026-02-14"
+                },
+                "rooms": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.PlannerRoom"
+                    }
+                },
+                "start_date": {
+                    "type": "string",
+                    "example": "2026-02-07"
+                }
+            }
+        },
+        "service.PlannerReservation": {
+            "type": "object",
+            "properties": {
+                "assigned_room_id": {
+                    "description": "The assigned room (may be empty if unassigned)",
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "booked_room_type_id": {
+                    "description": "The originally booked room type",
+                    "type": "string",
+                    "example": "660e8400-e29b-41d4-a716-446655440000"
+                },
+                "check_in_date": {
+                    "type": "string",
+                    "example": "2026-02-07"
+                },
+                "check_out_date": {
+                    "type": "string",
+                    "example": "2026-02-14"
+                },
+                "guest_id": {
+                    "type": "string",
+                    "example": "770e8400-e29b-41d4-a716-446655440000"
+                },
+                "guest_name": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "item_status": {
+                    "description": "booked, checked_in, checked_out, etc.",
+                    "type": "string",
+                    "example": "booked"
+                },
+                "reservation_code": {
+                    "type": "string",
+                    "example": "RES-12345"
+                },
+                "reservation_id": {
+                    "type": "string",
+                    "example": "660e8400-e29b-41d4-a716-446655440000"
+                },
+                "reservation_item_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "reservation_status": {
+                    "description": "hold, confirmed, checked_in, etc.",
+                    "type": "string",
+                    "example": "confirmed"
+                },
+                "status_color": {
+                    "description": "Color code for UI representation",
+                    "type": "string",
+                    "example": "#FF5733"
+                }
+            }
+        },
+        "service.PlannerRoom": {
+            "type": "object",
+            "properties": {
+                "reservations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.PlannerReservation"
+                    }
+                },
+                "room_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "room_name": {
+                    "type": "string",
+                    "example": "101"
+                },
+                "room_type_code": {
+                    "type": "string",
+                    "example": "DELUXE"
+                },
+                "room_type_id": {
+                    "type": "string",
+                    "example": "660e8400-e29b-41d4-a716-446655440000"
+                }
+            }
+        },
+        "service.UpdateReservationItemData": {
+            "type": "object",
+            "properties": {
+                "assigned_room_id": {
+                    "description": "Optional: ID of the assigned room (for validation)",
+                    "type": "string",
+                    "example": "123e4567-e89b-12d3-a456-426614174000"
+                },
+                "booked_room_type_id": {
+                    "description": "Optional: ID of the booked room type (for validation)",
+                    "type": "string",
+                    "example": "123e4567-e89b-12d3-a456-464897010000"
+                },
+                "check_in_date": {
+                    "description": "Optional: Check-in date in YYYY-MM-DD format",
+                    "type": "string",
+                    "example": "2024-06-01"
+                },
+                "check_out_date": {
+                    "description": "Optional: Check-out date in YYYY-MM-DD format",
+                    "type": "string",
+                    "example": "2024-06-05"
+                },
+                "status": {
+                    "description": "Optional: New status for the reservation item (e.g., \"booked\", \"checked_in\")",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/repo.OperationsReservationItemStatus"
+                        }
+                    ],
+                    "example": "booked"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,233 @@
+basePath: /v1
+definitions:
+  handlers.BadRequestError:
+    properties:
+      error:
+        example: bad_request
+        type: string
+      message:
+        example: The request could not be understood or was missing required parameters.
+        type: string
+    type: object
+  handlers.ForbiddenError:
+    properties:
+      error:
+        example: forbidden
+        type: string
+      message:
+        example: You do not have permission to access this resource.
+        type: string
+    type: object
+  handlers.InternalServerError:
+    properties:
+      error:
+        example: internal_server_error
+        type: string
+      message:
+        example: An unexpected error occurred. Please try again later.
+        type: string
+    type: object
+  repo.OperationsReservationItemStatus:
+    enum:
+    - booked
+    - checked_in
+    - checked_out
+    - no_show
+    - cancelled
+    - archived
+    type: string
+    x-enum-varnames:
+    - OperationsReservationItemStatusBooked
+    - OperationsReservationItemStatusCheckedIn
+    - OperationsReservationItemStatusCheckedOut
+    - OperationsReservationItemStatusNoShow
+    - OperationsReservationItemStatusCancelled
+    - OperationsReservationItemStatusArchived
+  service.PlannerData:
+    properties:
+      end_date:
+        example: "2026-02-14"
+        type: string
+      rooms:
+        items:
+          $ref: '#/definitions/service.PlannerRoom'
+        type: array
+      start_date:
+        example: "2026-02-07"
+        type: string
+    type: object
+  service.PlannerReservation:
+    properties:
+      assigned_room_id:
+        description: The assigned room (may be empty if unassigned)
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      booked_room_type_id:
+        description: The originally booked room type
+        example: 660e8400-e29b-41d4-a716-446655440000
+        type: string
+      check_in_date:
+        example: "2026-02-07"
+        type: string
+      check_out_date:
+        example: "2026-02-14"
+        type: string
+      guest_id:
+        example: 770e8400-e29b-41d4-a716-446655440000
+        type: string
+      guest_name:
+        example: John Doe
+        type: string
+      item_status:
+        description: booked, checked_in, checked_out, etc.
+        example: booked
+        type: string
+      reservation_code:
+        example: RES-12345
+        type: string
+      reservation_id:
+        example: 660e8400-e29b-41d4-a716-446655440000
+        type: string
+      reservation_item_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      reservation_status:
+        description: hold, confirmed, checked_in, etc.
+        example: confirmed
+        type: string
+      status_color:
+        description: Color code for UI representation
+        example: '#FF5733'
+        type: string
+    type: object
+  service.PlannerRoom:
+    properties:
+      reservations:
+        items:
+          $ref: '#/definitions/service.PlannerReservation'
+        type: array
+      room_id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      room_name:
+        example: "101"
+        type: string
+      room_type_code:
+        example: DELUXE
+        type: string
+      room_type_id:
+        example: 660e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  service.UpdateReservationItemData:
+    properties:
+      assigned_room_id:
+        description: 'Optional: ID of the assigned room (for validation)'
+        example: 123e4567-e89b-12d3-a456-426614174000
+        type: string
+      booked_room_type_id:
+        description: 'Optional: ID of the booked room type (for validation)'
+        example: 123e4567-e89b-12d3-a456-464897010000
+        type: string
+      check_in_date:
+        description: 'Optional: Check-in date in YYYY-MM-DD format'
+        example: "2024-06-01"
+        type: string
+      check_out_date:
+        description: 'Optional: Check-out date in YYYY-MM-DD format'
+        example: "2024-06-05"
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/repo.OperationsReservationItemStatus'
+        description: 'Optional: New status for the reservation item (e.g., "booked",
+          "checked_in")'
+        example: booked
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@yop-pms.com
+    name: API Support
+    url: http://www.yop-pms.com/support
+  description: This is the backend API documentation for Yop PMS.
+  title: Yop PMS Backend API
+  version: "1.0"
+paths:
+  /planner:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve planner data for scheduling and resource management.
+      parameters:
+      - description: Start date for the planner data in YYYY-MM-DD format
+        in: query
+        name: startDate
+        required: true
+        type: string
+      - description: End date for the planner data in YYYY-MM-DD format
+        in: query
+        name: endDate
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful response with planner data
+          schema:
+            $ref: '#/definitions/service.PlannerData'
+        "400":
+          description: Invalid Date Range or Format
+          schema:
+            $ref: '#/definitions/handlers.BadRequestError'
+        "403":
+          description: User Not Authorized
+          schema:
+            $ref: '#/definitions/handlers.ForbiddenError'
+        "500":
+          description: Internal Database Error
+          schema:
+            $ref: '#/definitions/handlers.InternalServerError'
+      summary: Get Planner Data
+      tags:
+      - Planner
+  /reservation_item/{reservationID}:
+    put:
+      consumes:
+      - application/json
+      description: Update details of a reservation item, such as assigned room, booked
+        room type, check-in/check-out dates, or status. This allows for dynamic adjustments
+        to reservations based on changes in availability or guest requests.
+      parameters:
+      - description: Data for updating the reservation item
+        in: body
+        name: updateData
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateReservationItemData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful response with planner data
+          schema:
+            $ref: '#/definitions/service.UpdateReservationItemData'
+        "400":
+          description: Invalid Date Range or Format
+          schema:
+            $ref: '#/definitions/handlers.BadRequestError'
+        "403":
+          description: User Not Authorized
+          schema:
+            $ref: '#/definitions/handlers.ForbiddenError'
+        "500":
+          description: Internal Database Error
+          schema:
+            $ref: '#/definitions/handlers.InternalServerError'
+      summary: Update Reservation Item
+      tags:
+      - Reservations
+schemes:
+- http
+swagger: "2.0"

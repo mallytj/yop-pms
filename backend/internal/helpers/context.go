@@ -11,9 +11,10 @@ import (
 type contextKey = types.ContextKey
 
 const (
-	PropertyIDKey contextKey = "propertyID"
-	UserIDKey     contextKey = "userID"
-	LicenceIDKey  contextKey = "licenceID"
+	PropertyIDKey        contextKey = "propertyID"
+	UserIDKey            contextKey = "userID"
+	LicenceIDKey         contextKey = "licenceID"
+	ReservationItemIDKey contextKey = "reservationItemID"
 )
 
 // getIdFromCtx is a helper function to retrieve a UUID from the context using the provided key.
@@ -40,26 +41,16 @@ func getIdFromCtx(ctx context.Context, key contextKey) uuid.UUID {
 	return uuid.Nil
 }
 
-// GetUserID retrieves the userID from the context.
-// Returns nil if not found.
-func GetUserID(ctx context.Context) uuid.UUID {
-	return getIdFromCtx(ctx, UserIDKey)
+func SetIDInCtx(ctx context.Context, key contextKey, id uuid.UUID) context.Context {
+	return context.WithValue(ctx, key, id)
 }
 
-// GetLicenceID retrieves the licenceID from the context.
-// Returns nil if not found.
-func GetLicenceID(ctx context.Context) uuid.UUID {
-	return getIdFromCtx(ctx, LicenceIDKey)
-}
-
-// GetPropertyID retrieves the propertyID from the context.
-// Returns nil if not found.
-func GetPropertyID(ctx context.Context) uuid.UUID {
+// GetPropertyIDFromCtx retrieves the Property ID from the context.
+func GetPropertyIDFromCtx(ctx context.Context) uuid.UUID {
 	return getIdFromCtx(ctx, PropertyIDKey)
 }
 
-// GetPropertyAmenityID retrieves the propertyAmenityID from the context.
-// Returns nil if not found.
-func GetPropertyAmenityID(ctx context.Context) uuid.UUID {
-	return getIdFromCtx(ctx, "propertyAmenityID")
+// GetUserIDFromCtx retrieves the User ID from the context.
+func GetResItemIDFromCtx(ctx context.Context) uuid.UUID {
+	return getIdFromCtx(ctx, ReservationItemIDKey)
 }

@@ -92,7 +92,7 @@ CREATE INDEX idx_users_email ON auth.users (licence_id, email);
 -- Guests
 CREATE TABLE
     identity.guests (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
         first_name TEXT NOT NULL CHECK (
             char_length(first_name)<=50
@@ -155,7 +155,8 @@ CREATE TABLE IF NOT EXISTS
         ),
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
-        deleted_at TIMESTAMPTZ DEFAULT NULL
+        deleted_at TIMESTAMPTZ DEFAULT NULL,
+        UNIQUE (property_id, id)
     );
 
 CREATE INDEX idx_property_audit_logs_user ON auth.audit_logs (property_id, user_id);
@@ -223,7 +224,8 @@ CREATE TABLE IF NOT EXISTS
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
-        UNIQUE (property_id, name)
+        UNIQUE (property_id, name),
+        UNIQUE (property_id, id)
     );
 
 CREATE INDEX idx_travel_agents_property ON identity.travel_agents (property_id);
@@ -232,6 +234,7 @@ CREATE INDEX idx_travel_agents_property ON identity.travel_agents (property_id);
 CREATE TABLE IF NOT EXISTS
     identity.identity_docs (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+        property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
         guest_id UUID REFERENCES identity.guests (id) ON DELETE RESTRICT,
         doc_type identity.identity_doc_type NOT NULL,
         encrypted_doc_number TEXT NOT NULL CHECK (LENGTH(encrypted_doc_number)>0), -- Encrypted for security
@@ -240,7 +243,8 @@ CREATE TABLE IF NOT EXISTS
         doc_image_url TEXT, -- URL to the stored document image
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
-        deleted_at TIMESTAMPTZ DEFAULT NULL -- For soft deletes
+        deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+        UNIQUE (property_id, id)
     );
 
 CREATE INDEX idx_identity_docs_guest ON identity.identity_docs (guest_id);

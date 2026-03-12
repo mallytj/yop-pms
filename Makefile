@@ -34,13 +34,16 @@ test-backend: ## Run backend tests
 test-frontend: ## Run frontend tests
 	cd frontend && npm test
 
-test: test-backend ## Run all tests
+test: test-backend test-frontend ## Run all tests
 
 run-backend: ## Run backend server
-	cd backend && go run ./cmd/api
+	cd backend && go run ./cmd/...
 
 run-frontend: ## Run frontend dev server
-	cd frontend && npm run dev
+	cd frontend/client && npm run dev
+
+seed-backend: 
+	cd backend && go run ./cmd/... -seed
 
 clean: ## Clean build artifacts
 	rm -rf bin/

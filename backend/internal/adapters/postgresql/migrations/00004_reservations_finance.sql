@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+
+        -- Ensure the tax rule belongs to the same property
+        FOREIGN KEY (property_id, tax_rule) REFERENCES finance.tax_rules (property_id, id) ON DELETE SET NULL,
+        UNIQUE (property_id, id),
         UNIQUE (property_id, code)
     );
 
@@ -76,7 +80,8 @@ CREATE TABLE IF NOT EXISTS
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
         UNIQUE (property_id, code),
-        UNIQUE (property_id, sequential)
+        UNIQUE (property_id, sequential),
+        UNIQUE (property_id, id)
     );
 
 CREATE INDEX idx_reservation_groups_property ON operations.reservation_groups (property_id);
@@ -86,7 +91,7 @@ CREATE TABLE IF NOT EXISTS
     operations.reservations (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
         property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
-        primary_guest_id UUID REFERENCES identity.guests (id) ON DELETE SET NULL,
+        primary_guest_id UUID REFERENCES identity.guests (id) ON DELETE RESTRICT NOT NULL,
         group_id UUID REFERENCES operations.reservation_groups (id) ON DELETE SET NULL,
         sequential SERIAL NOT NULL,
         code TEXT GENERATED ALWAYS AS ('RES-'||LPAD(sequential::TEXT, 6, '0')) STORED, -- e.g., RES-000123
@@ -97,7 +102,13 @@ CREATE TABLE IF NOT EXISTS
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
-        UNIQUE (property_id, id)
+        UNIQUE (property_id, id),
+        -- Ensure the primary guest belongs to the same property
+        FOREIGN KEY (property_id, primary_guest_id) REFERENCES identity.guests (property_id, id) ON DELETE SET NULL,
+        -- Ensure the group belongs to the same property
+        FOREIGN KEY (property_id, group_id) REFERENCES operations.reservation_groups (property_id, id) ON DELETE SET NULL,
+        -- Ensure the travel agent belongs to the same property
+        FOREIGN KEY (property_id, travel_agent_id) REFERENCES identity.travel_agents (property_id, id) ON DELETE SET NULL
     );
 
 CREATE INDEX idx_reservations_property ON operations.reservations (property_id);
@@ -117,8 +128,8 @@ CREATE TABLE IF NOT EXISTS
     operations.reservation_items (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
         property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
-        reservation_id UUID REFERENCES operations.reservations (id) ON DELETE RESTRICT,
-        booked_room_type_id UUID REFERENCES inventory.room_types (id) ON DELETE SET NULL,
+        reservation_id UUID REFERENCES operations.reservations (id) ON DELETE RESTRICT NOT NULL,
+        booked_room_type_id UUID REFERENCES inventory.room_types (id) ON DELETE SET NULL NOT NULL,
         assigned_room_id UUID REFERENCES inventory.rooms (id) ON DELETE SET NULL,
         rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE SET NULL, -- The rate plan for the majority of the stay,
         stay_period TSTZRANGE NOT NULL CHECK (
@@ -137,13 +148,7 @@ CREATE TABLE IF NOT EXISTS
         CONSTRAINT no_overlapping_room_stays EXCLUDE USING GIST (
             assigned_room_id
             WITH=, stay_period WITH &&
-        )
-
-        WHERE
-            (
-                deleted_at IS NULL
-                AND assigned_room_id IS NOT NULL
-            ),
+        ) WHERE (deleted_at IS NULL AND assigned_room_id IS NOT NULL),
             -- Ensures the reservation belongs to the same property
             FOREIGN KEY (property_id, reservation_id) REFERENCES operations.reservations (property_id, id) ON DELETE RESTRICT,
             -- Ensures the room type belongs to the same property
@@ -196,6 +201,7 @@ CREATE INDEX idx_reservation_item_guests_role ON relations.reservation_item_gues
 CREATE TABLE IF NOT EXISTS
     pricing.booked_daily_rates (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+        property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
         reservation_item_id UUID REFERENCES operations.reservation_items (id) ON DELETE RESTRICT,
         calendar_date DATE NOT NULL,
         rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE SET NULL,
@@ -227,7 +233,12 @@ CREATE TABLE IF NOT EXISTS
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
-        UNIQUE (reservation_item_id, calendar_date)
+        UNIQUE (reservation_item_id, calendar_date),
+        UNIQUE (property_id, id),
+        -- Ensure the reservation item belongs to the same property
+        FOREIGN KEY (property_id, reservation_item_id) REFERENCES operations.reservation_items (property_id, id) ON DELETE RESTRICT,
+        -- Ensure the rate plan belongs to the same property
+        FOREIGN KEY (property_id, rate_plan_id) REFERENCES pricing.rate_plans (property_id, id) ON DELETE SET NULL
     );
 
 CREATE TRIGGER trg_calculate_final_price BEFORE INSERT
@@ -282,6 +293,7 @@ CREATE INDEX idx_reservation_groups_master_folio ON operations.reservation_group
 CREATE TABLE IF NOT EXISTS
     finance.folio_transactions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+        property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
         folio_id UUID REFERENCES finance.folios (id) ON DELETE RESTRICT,
         ledger_code_id UUID REFERENCES finance.ledger_codes (id) ON DELETE SET NULL,
         description TEXT,
@@ -310,7 +322,15 @@ CREATE TABLE IF NOT EXISTS
         status finance.folio_transaction_status NOT NULL DEFAULT 'pending',
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
-        deleted_at TIMESTAMPTZ DEFAULT NULL -- For soft deletes
+        deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+    
+        UNIQUE (property_id, id),
+        -- Ensure the folio belongs to the same property
+        FOREIGN KEY (property_id, folio_id) REFERENCES finance.folios (property_id, id) ON DELETE RESTRICT,
+        -- Ensure the ledger code belongs to the same property
+        FOREIGN KEY (property_id, ledger_code_id) REFERENCES finance.ledger_codes (property_id, id) ON DELETE SET NULL,
+        -- Ensure the tax rule belongs to the same property
+        FOREIGN KEY (property_id, tax_rule_id) REFERENCES finance.tax_rules (property_id, id) ON DELETE SET NULL
     );
 
 CREATE INDEX idx_folio_transactions_folio ON finance.folio_transactions (folio_id);
@@ -365,6 +385,7 @@ CREATE INDEX idx_invoices_property_due_date ON finance.invoices (property_id, du
 CREATE TABLE IF NOT EXISTS
     sales_ledgers.transactions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+        property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
         ledger_account_id UUID REFERENCES sales_ledgers.accounts (id) ON DELETE RESTRICT,
         source_invoice_id UUID REFERENCES finance.invoices (id) ON DELETE SET NULL,
         amount_pence INT NOT NULL, -- Positive for charges, negative for payments
@@ -375,7 +396,12 @@ CREATE TABLE IF NOT EXISTS
         type sales_ledgers.transaction_type NOT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
-        deleted_at TIMESTAMPTZ DEFAULT NULL -- For soft deletes
+        deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+        UNIQUE (property_id, id),
+        -- Ensure the ledger account belongs to the same property
+        FOREIGN KEY (property_id, ledger_account_id) REFERENCES sales_ledgers.accounts (property_id, id) ON DELETE RESTRICT,
+        -- Ensure the invoice belongs to the same property
+        FOREIGN KEY (property_id, source_invoice_id) REFERENCES finance.invoices (property_id, id) ON DELETE SET NULL
     );
 
 CREATE INDEX idx_sales_ledger_transactions_account ON sales_ledgers.transactions (ledger_account_id);
@@ -407,7 +433,9 @@ CREATE TABLE IF NOT EXISTS
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
-        UNIQUE (property_id, reservation_id)
+        UNIQUE (property_id, reservation_id),
+        UNIQUE (property_id, id),
+        FOREIGN KEY (property_id, reservation_id) REFERENCES operations.reservations (property_id, id) ON DELETE RESTRICT
     );
 
 CREATE INDEX idx_checkout_sessions_property ON operations.checkout_sessions (property_id);
@@ -424,15 +452,17 @@ CREATE INDEX idx_checkout_sessions_payment_intent ON operations.checkout_session
 CREATE TABLE IF NOT EXISTS
     inventory.room_inventory_ledger (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+        property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
         room_id UUID REFERENCES inventory.rooms (id) ON DELETE RESTRICT,
         reservation_id UUID REFERENCES operations.reservations (id) ON DELETE SET NULL, -- Nullable for non-reserved inventory changes
         checkout_session_id UUID REFERENCES operations.checkout_sessions (id) ON DELETE SET NULL, -- Nullable for non-checkout related changes
         calendar_date DATE NOT NULL,
-        status inventory.inventory_status NOT NULL DEFAULT 'on_hold', -- e.g., 'available', 'sold', 'decommissioned'
+        status inventory.inventory_status NOT NULL DEFAULT 'available', -- e.g., 'available', 'sold', 'decommissioned'
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
         UNIQUE (room_id, calendar_date),
+        UNIQUE (property_id, id),
         CONSTRAINT sold_requires_reservation CHECK (
             (
                 status='sold'
@@ -446,7 +476,13 @@ CREATE TABLE IF NOT EXISTS
                 AND checkout_session_id IS NOT NULL
             )
             OR (status<>'on_hold')
-        )
+        ),
+        -- Ensure the room belongs to the same property
+        FOREIGN KEY (property_id, room_id) REFERENCES inventory.rooms (property_id, id) ON DELETE RESTRICT,
+        -- Ensure the reservation belongs to the same property
+        FOREIGN KEY (property_id, reservation_id) REFERENCES operations.reservations (property_id, id) ON DELETE SET NULL,
+        -- Ensure the checkout session belongs to the same property
+        FOREIGN KEY (property_id, checkout_session_id) REFERENCES operations.checkout_sessions (property_id, id) ON DELETE SET NULL
     );
 
 CREATE INDEX idx_inventory_dates_n_rooms_available ON inventory.room_inventory_ledger (calendar_date, room_id)
@@ -481,7 +517,10 @@ CREATE TABLE IF NOT EXISTS
         notes TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
-        deleted_at TIMESTAMPTZ DEFAULT NULL -- For soft deletes)
+        deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
+        UNIQUE (property_id, id),
+        -- Ensure the room belongs to the same property
+        FOREIGN KEY (property_id, room_id) REFERENCES inventory.rooms (property_id, id) ON DELETE RESTRICT
     );
 
 CREATE INDEX idx_housekeeping_logs_property ON inventory.housekeeping_logs (property_id);
@@ -510,7 +549,7 @@ DROP TABLE IF EXISTS finance.folios;
 
 DROP TABLE IF EXISTS pricing.booked_daily_rates;
 
-DROP TABLE IF EXISTS operations.reservation_items;
+DROP TABLE IF EXISTS operations.reservation_items CASCADE;
 
 DROP TABLE IF EXISTS relations.reservation_item_guests;
 

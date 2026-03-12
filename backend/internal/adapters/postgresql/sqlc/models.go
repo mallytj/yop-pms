@@ -8,6 +8,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -728,12 +729,12 @@ func (ns NullSalesLedgersTransactionType) Value() (driver.Value, error) {
 }
 
 type AuthAuditLog struct {
-	ID         pgtype.UUID        `json:"id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	PropertyID pgtype.UUID        `json:"property_id"`
+	ID         uuid.UUID          `json:"id"`
+	UserID     uuid.NullUUID      `json:"user_id"`
+	PropertyID uuid.NullUUID      `json:"property_id"`
 	Action     AuthAuditLogAction `json:"action"`
 	Entity     AuthAuditLogEntity `json:"entity"`
-	EntityID   pgtype.UUID        `json:"entity_id"`
+	EntityID   uuid.UUID          `json:"entity_id"`
 	Changes    []byte             `json:"changes"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
@@ -741,8 +742,8 @@ type AuthAuditLog struct {
 }
 
 type AuthUser struct {
-	ID           pgtype.UUID        `json:"id"`
-	LicenceID    pgtype.UUID        `json:"licence_id"`
+	ID           uuid.UUID          `json:"id"`
+	LicenceID    uuid.NullUUID      `json:"licence_id"`
 	Username     string             `json:"username"`
 	Email        string             `json:"email"`
 	PasswordHash string             `json:"password_hash"`
@@ -756,10 +757,10 @@ type AuthUser struct {
 }
 
 type FinanceFolio struct {
-	ID            pgtype.UUID        `json:"id"`
-	PropertyID    pgtype.UUID        `json:"property_id"`
-	ReservationID pgtype.UUID        `json:"reservation_id"`
-	SalesLedgerID pgtype.UUID        `json:"sales_ledger_id"`
+	ID            uuid.UUID          `json:"id"`
+	PropertyID    uuid.NullUUID      `json:"property_id"`
+	ReservationID uuid.NullUUID      `json:"reservation_id"`
+	SalesLedgerID uuid.NullUUID      `json:"sales_ledger_id"`
 	FolioPart     FinanceFolioPart   `json:"folio_part"`
 	BalancePence  int32              `json:"balance_pence"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
@@ -768,19 +769,20 @@ type FinanceFolio struct {
 }
 
 type FinanceFolioTransaction struct {
-	ID                 pgtype.UUID                   `json:"id"`
-	FolioID            pgtype.UUID                   `json:"folio_id"`
-	LedgerCodeID       pgtype.UUID                   `json:"ledger_code_id"`
+	ID                 uuid.UUID                     `json:"id"`
+	PropertyID         uuid.NullUUID                 `json:"property_id"`
+	FolioID            uuid.NullUUID                 `json:"folio_id"`
+	LedgerCodeID       uuid.NullUUID                 `json:"ledger_code_id"`
 	Description        pgtype.Text                   `json:"description"`
 	NetUnitPricePence  int32                         `json:"net_unit_price_pence"`
 	Quantity           int32                         `json:"quantity"`
-	TaxRuleID          pgtype.UUID                   `json:"tax_rule_id"`
+	TaxRuleID          uuid.NullUUID                 `json:"tax_rule_id"`
 	TotalNetPricePence int32                         `json:"total_net_price_pence"`
 	TaxRateSnapshot    pgtype.Numeric                `json:"tax_rate_snapshot"`
 	TaxAmountPence     pgtype.Int4                   `json:"tax_amount_pence"`
 	GrossAmountPence   int32                         `json:"gross_amount_pence"`
 	PostedAt           pgtype.Timestamptz            `json:"posted_at"`
-	PostedByUserID     pgtype.UUID                   `json:"posted_by_user_id"`
+	PostedByUserID     uuid.NullUUID                 `json:"posted_by_user_id"`
 	Status             FinanceFolioTransactionStatus `json:"status"`
 	CreatedAt          pgtype.Timestamptz            `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz            `json:"updated_at"`
@@ -788,9 +790,9 @@ type FinanceFolioTransaction struct {
 }
 
 type FinanceInvoice struct {
-	ID               pgtype.UUID        `json:"id"`
-	PropertyID       pgtype.UUID        `json:"property_id"`
-	FolioID          pgtype.UUID        `json:"folio_id"`
+	ID               uuid.UUID          `json:"id"`
+	PropertyID       uuid.NullUUID      `json:"property_id"`
+	FolioID          uuid.NullUUID      `json:"folio_id"`
 	PropertyCode     string             `json:"property_code"`
 	FiscalYear       int32              `json:"fiscal_year"`
 	FiscalSequential int32              `json:"fiscal_sequential"`
@@ -805,19 +807,19 @@ type FinanceInvoice struct {
 }
 
 type FinanceLedgerCode struct {
-	ID          pgtype.UUID        `json:"id"`
-	PropertyID  pgtype.UUID        `json:"property_id"`
+	ID          uuid.UUID          `json:"id"`
+	PropertyID  uuid.NullUUID      `json:"property_id"`
 	Code        string             `json:"code"`
 	Description pgtype.Text        `json:"description"`
-	TaxRule     pgtype.UUID        `json:"tax_rule"`
+	TaxRule     uuid.NullUUID      `json:"tax_rule"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type FinanceTaxRule struct {
-	ID             pgtype.UUID        `json:"id"`
-	PropertyID     pgtype.UUID        `json:"property_id"`
+	ID             uuid.UUID          `json:"id"`
+	PropertyID     uuid.NullUUID      `json:"property_id"`
 	Name           string             `json:"name"`
 	Description    pgtype.Text        `json:"description"`
 	TaxPercentage  pgtype.Numeric     `json:"tax_percentage"`
@@ -828,10 +830,10 @@ type FinanceTaxRule struct {
 }
 
 type IdentityCompanyProfile struct {
-	ID                   pgtype.UUID        `json:"id"`
-	PropertyID           pgtype.UUID        `json:"property_id"`
+	ID                   uuid.UUID          `json:"id"`
+	PropertyID           uuid.UUID          `json:"property_id"`
 	TaxID                pgtype.Text        `json:"tax_id"`
-	NegotiatedRatePlanID pgtype.UUID        `json:"negotiated_rate_plan_id"`
+	NegotiatedRatePlanID uuid.NullUUID      `json:"negotiated_rate_plan_id"`
 	CompanyName          string             `json:"company_name"`
 	ContactEmail         pgtype.Text        `json:"contact_email"`
 	ContactPhone         pgtype.Text        `json:"contact_phone"`
@@ -844,8 +846,8 @@ type IdentityCompanyProfile struct {
 }
 
 type IdentityGuest struct {
-	ID             pgtype.UUID        `json:"id"`
-	PropertyID     pgtype.UUID        `json:"property_id"`
+	ID             uuid.UUID          `json:"id"`
+	PropertyID     uuid.NullUUID      `json:"property_id"`
 	FirstName      string             `json:"first_name"`
 	LastName       string             `json:"last_name"`
 	Email          pgtype.Text        `json:"email"`
@@ -860,8 +862,9 @@ type IdentityGuest struct {
 }
 
 type IdentityIdentityDoc struct {
-	ID                 pgtype.UUID             `json:"id"`
-	GuestID            pgtype.UUID             `json:"guest_id"`
+	ID                 uuid.UUID               `json:"id"`
+	PropertyID         uuid.NullUUID           `json:"property_id"`
+	GuestID            uuid.NullUUID           `json:"guest_id"`
 	DocType            IdentityIdentityDocType `json:"doc_type"`
 	EncryptedDocNumber string                  `json:"encrypted_doc_number"`
 	IssuingCountry     pgtype.Text             `json:"issuing_country"`
@@ -873,8 +876,8 @@ type IdentityIdentityDoc struct {
 }
 
 type IdentityTravelAgent struct {
-	ID                pgtype.UUID        `json:"id"`
-	PropertyID        pgtype.UUID        `json:"property_id"`
+	ID                uuid.UUID          `json:"id"`
+	PropertyID        uuid.NullUUID      `json:"property_id"`
 	Name              string             `json:"name"`
 	ContactEmail      pgtype.Text        `json:"contact_email"`
 	ContactPhone      pgtype.Text        `json:"contact_phone"`
@@ -887,10 +890,10 @@ type IdentityTravelAgent struct {
 }
 
 type InventoryHousekeepingLog struct {
-	ID         pgtype.UUID                 `json:"id"`
-	PropertyID pgtype.UUID                 `json:"property_id"`
-	UserID     pgtype.UUID                 `json:"user_id"`
-	RoomID     pgtype.UUID                 `json:"room_id"`
+	ID         uuid.UUID                   `json:"id"`
+	PropertyID uuid.NullUUID               `json:"property_id"`
+	UserID     uuid.NullUUID               `json:"user_id"`
+	RoomID     uuid.NullUUID               `json:"room_id"`
 	StatusTo   InventoryHousekeepingStatus `json:"status_to"`
 	StatusFrom InventoryHousekeepingStatus `json:"status_from"`
 	Notes      pgtype.Text                 `json:"notes"`
@@ -900,21 +903,22 @@ type InventoryHousekeepingLog struct {
 }
 
 type InventoryMaintenanceBlock struct {
-	ID              pgtype.UUID                      `json:"id"`
-	RoomID          pgtype.UUID                      `json:"room_id"`
+	ID              uuid.UUID                        `json:"id"`
+	PropertyID      uuid.NullUUID                    `json:"property_id"`
+	RoomID          uuid.UUID                        `json:"room_id"`
 	BlockPeriod     pgtype.Range[pgtype.Timestamptz] `json:"block_period"`
 	Reason          string                           `json:"reason"`
 	Type            InventoryMaintenanceBlockType    `json:"type"`
-	CreatedByUserID pgtype.UUID                      `json:"created_by_user_id"`
+	CreatedByUserID uuid.UUID                        `json:"created_by_user_id"`
 	CreatedAt       pgtype.Timestamptz               `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz               `json:"updated_at"`
 	DeletedAt       pgtype.Timestamptz               `json:"deleted_at"`
 }
 
 type InventoryRoom struct {
-	ID                 pgtype.UUID                 `json:"id"`
-	PropertyID         pgtype.UUID                 `json:"property_id"`
-	RoomTypeID         pgtype.UUID                 `json:"room_type_id"`
+	ID                 uuid.UUID                   `json:"id"`
+	PropertyID         uuid.NullUUID               `json:"property_id"`
+	RoomTypeID         uuid.NullUUID               `json:"room_type_id"`
 	Name               string                      `json:"name"`
 	HousekeepingStatus InventoryHousekeepingStatus `json:"housekeeping_status"`
 	OccupancyStatus    InventoryOccupancyStatus    `json:"occupancy_status"`
@@ -924,10 +928,11 @@ type InventoryRoom struct {
 }
 
 type InventoryRoomInventoryLedger struct {
-	ID                pgtype.UUID              `json:"id"`
-	RoomID            pgtype.UUID              `json:"room_id"`
-	ReservationID     pgtype.UUID              `json:"reservation_id"`
-	CheckoutSessionID pgtype.UUID              `json:"checkout_session_id"`
+	ID                uuid.UUID                `json:"id"`
+	PropertyID        uuid.NullUUID            `json:"property_id"`
+	RoomID            uuid.NullUUID            `json:"room_id"`
+	ReservationID     uuid.NullUUID            `json:"reservation_id"`
+	CheckoutSessionID uuid.NullUUID            `json:"checkout_session_id"`
 	CalendarDate      pgtype.Date              `json:"calendar_date"`
 	Status            InventoryInventoryStatus `json:"status"`
 	CreatedAt         pgtype.Timestamptz       `json:"created_at"`
@@ -936,8 +941,8 @@ type InventoryRoomInventoryLedger struct {
 }
 
 type InventoryRoomType struct {
-	ID           pgtype.UUID        `json:"id"`
-	PropertyID   pgtype.UUID        `json:"property_id"`
+	ID           uuid.UUID          `json:"id"`
+	PropertyID   uuid.NullUUID      `json:"property_id"`
 	Name         string             `json:"name"`
 	Code         string             `json:"code"`
 	StdOccupancy int32              `json:"std_occupancy"`
@@ -949,8 +954,8 @@ type InventoryRoomType struct {
 }
 
 type OperationsAmenity struct {
-	ID          pgtype.UUID        `json:"id"`
-	PropertyID  pgtype.UUID        `json:"property_id"`
+	ID          uuid.UUID          `json:"id"`
+	PropertyID  uuid.NullUUID      `json:"property_id"`
 	Name        string             `json:"name"`
 	ShortCode   pgtype.Text        `json:"short_code"`
 	Description pgtype.Text        `json:"description"`
@@ -961,9 +966,9 @@ type OperationsAmenity struct {
 }
 
 type OperationsCheckoutSession struct {
-	ID              pgtype.UUID                     `json:"id"`
-	PropertyID      pgtype.UUID                     `json:"property_id"`
-	ReservationID   pgtype.UUID                     `json:"reservation_id"`
+	ID              uuid.UUID                       `json:"id"`
+	PropertyID      uuid.NullUUID                   `json:"property_id"`
+	ReservationID   uuid.NullUUID                   `json:"reservation_id"`
 	PaymentIntentID string                          `json:"payment_intent_id"`
 	ExpiresAt       pgtype.Timestamptz              `json:"expires_at"`
 	Status          OperationsCheckoutSessionStatus `json:"status"`
@@ -974,7 +979,7 @@ type OperationsCheckoutSession struct {
 }
 
 type OperationsLicence struct {
-	ID               pgtype.UUID        `json:"id"`
+	ID               uuid.UUID          `json:"id"`
 	LicenceKey       string             `json:"licence_key"`
 	OrganisationName string             `json:"organisation_name"`
 	ContactEmail     string             `json:"contact_email"`
@@ -986,8 +991,8 @@ type OperationsLicence struct {
 }
 
 type OperationsProperty struct {
-	ID            pgtype.UUID        `json:"id"`
-	LicenceID     pgtype.UUID        `json:"licence_id"`
+	ID            uuid.UUID          `json:"id"`
+	LicenceID     uuid.NullUUID      `json:"licence_id"`
 	Name          string             `json:"name"`
 	Address       string             `json:"address"`
 	Timezone      string             `json:"timezone"`
@@ -999,14 +1004,14 @@ type OperationsProperty struct {
 }
 
 type OperationsReservation struct {
-	ID             pgtype.UUID                 `json:"id"`
-	PropertyID     pgtype.UUID                 `json:"property_id"`
-	PrimaryGuestID pgtype.UUID                 `json:"primary_guest_id"`
-	GroupID        pgtype.UUID                 `json:"group_id"`
+	ID             uuid.UUID                   `json:"id"`
+	PropertyID     uuid.NullUUID               `json:"property_id"`
+	PrimaryGuestID uuid.UUID                   `json:"primary_guest_id"`
+	GroupID        uuid.NullUUID               `json:"group_id"`
 	Sequential     int32                       `json:"sequential"`
 	Code           pgtype.Text                 `json:"code"`
 	Source         OperationsReservationSource `json:"source"`
-	TravelAgentID  pgtype.UUID                 `json:"travel_agent_id"`
+	TravelAgentID  uuid.NullUUID               `json:"travel_agent_id"`
 	Notes          pgtype.Text                 `json:"notes"`
 	Status         OperationsReservationStatus `json:"status"`
 	CreatedAt      pgtype.Timestamptz          `json:"created_at"`
@@ -1015,9 +1020,9 @@ type OperationsReservation struct {
 }
 
 type OperationsReservationGroup struct {
-	ID            pgtype.UUID        `json:"id"`
-	PropertyID    pgtype.UUID        `json:"property_id"`
-	MasterFolioID pgtype.UUID        `json:"master_folio_id"`
+	ID            uuid.UUID          `json:"id"`
+	PropertyID    uuid.NullUUID      `json:"property_id"`
+	MasterFolioID uuid.NullUUID      `json:"master_folio_id"`
 	Sequential    int32              `json:"sequential"`
 	Code          pgtype.Text        `json:"code"`
 	Name          pgtype.Text        `json:"name"`
@@ -1028,11 +1033,12 @@ type OperationsReservationGroup struct {
 }
 
 type OperationsReservationItem struct {
-	ID               pgtype.UUID                      `json:"id"`
-	ReservationID    pgtype.UUID                      `json:"reservation_id"`
-	BookedRoomTypeID pgtype.UUID                      `json:"booked_room_type_id"`
-	AssignedRoomID   pgtype.UUID                      `json:"assigned_room_id"`
-	RatePlanID       pgtype.UUID                      `json:"rate_plan_id"`
+	ID               uuid.UUID                        `json:"id"`
+	PropertyID       uuid.NullUUID                    `json:"property_id"`
+	ReservationID    uuid.UUID                        `json:"reservation_id"`
+	BookedRoomTypeID uuid.UUID                        `json:"booked_room_type_id"`
+	AssignedRoomID   uuid.NullUUID                    `json:"assigned_room_id"`
+	RatePlanID       uuid.NullUUID                    `json:"rate_plan_id"`
 	StayPeriod       pgtype.Range[pgtype.Timestamptz] `json:"stay_period"`
 	BaseRatePence    int32                            `json:"base_rate_pence"`
 	AdultsCount      int32                            `json:"adults_count"`
@@ -1041,17 +1047,33 @@ type OperationsReservationItem struct {
 	CreatedAt        pgtype.Timestamptz               `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz               `json:"updated_at"`
 	DeletedAt        pgtype.Timestamptz               `json:"deleted_at"`
+	GuestID          uuid.NullUUID                    `json:"guest_id"`
+}
+
+type PricingBaseRate struct {
+	ID                uuid.UUID          `json:"id"`
+	PropertyID        uuid.NullUUID      `json:"property_id"`
+	RoomTypeID        uuid.NullUUID      `json:"room_type_id"`
+	RatePlanID        uuid.NullUUID      `json:"rate_plan_id"`
+	DayOfWeek         int32              `json:"day_of_week"`
+	BasePricePence    int32              `json:"base_price_pence"`
+	MinLosRestriction pgtype.Int4        `json:"min_los_restriction"`
+	MaxLosRestriction pgtype.Int4        `json:"max_los_restriction"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type PricingBookedDailyRate struct {
-	ID                         pgtype.UUID        `json:"id"`
-	ReservationItemID          pgtype.UUID        `json:"reservation_item_id"`
+	ID                         uuid.UUID          `json:"id"`
+	PropertyID                 uuid.NullUUID      `json:"property_id"`
+	ReservationItemID          uuid.NullUUID      `json:"reservation_item_id"`
 	CalendarDate               pgtype.Date        `json:"calendar_date"`
-	RatePlanID                 pgtype.UUID        `json:"rate_plan_id"`
+	RatePlanID                 uuid.NullUUID      `json:"rate_plan_id"`
 	BasePricePence             int32              `json:"base_price_pence"`
 	Adjustment                 []byte             `json:"adjustment"`
 	AdjustmentApproved         pgtype.Bool        `json:"adjustment_approved"`
-	AdjustmentApprovedByUserID pgtype.UUID        `json:"adjustment_approved_by_user_id"`
+	AdjustmentApprovedByUserID uuid.NullUUID      `json:"adjustment_approved_by_user_id"`
 	FinalPricePence            int32              `json:"final_price_pence"`
 	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
@@ -1059,26 +1081,26 @@ type PricingBookedDailyRate struct {
 }
 
 type PricingDailyPriceGrid struct {
-	ID                pgtype.UUID        `json:"id"`
-	RoomTypeID        pgtype.UUID        `json:"room_type_id"`
-	RatePlanID        pgtype.UUID        `json:"rate_plan_id"`
+	ID                uuid.UUID          `json:"id"`
+	PropertyID        uuid.NullUUID      `json:"property_id"`
+	RoomTypeID        uuid.NullUUID      `json:"room_type_id"`
+	RatePlanID        uuid.NullUUID      `json:"rate_plan_id"`
 	CalendarDate      pgtype.Date        `json:"calendar_date"`
 	BasePricePence    int32              `json:"base_price_pence"`
 	MinLosRestriction pgtype.Int4        `json:"min_los_restriction"`
 	MaxLosRestriction pgtype.Int4        `json:"max_los_restriction"`
-	IsAvailable       pgtype.Bool        `json:"is_available"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type PricingRatePlan struct {
-	ID               pgtype.UUID        `json:"id"`
-	PropertyID       pgtype.UUID        `json:"property_id"`
+	ID               uuid.UUID          `json:"id"`
+	PropertyID       uuid.NullUUID      `json:"property_id"`
 	Name             string             `json:"name"`
 	Code             string             `json:"code"`
 	Description      pgtype.Text        `json:"description"`
-	ParentRatePlanID pgtype.UUID        `json:"parent_rate_plan_id"`
+	ParentRatePlanID uuid.NullUUID      `json:"parent_rate_plan_id"`
 	DerivationRule   []byte             `json:"derivation_rule"`
 	IsActive         pgtype.Bool        `json:"is_active"`
 	CurrencyCode     string             `json:"currency_code"`
@@ -1087,17 +1109,33 @@ type PricingRatePlan struct {
 	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
 }
 
+type PricingSeasonalRate struct {
+	ID                uuid.UUID                        `json:"id"`
+	PropertyID        uuid.NullUUID                    `json:"property_id"`
+	RoomTypeID        uuid.NullUUID                    `json:"room_type_id"`
+	RatePlanID        uuid.NullUUID                    `json:"rate_plan_id"`
+	OverridePeriod    pgtype.Range[pgtype.Timestamptz] `json:"override_period"`
+	DayOfWeek         int32                            `json:"day_of_week"`
+	BasePricePence    int32                            `json:"base_price_pence"`
+	MinLosRestriction pgtype.Int4                      `json:"min_los_restriction"`
+	MaxLosRestriction pgtype.Int4                      `json:"max_los_restriction"`
+	CreatedAt         pgtype.Timestamptz               `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz               `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz               `json:"deleted_at"`
+}
+
 type RelationsPropertyAmenity struct {
-	PropertyID pgtype.UUID        `json:"property_id"`
-	AmenityID  pgtype.UUID        `json:"amenity_id"`
+	PropertyID uuid.UUID          `json:"property_id"`
+	AmenityID  uuid.UUID          `json:"amenity_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type RelationsReservationItemGuest struct {
-	ReservationItemID pgtype.UUID                    `json:"reservation_item_id"`
-	GuestID           pgtype.UUID                    `json:"guest_id"`
+	PropertyID        uuid.NullUUID                  `json:"property_id"`
+	ReservationItemID uuid.UUID                      `json:"reservation_item_id"`
+	GuestID           uuid.UUID                      `json:"guest_id"`
 	Role              OperationsReservationGuestRole `json:"role"`
 	CreatedAt         pgtype.Timestamptz             `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz             `json:"updated_at"`
@@ -1105,27 +1143,29 @@ type RelationsReservationItemGuest struct {
 }
 
 type RelationsRoomAmenity struct {
-	PropertyID pgtype.UUID        `json:"property_id"`
-	RoomID     pgtype.UUID        `json:"room_id"`
-	AmenityID  pgtype.UUID        `json:"amenity_id"`
+	PropertyID uuid.NullUUID      `json:"property_id"`
+	RoomID     uuid.UUID          `json:"room_id"`
+	AmenityID  uuid.UUID          `json:"amenity_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type RelationsRoomTypeAmenity struct {
-	PropertyID pgtype.UUID        `json:"property_id"`
-	RoomTypeID pgtype.UUID        `json:"room_type_id"`
-	AmenityID  pgtype.UUID        `json:"amenity_id"`
+	PropertyID uuid.NullUUID      `json:"property_id"`
+	RoomTypeID uuid.UUID          `json:"room_type_id"`
+	AmenityID  uuid.UUID          `json:"amenity_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type SalesLedgersAccount struct {
-	ID               pgtype.UUID        `json:"id"`
-	PropertyID       pgtype.UUID        `json:"property_id"`
-	CompanyProfileID pgtype.UUID        `json:"company_profile_id"`
+	ID               uuid.UUID          `json:"id"`
+	PropertyID       uuid.UUID          `json:"property_id"`
+	CompanyProfileID uuid.NullUUID      `json:"company_profile_id"`
+	Name             string             `json:"name"`
+	Code             string             `json:"code"`
 	CreditLimitPence pgtype.Int4        `json:"credit_limit_pence"`
 	PaymentTermsDays pgtype.Int4        `json:"payment_terms_days"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
@@ -1134,14 +1174,15 @@ type SalesLedgersAccount struct {
 }
 
 type SalesLedgersTransaction struct {
-	ID              pgtype.UUID                 `json:"id"`
-	LedgerAccountID pgtype.UUID                 `json:"ledger_account_id"`
-	SourceInvoiceID pgtype.UUID                 `json:"source_invoice_id"`
+	ID              uuid.UUID                   `json:"id"`
+	PropertyID      uuid.NullUUID               `json:"property_id"`
+	LedgerAccountID uuid.NullUUID               `json:"ledger_account_id"`
+	SourceInvoiceID uuid.NullUUID               `json:"source_invoice_id"`
 	AmountPence     int32                       `json:"amount_pence"`
 	DueDate         pgtype.Timestamptz          `json:"due_date"`
 	IsFullyPaid     pgtype.Bool                 `json:"is_fully_paid"`
 	PostedAt        pgtype.Timestamptz          `json:"posted_at"`
-	PostedByUserID  pgtype.UUID                 `json:"posted_by_user_id"`
+	PostedByUserID  uuid.NullUUID               `json:"posted_by_user_id"`
 	Type            SalesLedgersTransactionType `json:"type"`
 	CreatedAt       pgtype.Timestamptz          `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz          `json:"updated_at"`

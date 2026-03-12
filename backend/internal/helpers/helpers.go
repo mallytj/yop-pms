@@ -18,10 +18,9 @@ import (
 )
 
 var (
-	ErrStartingTx            = errors.New("error starting transaction")
-	ErrCommittingTx          = errors.New("error committing transaction")
-	ErrDuplicatedField       = errors.New("duplicated field error")
-	ErrRelatedEntityNotFound = errors.New("related entity not found")
+	ErrStartingTx      = errors.New("error starting transaction")
+	ErrCommittingTx    = errors.New("error committing transaction")
+	ErrDuplicatedField = errors.New("duplicated field error")
 	// ErrCommitingTx is deprecated: use ErrCommittingTx instead
 	ErrCommitingTx = ErrCommittingTx
 )
@@ -33,6 +32,15 @@ func CheckErrorCode(err error, code string) bool {
 		return pgErr.Code == code
 	}
 	return false
+}
+
+// GetErrorCode extracts the error code from a pgx.PgError if possible, otherwise returns an empty string.
+func GetErrorCode(err error) string {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code
+	}
+	return ""
 }
 
 // StringCharCount returns the number of characters in a string, accounting for multi-byte characters.
@@ -113,12 +121,12 @@ func ToPgBoolPtr(b bool) *pgtype.Bool {
 // returns &pgtype.Tstzrange{Lower: startTime, Upper: endTime, Valid: true}
 func ToPgTstzRange(start, end time.Time) *pgtype.Range[pgtype.Timestamptz] {
 	pgRange := pgtype.Range[pgtype.Timestamptz]{
-			Lower: pgtype.Timestamptz{Time: start, Valid: true},
-			Upper: pgtype.Timestamptz{Time: end, Valid: true},
-			Valid: true,
-			LowerType: pgtype.Inclusive,
-			UpperType: pgtype.Exclusive,
-		}
+		Lower:     pgtype.Timestamptz{Time: start, Valid: true},
+		Upper:     pgtype.Timestamptz{Time: end, Valid: true},
+		Valid:     true,
+		LowerType: pgtype.Inclusive,
+		UpperType: pgtype.Exclusive,
+	}
 
 	return &pgRange
 }
@@ -214,4 +222,108 @@ func MatchRegex(pattern, input string) (bool, error) {
 		return false, err
 	}
 	return re.MatchString(input), nil
+}
+
+// StringOrEmpty returns the string value if valid, otherwise returns an empty string.
+func StringOrEmpty(pgStr pgtype.Text) string {
+	if pgStr.Valid {
+		return pgStr.String
+	}
+	return ""
+}
+
+// StrToDate parses a date string in "YYYY-MM-DD" format to a time.Time object.
+func StrToDate(dateStr string) (time.Time, error) {
+	if dateStr == "" {
+		return time.Time{}, ErrNotProvided
+	}
+	const layout = "2006-01-02"
+	return time.Parse(layout, dateStr)
+}
+
+// ParseDateRange parses start and end date strings in "YYYY-MM-DD" format to time.Time objects.
+func ParseDateRange(startStr, endStr string) (time.Time, time.Time, error) {
+	startDate, err := StrToDate(startStr)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid start date format: %w", err)
+	}
+
+	endDate, err := StrToDate(endStr)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid end date format: %w", err)
+	}
+
+	return startDate, endDate, nil
+}
+
+// PsqlErrToCustomErr maps specific PostgreSQL error codes to custom error messages for better user feedback and HTTP status code handling in API responses.
+// Example usage: If a unique constraint violation occurs in the database, this function will return ErrUniqueViolation instead of the raw pgx.PgError,
+// allowing handlers to return a 400 Bad Request status with a clear message.
+// This function can be extended to handle more PostgreSQL error codes as needed.
+func PsqlErrToCustomErr(err error) error {
+	// Map specific database errors to more user-friendly error messages
+	// Also so we can send different http status codes from the handlers based on the error type
+	switch GetErrorCode(err) {
+	case UniqueViolationCode:
+		return ErrUniqueViolation
+	case ForeignKeyViolationCode:
+		return ErrForeignKeyViolation
+	case CheckViolationCode:
+		return ErrCheckViolation
+	default:
+		return err
+	}
+}
+
+// CustomErrToHTTPStatus maps custom application errors to appropriate HTTP status codes for API responses.
+// Example usage: If a handler returns ErrNotPermitted, this function will return http.StatusForbidden (403),
+// allowing the API to respond with the correct status code and message.
+// This function can be extended to handle more custom errors as needed, ensuring consistent error handling across the application.
+func CustomErrToHTTPStatus(err error) int {
+	switch err {
+	case ErrNotPermitted:
+		return http.StatusForbidden
+	case ErrNotProvided:
+		return http.StatusBadRequest
+	case ErrUniqueViolation, ErrForeignKeyViolation, ErrCheckViolation, ErrNotNullViolation, ErrInvalidTextRepresentation, ErrDataException, ErrExclusionViolation:
+		return http.StatusBadRequest
+	case ErrRelatedEntityNotFound:
+		return http.StatusNotFound
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+// Deref is a generic helper function that safely dereferences a pointer to a value of any type.
+// If the pointer is nil, it returns the zero value of the type.
+// Example usage: Deref(helpers.Ptr("example")) => "example"
+// Example usage: Deref((*string)(nil)) => "" (empty string, the zero value for string)
+// Example usage: Deref(helpers.Ptr(42)) => 42
+// Example usage: Deref((*int)(nil)) => 0 (the zero value for int)
+func Deref[T any](ptr *T) T {
+	if ptr == nil {
+		var zero T
+		return zero
+	}
+	return *ptr
+}
+
+func ToNullUUID(u *uuid.UUID) uuid.NullUUID {
+	if u == nil {
+		return uuid.NullUUID{Valid: false}
+	}
+	return uuid.NullUUID{UUID: *u, Valid: true}
+}
+
+func ToNullText[T ~string](s *T) pgtype.Text {
+	if s == nil {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{String: string(*s), Valid: true}
+}
+
+// NumDaysBetween returns the number of days between two time.Time values.
+// Example usage: NumDaysBetween(time.Now(), time.Now().AddDate(0, 0, 1)) => 1
+func NumDaysBetween(start, end time.Time) int {
+	return int(end.Sub(start).Hours() / 24)
 }

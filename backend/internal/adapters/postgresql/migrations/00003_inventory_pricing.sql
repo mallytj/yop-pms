@@ -93,6 +93,7 @@ CREATE INDEX idx_property_room_amenities_amenity ON relations.room_amenities (pr
 CREATE TABLE IF NOT EXISTS
     inventory.maintenance_blocks (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+        property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
         room_id UUID REFERENCES inventory.rooms (id) ON DELETE RESTRICT NOT NULL,
         block_period TSTZRANGE NOT NULL CHECK (upper(block_period)>lower(block_period)),
         reason TEXT CHECK (char_length(reason)<=150) NOT NULL,
@@ -102,6 +103,7 @@ CREATE TABLE IF NOT EXISTS
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes
         UNIQUE (room_id, block_period),
+        UNIQUE (property_id, id),
         EXCLUDE USING GIST (
             room_id
             WITH
@@ -109,7 +111,9 @@ CREATE TABLE IF NOT EXISTS
                 block_period
             WITH
 &&
-        )
+        ),
+        -- Enforce that the room belongs to the same property
+        FOREIGN KEY (property_id, room_id) REFERENCES inventory.rooms (property_id, id) ON DELETE RESTRICT
     );
 
 CREATE INDEX idx_maintenance_blocks_room_period ON inventory.maintenance_blocks (room_id, block_period);
@@ -189,6 +193,7 @@ CREATE TABLE IF NOT EXISTS
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         deleted_at TIMESTAMPTZ DEFAULT NULL, -- For soft deletes,
+        -- Ensure that the negotiated rate plan belongs to the same property
         FOREIGN KEY (property_id, negotiated_rate_plan_id) REFERENCES pricing.rate_plans (property_id, id) ON DELETE SET NULL,
         UNIQUE (property_id, company_name),
         UNIQUE (tax_id, property_id),
@@ -210,7 +215,7 @@ CREATE TABLE IF NOT EXISTS
         property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
         room_type_id UUID REFERENCES inventory.room_types (id) ON DELETE RESTRICT,
         rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE RESTRICT,
-        calendar_date DATE NOT NULL CHECK (calendar_date>=NOW()),
+        calendar_date DATE NOT NULL,
         base_price_pence INTEGER NOT NULL DEFAULT 0, -- Store prices in pence to avoid floating point issues
         min_los_restriction INT DEFAULT 1 CHECK (min_los_restriction>0), -- Minimum length of stay restriction
         max_los_restriction INT DEFAULT 365 CHECK (

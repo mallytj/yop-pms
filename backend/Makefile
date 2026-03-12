@@ -1,4 +1,4 @@
-.PHONY: help build-entity-dir db-up db-down db-reset
+.PHONY: help build-entity-dir db-up db-down db-reset sql
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -25,3 +25,10 @@ db-down: ## Stop database
 db-reset: ## Reset database (stop, remove volumes, and start fresh)
 	docker compose down -v
 	docker compose up -d postgres
+
+sql: ## Generate SQLC code
+	sqlc generate
+
+swag: ## Generate Swagger documentation
+	cd ./cmd && swag init --parseInternal --parseDependency --dir .,../internal/handlers,../internal/service
+

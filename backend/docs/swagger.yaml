@@ -1,0 +1,36 @@
+basePath: /v1
+host: localhost:8080
+info:
+  contact:
+    email: support@yop-pms.com
+    name: API Support
+    url: http://www.yop-pms.com/support
+  description: This is the backend API documentation for Yop PMS.
+  title: Yop PMS Backend API
+  version: "1.0"
+paths:
+  /planner:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve planner data for scheduling and resource management.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Planner Data
+      tags:
+      - Planner
+schemes:
+- http
+swagger: "2.0"

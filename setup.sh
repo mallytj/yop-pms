@@ -32,7 +32,7 @@ cd ..
 
 # Setup Frontend
 echo -e "${BLUE}Setting up Frontend (Astro + React + TypeScript)...${NC}"
-cd frontend
+cd frontend/client
 
 if [ ! -d "node_modules" ]; then
     echo "Installing frontend dependencies..."
