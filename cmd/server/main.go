@@ -4,13 +4,13 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"ollerod-pms/internal/platform/config"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lexxcode1/yop-pms/internal/platform/config"
 	"github.com/redis/go-redis/v9"
 )
 

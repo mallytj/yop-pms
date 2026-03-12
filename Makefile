@@ -1,4 +1,4 @@
-.PHONY: help clean swag dev docker-up gen audit setup reset-db test
+.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -11,6 +11,9 @@ clean: ## Clean build artifacts
 	rm -rf backend/vendor/
 	rm -rf frontend/dist/
 	rm -rf frontend/node_modules/
+
+sqlc: ## Generate SQLC code
+	sqlc generate
 
 swag: ## Makes the swagger files
 	swag init -g cmd/server/main.go -o ./api --parseInternal --parseDependency --instanceName yop
@@ -64,3 +67,7 @@ test: ## Run all tests
 format: 
 	go fmt ./...
 	cd web && npm run format 
+
+goose-circle: ## Completely reset goose
+	goose reset
+	goose up
