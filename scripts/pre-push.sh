@@ -3,8 +3,11 @@ echo "🚀 Running pre-push audit..."
 # Run the audit
 make audit
 
-# Run all testsH
+# Run all tests
 make test
+
+# Sync front and backend
+make gen
 
 # Capture the exit code
 RESULT=$?
