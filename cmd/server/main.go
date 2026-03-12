@@ -91,7 +91,6 @@ func main() {
 		logger.Info("starting server", "addr", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("listen and serve failed", "error", err)
-			os.Exit(1)
 		}
 		logger.Info("server started", "addr", srv.Addr)
 	}()
