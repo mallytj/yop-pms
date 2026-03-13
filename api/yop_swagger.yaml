@@ -5,11 +5,26 @@ definitions:
       message:
         example: Server is running
         type: string
+      services:
+        additionalProperties:
+          $ref: '#/definitions/cmd_server.ServiceHealth'
+        type: object
       status:
         example: ok
         type: string
       version:
         example: 1.0.0
+        type: string
+    type: object
+  cmd_server.ServiceHealth:
+    properties:
+      error:
+        type: string
+      latency:
+        example: 5ms
+        type: string
+      status:
+        example: ok
         type: string
     type: object
 host: localhost:8080
@@ -27,6 +42,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/cmd_server.HealthResponse'
+        "503":
+          description: Service Unavailable
           schema:
             $ref: '#/definitions/cmd_server.HealthResponse'
       summary: Get Server Health

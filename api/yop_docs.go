@@ -31,6 +31,12 @@ const docTemplateyop = `{
                         "schema": {
                             "$ref": "#/definitions/cmd_server.HealthResponse"
                         }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/cmd_server.HealthResponse"
+                        }
                     }
                 }
             }
@@ -44,6 +50,12 @@ const docTemplateyop = `{
                     "type": "string",
                     "example": "Server is running"
                 },
+                "services": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/cmd_server.ServiceHealth"
+                    }
+                },
                 "status": {
                     "type": "string",
                     "example": "ok"
@@ -51,6 +63,22 @@ const docTemplateyop = `{
                 "version": {
                     "type": "string",
                     "example": "1.0.0"
+                }
+            }
+        },
+        "cmd_server.ServiceHealth": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "latency": {
+                    "type": "string",
+                    "example": "5ms"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
                 }
             }
         }

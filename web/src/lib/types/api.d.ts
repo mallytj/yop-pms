@@ -33,6 +33,15 @@ export interface paths {
 						'application/json': components['schemas']['cmd_server.HealthResponse'];
 					};
 				};
+				/** @description Service Unavailable */
+				503: {
+					headers: {
+						[name: string]: unknown;
+					};
+					content: {
+						'application/json': components['schemas']['cmd_server.HealthResponse'];
+					};
+				};
 			};
 		};
 		put?: never;
@@ -50,10 +59,20 @@ export interface components {
 		'cmd_server.HealthResponse': {
 			/** @example Server is running */
 			message?: string;
+			services?: {
+				[key: string]: components['schemas']['cmd_server.ServiceHealth'];
+			};
 			/** @example ok */
 			status?: string;
 			/** @example 1.0.0 */
 			version?: string;
+		};
+		'cmd_server.ServiceHealth': {
+			error?: string;
+			/** @example 5ms */
+			latency?: string;
+			/** @example ok */
+			status?: string;
 		};
 	};
 	responses: never;
