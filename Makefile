@@ -34,30 +34,29 @@ gen: ## Sync backend & frontend contracts
 GOBIN := $(shell go env GOPATH)/bin
 
 audit: ## Run quality checks
-	@echo "🔍 Checking tools..."
-	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && curl -sSfL https://raw.githubusercontent.com/golangci-lint/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.64.5)
-
 	@echo "🔍 Auditing Backend..."
 	go mod verify
 	go mod tidy
 	go vet ./...
 
-	# Run golangci-lint (checks for dead code, shadowing, etc.)
-	$(GOBIN)/golangci-lint run ./...
-	# Run Go tests with the race detector (CRITICAL for a booking engine!)
 	go test -v -race -buildvcs ./...
-	# Vulnerability check
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 	@echo "🔍 Auditing Frontend..."
-	cd web && npm run lint
-	# svelte-check does the heavy lifting of type-checking your .svelte files
 	cd web && npm run check
 	@echo "✅ All checks passed!"
 
 setup: ## Run to init the project
 	chmod +x scripts/setup.sh
 	./scripts/setup.sh
+
+lint: ## Lints both front and backend
+	@echo "Linting Backend..."
+	golangci-lint run ./...
+
+	@echo "Linting Frontend..."
+	cd web && npm run lint
+
 
 reset-db: ## Run to reset the docker
 	docker-compose down -v
