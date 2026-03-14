@@ -2,13 +2,14 @@
 
 ## ✅ PR 1: Foundation & Skeleton (Current)
 **Goal:** Start fresh, clean slate the whole project for future scalability
-- [ ] Project directory restructuring
-- [ ] Database migration overhaul (clean slate)
-- [ ] Update architecture (install `air`, update dockerisation, Makefiles etc)
-- [ ] Initialise the Chi router and base middleware
-- [ ] Create first route `/heathz`
-- [ ] Lay down foundations for contract based API architecture
-- [ ] Graceful shutdown handler for `SIGTERM`
+- [x] Project directory restructuring
+- [x] Database migration overhaul (clean slate)
+- [x] Update architecture (install `air`, update dockerisation, Makefiles etc)
+- [x] Initialise the Chi router and base middleware
+- [x] Create first route `/heathz`
+- [x] Lay down foundations for contract based API architecture
+- [x] Graceful shutdown handler for `SIGTERM` and `SIGINT`
+
 
 ## PR 2: Infrastructure (Next)
 **Goal:** Implement the infrastructure for the rest of the project that ensure the system is reliable, traceable and safe
