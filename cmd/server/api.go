@@ -33,7 +33,7 @@ func (app *application) routes() http.Handler {
 	r.Use(middleware.StripSlashes)
 
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"}, // Allow Svelte
+		AllowedOrigins:   app.config.AllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true,
