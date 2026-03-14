@@ -1,4 +1,4 @@
-.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc test 
+.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
