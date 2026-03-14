@@ -1,4 +1,4 @@
-.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc
+.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc audit-no-golangci
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -48,6 +48,15 @@ audit: ## Run quality checks
 	# svelte-check does the heavy lifting of type-checking your .svelte files
 	cd web && npm run check
 	@echo "✅ All checks passed!"
+
+audit-no-golangci: ## Run quality checks without golangci-lint for CI/CD
+	go mod verify
+	go mod tidy
+	go vet ./...
+	go test -v -race -buildvcs ./...
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+	cd web && npm run lint
+	cd web && npm run check
 
 setup: ## Run to init the project
 	chmod +x scripts/setup.sh

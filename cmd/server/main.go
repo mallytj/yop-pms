@@ -101,7 +101,6 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 			logger.Error("listen and serve failed", "error", err)
 			errChan <- err
 		}
-		logger.Info("server started", "addr", srv.Addr)
 	}()
 
 	select {
