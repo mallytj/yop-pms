@@ -1,4 +1,4 @@
-.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc audit-no-golangci
+.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -31,13 +31,19 @@ gen: ## Sync backend & frontend contracts
 	chmod +x scripts/gen-api.sh
 	./scripts/gen-api.sh
 
+GOBIN := $(shell go env GOPATH)/bin
+
 audit: ## Run quality checks
+	@echo "🔍 Checking tools..."
+	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && curl -sSfL https://raw.githubusercontent.com/golangci-lint/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) v1.64.5)
+
 	@echo "🔍 Auditing Backend..."
 	go mod verify
 	go mod tidy
 	go vet ./...
+
 	# Run golangci-lint (checks for dead code, shadowing, etc.)
-	golangci-lint run ./...
+	$(GOBIN)/golangci-lint run ./...
 	# Run Go tests with the race detector (CRITICAL for a booking engine!)
 	go test -v -race -buildvcs ./...
 	# Vulnerability check
@@ -48,15 +54,6 @@ audit: ## Run quality checks
 	# svelte-check does the heavy lifting of type-checking your .svelte files
 	cd web && npm run check
 	@echo "✅ All checks passed!"
-
-audit-no-golangci: ## Run quality checks without golangci-lint for CI/CD
-	go mod verify
-	go mod tidy
-	go vet ./...
-	go test -v -race -buildvcs ./...
-	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
-	cd web && npm run lint
-	cd web && npm run check
 
 setup: ## Run to init the project
 	chmod +x scripts/setup.sh
