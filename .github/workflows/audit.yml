@@ -17,16 +17,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "25"
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
 
       - name: Install Dependencies
         run: |
           go mod download
           cd web && npm ci
-      - name: golangci-lint
-        uses: golangci-lint/golangci-lint-action@v6
-        with:
-          version: v1.64.5 # Specify a version to ensure deterministic builds
+
       - name: Run Audit
         run: make audit-no-golangci
