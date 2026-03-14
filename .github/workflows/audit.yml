@@ -26,4 +26,4 @@ jobs:
           cd web && npm ci
 
       - name: Run Audit
-        run: make audit-no-golangci
+        run: make audit
