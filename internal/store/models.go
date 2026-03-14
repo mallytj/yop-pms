@@ -1124,6 +1124,8 @@ type RelationsPropertyAmenity struct {
 	PropertyID uuid.UUID          `json:"property_id"`
 	AmenityID  uuid.UUID          `json:"amenity_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type RelationsReservationItemGuest struct {
@@ -1136,11 +1138,22 @@ type RelationsReservationItemGuest struct {
 	DeletedAt         pgtype.Timestamptz             `json:"deleted_at"`
 }
 
+type RelationsRoomAmenity struct {
+	PropertyID uuid.UUID          `json:"property_id"`
+	RoomID     uuid.UUID          `json:"room_id"`
+	AmenityID  uuid.UUID          `json:"amenity_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type RelationsRoomTypeAmenity struct {
 	PropertyID uuid.UUID          `json:"property_id"`
 	RoomTypeID uuid.UUID          `json:"room_type_id"`
 	AmenityID  uuid.UUID          `json:"amenity_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type SalesLedgersAccount struct {
