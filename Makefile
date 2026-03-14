@@ -23,6 +23,10 @@ dev: ## Runs the backend & frontend
 docker-up: ## Runs docker
 	docker-compose up -d
 
+db-up: ## Runs just the databases
+	docker-compose up -d postgres
+	docker-compose up -d redis
+
 gen: ## Sync backend & frontend contracts
 	chmod +x scripts/gen-api.sh
 	./scripts/gen-api.sh
