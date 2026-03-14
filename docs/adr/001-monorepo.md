@@ -36,7 +36,8 @@ We will use a **Monorepo** architecture to house all project code, documentation
 └── docker-compose.yml
 ```
 
-Please note that this will continuously be updated, however all updates will be defined in the README
+Please note that this will continuously be updated, however all updates will be defined in the README.md.
+
 
 ## Consequences
 **What is the aftermath of this decision?**

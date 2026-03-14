@@ -15,10 +15,21 @@ import (
 func (app *application) routes() http.Handler {
 	r := chi.NewRouter()
 
+	// Adds a request ID into context of each request
+	// May potentially be deprecated in lieu of
+	// OpenTelemetry
 	r.Use(middleware.RequestID)
+
+	// Stores IP address for DDoS protection
 	r.Use(middleware.RealIP)
+
+	// Logs start and end of each request
 	r.Use(middleware.Logger)
+
+	// Recovers from panics, returns 500 when possible
 	r.Use(middleware.Recoverer)
+
+	// Strips trailing slashes e.g. /healthz/ => /healthz
 	r.Use(middleware.StripSlashes)
 
 	r.Use(cors.Handler(cors.Options{
@@ -30,11 +41,11 @@ func (app *application) routes() http.Handler {
 
 	r.Get("/healthz", app.HealthHandler)
 
-	// Swagger docs
+	// API Docs
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
-	r.Route("/v1", func(r chi.Router) {
-		// In the next PR (Porting), we will add domain routers here:
+	r.Route("/v1", func(_ chi.Router) {
+		// In future PR (Reservations), we will add domain routers here:
 		// r.Mount("/bookings", booking.NewHandler(app.store).Routes())
 		// r.Mount("/rooms", room.NewHandler(app.store).Routes())
 	})
@@ -92,13 +103,16 @@ func (app *application) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	resp := HealthResponse{
 		Status:   overallStatus,
 		Message:  "Yop API health check",
-		Version:  "1.0.0",
+		Version:  "0.1.0",
 		Services: services,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(resp)
+
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		app.logger.Error("failed to encode health response", "error", err)
+	}
 }
 
 // checkPostgres checks if the database is accessible

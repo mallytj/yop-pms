@@ -1,4 +1,4 @@
-.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc
+.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc test 
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -56,15 +56,15 @@ reset-db: ## Run to reset the docker
 	@sleep 3
 
 test-backend: ## Run all tests in the backend
-	go test ./...
+	go test -buildvcs -race ./...
 
 test-frontend: ## Run all tests in the frontend
-	npm run test
+	cd web && npm run test
 
 test: ## Run all tests
 	make test-backend && make test-frontend
 
-format: 
+format: ## Formats all code
 	go fmt ./...
 	cd web && npm run format 
 

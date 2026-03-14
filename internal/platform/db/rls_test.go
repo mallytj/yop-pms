@@ -2,66 +2,161 @@ package db_test
 
 import (
 	"context"
-	"database/sql"
 	"testing"
-	"time"
 
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/lexxcode1/yop-pms/internal/platform/helpers"
+	"github.com/stretchr/testify/assert"
 )
 
-// TestTenantIsolation proves REQ-021, REQ-022, and REQ-020
-func TestTenantIsolation(t *testing.T) {
-	// Connect using the specific least-privilege App User (REQ-021)
-	// This user should NOT be a superuser or own the tables.
-	db, err := sql.Open("pgx", "postgres://app_user:password@localhost:5433/yop_db?sslmode=disable")
-	if err != nil {
-		t.Fatalf("Failed to connect as app_user: %v", err)
+func TestRowLevelSecurity(t *testing.T) {
+
+	ctx := context.Background()
+
+	licence := seedLicence(ctx)
+	propertyAID := seedProperty(ctx, licence)
+	propertyBID := seedProperty(ctx, licence)
+
+	tx, err := testDB.BeginTx(ctx, pgx.TxOptions{})
+	assert.NoError(t, err)
+
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback(ctx) // Quietly rollback if not committed
+		}
+	}()
+	_, err = tx.Exec(ctx, "SELECT set_config('app.current_property_id', $1, true)", propertyAID)
+	assert.NoError(t, err)
+
+	_, err = tx.Exec(ctx, "INSERT INTO inventory.room_types (property_id, name, code) VALUES ($1, $2, $3)", propertyAID, "Guest A", "RT-01")
+	assert.NoError(t, err)
+
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("Failed to commit transaction: %v", err)
 	}
-	defer db.Close()
+	committed = true
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	t.Run("REQ-022: Test Tenant Isolation Strict", func(t *testing.T) {
+		t.Parallel()
 
-	// 1. Ensure queries FAIL or return 0 rows if we forget to set the context (REQ-022)
-	t.Run("Query Fails Without Context Setup", func(t *testing.T) {
-		// Attempting to select from a protected table without setting app.current_property_id
+		tx, err := testUserDB.BeginTx(ctx, pgx.TxOptions{})
+		defer func() {
+			if err := tx.Rollback(ctx); err != nil {
+				t.Fatalf("error rolling back transaction: %v", err)
+			}
+		}()
+
+		if err != nil {
+			t.Fatalf("Failed to begin transaction: %v", err)
+		}
+
+		// REQ-022: Set context to Property B
+		_, err = tx.Exec(ctx, "SELECT set_config('app.current_property_id', $1, true)", propertyBID)
+		if err != nil {
+			t.Fatalf("Failed to set context: %v", err)
+		}
+
 		var count int
-		err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM bookings`).Scan(&count)
-		if err != nil {
-			t.Fatalf("Expected query to execute (returning 0 rows due to RLS), got error: %v", err)
-		}
+		// This should return 0 rows even though the record exists in the table
+		err = tx.QueryRow(ctx, "SELECT count(*) FROM inventory.room_types").Scan(&count)
 
-		if count != 0 {
-			t.Fatalf("SECURITY VIOLATION: Expected 0 rows without tenant context, but got %d. RLS is bypassing!", count)
-		}
-	})
-
-	// 2. Ensure queries SUCCEED and return scoped data when context is set
-	t.Run("Query Succeeds With Tenant Context", func(t *testing.T) {
-		// In Go, this is exactly what your HTTP Middleware / Service layer should be doing
-		// before handing the transaction over to sqlc.
-		tx, err := db.BeginTx(ctx, nil)
-		if err != nil {
-			t.Fatalf("Failed to begin tx: %v", err)
-		}
-		defer tx.Rollback()
-
-		// Set the Postgres Local Configuration Parameter for the transaction
-		targetPropertyID := uuid.Must(uuid.NewV7()).String()
-		_, err = tx.ExecContext(ctx, `SET LOCAL app.current_property_id = $1`, targetPropertyID)
-		if err != nil {
-			t.Fatalf("Failed to set tenant context: %v", err)
-		}
-
-		// Now query using sqlc generated code (simulated here via raw sql)
-		var count int
-		err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM bookings`).Scan(&count)
 		if err != nil {
 			t.Fatalf("Query failed: %v", err)
 		}
+		if count > 0 {
+			t.Errorf("SECURITY BREACH: Property B accessed Property A data!")
+		}
+	})
 
-		// Assuming our test DB is seeded with 5 bookings for this property
-		// t.Logf("Successfully fetched %d bookings isolated to property %s", count, targetPropertyID)
+	t.Run("REQ-022b: Test Tenant Isolation Happy Path", func(t *testing.T) {
+		t.Parallel()
+
+		tx, err := testUserDB.BeginTx(ctx, pgx.TxOptions{})
+		defer func() {
+			if err := tx.Rollback(ctx); err != nil {
+				t.Fatalf("error rolling back transaction: %v", err)
+			}
+		}()
+
+		if err != nil {
+			t.Fatalf("Failed to begin transaction: %v", err)
+		}
+
+		// REQ-022: Set context to Property A
+		_, err = tx.Exec(ctx, "SELECT set_config('app.current_property_id', $1, true)", propertyAID)
+		if err != nil {
+			t.Fatalf("Failed to set context: %v", err)
+		}
+
+		var count int
+		// This should return 1 row
+		err = tx.QueryRow(ctx, "SELECT count(*) FROM inventory.room_types").Scan(&count)
+
+		if err != nil {
+			t.Fatalf("Query failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("SECURITY BREACH: Property A accessed Property A data!")
+		}
+	})
+
+	t.Run("REQ-022c: No config returns no rows", func(t *testing.T) {
+		t.Parallel()
+
+		tx, err := testUserDB.BeginTx(ctx, pgx.TxOptions{})
+		defer func() {
+			if err := tx.Rollback(ctx); err != nil {
+				t.Fatalf("error rolling back transaction: %v", err)
+			}
+		}()
+
+		if err != nil {
+			t.Fatalf("Failed to begin transaction: %v", err)
+		}
+
+		var count int
+		// This should return 0 rows even though the record exists in the table
+		err = tx.QueryRow(ctx, "SELECT count(*) FROM inventory.room_types").Scan(&count)
+
+		if err != nil {
+			// This is expected as the config is not set
+			assert.True(t, helpers.CheckErrorCode(err, helpers.UndefinedObjectCode))
+		}
+		if count > 0 {
+			t.Errorf("SECURITY BREACH: Property B accessed Property A data!")
+		}
+	})
+
+	t.Run("REQ-020: All tables with property_id column MUST have RLS enabled", func(t *testing.T) {
+		t.Parallel()
+
+		query := `
+			SELECT 
+				nspname AS schema,
+				relname AS table
+			FROM pg_class c
+			JOIN pg_namespace n ON n.oid = c.relnamespace
+			JOIN pg_attribute a ON a.attrelid = c.oid
+			WHERE nspname IN ('public', 'inventory', 'operations', 'finance', 'pricing', 'sales_ledgers', 'identity', 'auth', 'relations') 
+			AND a.attname = 'property_id'
+			AND c.relkind = 'r' -- regular tables only
+			AND (NOT c.relrowsecurity);
+		`
+
+		rows, err := testDB.Query(ctx, query)
+		if err != nil {
+			t.Fatalf("Query failed: %v", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var schema, table string
+			if err := rows.Scan(&schema, &table); err != nil {
+				t.Fatalf("Scan failed: %v", err)
+			}
+			t.Errorf("Table %s.%s does not have RLS enabled!", schema, table)
+		}
 	})
 }

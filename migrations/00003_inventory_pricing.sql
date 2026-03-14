@@ -14,15 +14,17 @@ CREATE TABLE inventory.room_types (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
-    CHECK (min_occupancy > 0 AND min_occupancy <= std_occupancy AND max_occupancy >= std_occupancy),
+    CONSTRAINT chk_occupancy_range CHECK (min_occupancy > 0 AND min_occupancy <= std_occupancy AND max_occupancy >= std_occupancy),
     UNIQUE (property_id, id)
 );
 
 ALTER TABLE inventory.room_types ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory.room_types FORCE ROW LEVEL SECURITY;
 CREATE POLICY room_types_isolation ON inventory.room_types USING (property_id = current_setting('app.current_property_id')::uuid);
 
 CREATE UNIQUE INDEX idx_room_types_code_act ON inventory.room_types (property_id, code) WHERE (deleted_at IS NULL);
 CREATE UNIQUE INDEX idx_room_types_name_act ON inventory.room_types (property_id, name) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_room_types_property ON inventory.room_types (property_id) WHERE (deleted_at IS NULL);
 
 -- ========================================================
 -- 2. ROOMS
@@ -42,9 +44,16 @@ CREATE TABLE inventory.rooms (
 );
 
 ALTER TABLE inventory.rooms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory.rooms FORCE ROW LEVEL SECURITY;
 CREATE POLICY rooms_isolation ON inventory.rooms USING (property_id = current_setting('app.current_property_id')::uuid);
 
 CREATE UNIQUE INDEX idx_rooms_name_act ON inventory.rooms (property_id, name) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_rooms_property ON inventory.rooms (property_id) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_rooms_room_type ON inventory.rooms (room_type_id);
+
+CREATE INDEX idx_rooms_housekeeping_alert 
+ON inventory.rooms (property_id, housekeeping_status) 
+WHERE (housekeeping_status != 'clean' AND deleted_at IS NULL);
 
 -- ========================================================
 -- 3. AMENITY RELATIONS
@@ -54,13 +63,43 @@ CREATE TABLE relations.room_type_amenities (
     room_type_id UUID NOT NULL REFERENCES inventory.room_types (id) ON DELETE RESTRICT,
     amenity_id UUID NOT NULL REFERENCES operations.amenities (id) ON DELETE RESTRICT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
     PRIMARY KEY (room_type_id, amenity_id),
     FOREIGN KEY (property_id, room_type_id) REFERENCES inventory.room_types (property_id, id),
     FOREIGN KEY (property_id, amenity_id) REFERENCES operations.amenities (property_id, id)
 );
 
 ALTER TABLE relations.room_type_amenities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE relations.room_type_amenities FORCE ROW LEVEL SECURITY;
 CREATE POLICY rt_amenities_isolation ON relations.room_type_amenities USING (property_id = current_setting('app.current_property_id')::uuid);
+
+CREATE INDEX idx_rt_amenities_property ON relations.room_type_amenities (property_id) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_rt_amenities_room_type ON relations.room_type_amenities (room_type_id);
+CREATE INDEX idx_rt_amenities_amenity ON relations.room_type_amenities (amenity_id);
+CREATE INDEX idx_rt_amenities_reverse ON relations.room_type_amenities (property_id, amenity_id);
+
+CREATE TABLE relations.room_amenities (
+    property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
+    room_id UUID NOT NULL REFERENCES inventory.rooms (id) ON DELETE RESTRICT,
+    amenity_id UUID NOT NULL REFERENCES operations.amenities (id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
+    PRIMARY KEY (room_id, amenity_id),
+    FOREIGN KEY (property_id, room_id) REFERENCES inventory.rooms (property_id, id),
+    FOREIGN KEY (property_id, amenity_id) REFERENCES operations.amenities (property_id, id)
+);
+
+ALTER TABLE relations.room_amenities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE relations.room_amenities FORCE ROW LEVEL SECURITY;
+CREATE POLICY room_amenities_isolation ON relations.room_amenities USING (property_id = current_setting('app.current_property_id')::uuid);
+
+CREATE INDEX idx_room_amenities_property ON relations.room_amenities (property_id) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_room_amenities_room ON relations.room_amenities (room_id);
+CREATE INDEX idx_room_amenities_amenity ON relations.room_amenities (amenity_id);
+CREATE INDEX idx_room_amenities_reverse ON relations.room_amenities (property_id, amenity_id);
+
 
 -- ========================================================
 -- 4. MAINTENANCE BLOCKS
@@ -82,7 +121,15 @@ CREATE TABLE inventory.maintenance_blocks (
 );
 
 ALTER TABLE inventory.maintenance_blocks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory.maintenance_blocks FORCE ROW LEVEL SECURITY;
 CREATE POLICY maint_isolation ON inventory.maintenance_blocks USING (property_id = current_setting('app.current_property_id')::uuid);
+
+CREATE INDEX idx_maint_blocks_property ON inventory.maintenance_blocks (property_id) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_maint_blocks_period ON inventory.maintenance_blocks USING GIST (property_id, block_period) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_maint_blocks_room ON inventory.maintenance_blocks (room_id);
+CREATE INDEX idx_maint_blocks_created_by ON inventory.maintenance_blocks (created_by_user_id);
+CREATE INDEX idx_maint_blocks_range ON inventory.maintenance_blocks (property_id, room_id, lower(block_period));
+
 
 -- ========================================================
 -- 5. RATE PLANS & PRICING
@@ -110,9 +157,17 @@ CREATE TABLE pricing.rate_plans (
 );
 
 ALTER TABLE pricing.rate_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pricing.rate_plans FORCE ROW LEVEL SECURITY;
 CREATE POLICY rate_plans_isolation ON pricing.rate_plans USING (property_id = current_setting('app.current_property_id')::uuid);
 
 CREATE UNIQUE INDEX idx_rate_plans_code_act ON pricing.rate_plans (property_id, code) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_rate_plans_property ON pricing.rate_plans (property_id) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_rate_plans_property_act ON pricing.rate_plans (property_id) WHERE (deleted_at IS NULL AND is_active = FALSE);
+CREATE INDEX idx_rate_plans_parent ON pricing.rate_plans (property_id, parent_rate_plan_id) 
+WHERE (parent_rate_plan_id IS NOT NULL AND deleted_at IS NULL);
+CREATE INDEX idx_rate_plans_hierarchy 
+ON pricing.rate_plans (property_id, parent_rate_plan_id) 
+WHERE (deleted_at IS NULL);
 
 -- ========================================================
 -- 6. DAILY PRICE GRID
@@ -136,9 +191,17 @@ CREATE TABLE pricing.daily_price_grid (
 );
 
 ALTER TABLE pricing.daily_price_grid ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pricing.daily_price_grid FORCE ROW LEVEL SECURITY;
 CREATE POLICY prices_isolation ON pricing.daily_price_grid USING (property_id = current_setting('app.current_property_id')::uuid);
 
-CREATE UNIQUE INDEX idx_price_lookup ON pricing.daily_price_grid (property_id, room_type_id, rate_plan_id, calendar_date) WHERE (deleted_at IS NULL);
+CREATE UNIQUE INDEX idx_price_grid_lookup 
+ON pricing.daily_price_grid (property_id, rate_plan_id, room_type_id, calendar_date) 
+INCLUDE (base_price_pence, min_los_restriction, max_los_restriction, is_available)
+WHERE (deleted_at IS NULL);
+CREATE INDEX idx_price_grid_property ON pricing.daily_price_grid (property_id) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_price_grid_room_type ON pricing.daily_price_grid (room_type_id);
+CREATE INDEX idx_price_grid_rate_plan ON pricing.daily_price_grid (rate_plan_id);
+
 -- ========================================================
 -- 2. PRICING OVERRIDES (Base & Seasonal)
 -- ========================================================
@@ -163,7 +226,17 @@ CREATE TABLE pricing.base_rates (
 );
 
 ALTER TABLE pricing.base_rates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pricing.base_rates FORCE ROW LEVEL SECURITY;
 CREATE POLICY base_rates_isolation ON pricing.base_rates USING (property_id = current_setting('app.current_property_id')::uuid);
+
+CREATE INDEX idx_base_rates_property ON pricing.base_rates (property_id) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_base_rates_room_type ON pricing.base_rates (room_type_id);
+CREATE INDEX idx_base_rates_rate_plan ON pricing.base_rates (rate_plan_id);
+CREATE INDEX idx_base_rates_lookup
+ON pricing.base_rates (property_id, rate_plan_id, room_type_id, day_of_week) 
+INCLUDE (base_price_pence, min_los_restriction, max_los_restriction)
+WHERE (deleted_at IS NULL);
+
 
 CREATE TABLE pricing.seasonal_rates (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
@@ -193,7 +266,24 @@ CREATE TABLE pricing.seasonal_rates (
 );
 
 ALTER TABLE pricing.seasonal_rates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pricing.seasonal_rates FORCE ROW LEVEL SECURITY;
 CREATE POLICY seasonal_rates_isolation ON pricing.seasonal_rates USING (property_id = current_setting('app.current_property_id')::uuid);
+
+CREATE INDEX idx_seasonal_rates_property ON pricing.seasonal_rates (property_id) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_seasonal_rates_room_type ON pricing.seasonal_rates (room_type_id);
+CREATE INDEX idx_seasonal_rates_rate_plan ON pricing.seasonal_rates (rate_plan_id);
+
+CREATE INDEX idx_seasonal_rates_lookup_gist ON pricing.seasonal_rates 
+USING GIST (
+    property_id, 
+    rate_plan_id, 
+    room_type_id, 
+    day_of_week, 
+    override_period
+) WHERE (deleted_at IS NULL);
+
+
+
 -- ========================================================
 -- 7. COMPANY PROFILES (identity schema)
 -- ========================================================
@@ -203,8 +293,8 @@ CREATE TABLE identity.company_profiles (
     negotiated_rate_plan_id UUID REFERENCES pricing.rate_plans (id) ON DELETE SET NULL,
     tax_id CITEXT, -- e.g., VAT number
     company_name TEXT NOT NULL CHECK (char_length(company_name) BETWEEN 2 AND 50),
-    contact_email CITEXT,
-    contact_phone TEXT,
+    contact_email CITEXT CHECK (char_length(contact_email) <= 100),
+    contact_phone TEXT CHECK (char_length(contact_phone) <= 20),
     billing_address TEXT CHECK (char_length(billing_address) <= 300),
     company_notes TEXT CHECK (char_length(company_notes) <= 1500),
     has_credit_facility BOOLEAN NOT NULL DEFAULT FALSE,
@@ -212,19 +302,26 @@ CREATE TABLE identity.company_profiles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
     
-    -- REQUIRED for composite FK in 004_sales_ledgers
     UNIQUE (property_id, id),
-    -- Ensure negotiated rate belongs to the same property
     FOREIGN KEY (property_id, negotiated_rate_plan_id) REFERENCES pricing.rate_plans (property_id, id)
 );
 
 ALTER TABLE identity.company_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE identity.company_profiles FORCE ROW LEVEL SECURITY;
 CREATE POLICY company_profiles_isolation ON identity.company_profiles 
     USING (property_id = current_setting('app.current_property_id')::uuid);
 
 -- Unique per property, ignoring soft-deleted companies
 CREATE UNIQUE INDEX idx_company_name_active ON identity.company_profiles (property_id, company_name) WHERE (deleted_at IS NULL);
 CREATE UNIQUE INDEX idx_company_tax_active ON identity.company_profiles (property_id, tax_id) WHERE (deleted_at IS NULL AND tax_id IS NOT NULL);
+
+CREATE INDEX idx_company_property ON identity.company_profiles (property_id) WHERE (deleted_at IS NULL);
+CREATE INDEX idx_company_rate_plan ON identity.company_profiles (negotiated_rate_plan_id);
+
+-- For auto-complete
+CREATE INDEX idx_company_name_trgm ON identity.company_profiles 
+USING gin (company_name gin_trgm_ops) 
+WHERE (deleted_at IS NULL);
 
 -- +goose Down
 DROP TABLE IF EXISTS identity.company_profiles;

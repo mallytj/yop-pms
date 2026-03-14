@@ -10,19 +10,26 @@ Yop PMS is a modern, high-performance Property Management System designed for re
 *   **Schema-First API:** Uses OpenAPI to generate API contracts, ensuring the backend and frontend are always synchronized.
 
 ## 🚀 Tech Stack
+***Please note that some of these have not yet been implemented, this is an overview of the project***
 
 The project uses a carefully selected stack to balance performance, reliability, and developer experience.
 
-*   **Backend:** **Go** for its performance and concurrency model.
 *   **Frontend:** **SvelteKit (with Runes)** for a reactive, minimal-boilerplate UI.
-*   **Database:** **PostgreSQL** for robust, ACID-compliant data storage and **Redis** for caching.
+*   **Backend:** **Go** for its performance and concurrency model.
+*   **Database:** **PostgreSQL** for robust, ACID-compliant data storage and **Redis** for caching. Managed via `sqlc` for type-safety, migrated by `goose` for go compatibility.
 *   **API Specification:** **OpenAPI (Swagger)** for schema-first API development.
+*   **Worker:** Transactional Outbox pattern for async tasks (Emails, Webhooks).
+*   **Observability:** **OpenTelemetry** (OTel) for distributed tracing.
+*   **Containerization:** **Docker** for containerization and orchestration.
+*   **CI/CD:** **GitHub Actions** for CI/CD.
+
 
 For more details, see [ADR-002: Technology Stack Selection](./docs/adr/002-techstack.md).
 
 ## 🏗️ Architecture
 
 Yop PMS is built as a **Monorepo** to simplify development and ensure consistency across different parts of the application (backend, frontend, infrastructure).
+
 
 Key architectural decisions include:
 
@@ -40,7 +47,13 @@ Key architectural decisions include:
 When you change the API structure in the Go code, you must regenerate the API specification and the TypeScript types:
 
 ```bash
-make swag
+make gen
 ```
 
-This command updates the `swagger.json` and the frontend `api.d.ts` file automatically. This is also enforced by pre-push git hooks.
+This command updates the `swagger.json`, converts it to `openapi.json`, and generates the frontend `api.d.ts` file automatically. This is also enforced by pre-push git hooks.
+
+## Useful Links
+* [Architectural Design Records](./docs/adr/)
+* [Property Management ERD](./docs/database/yop-pms-erd.md)
+* [Database Conventions](./docs/database/conventions.md)
+* [Project Roadmap](./docs/operations/roadmap.md)
