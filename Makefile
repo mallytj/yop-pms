@@ -1,4 +1,4 @@
-.PHONY: help setup db-up db-down db-reset build-backend build-frontend build test-backend test-frontend test run-backend run-frontend clean build-model
+.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -6,45 +6,77 @@ help: ## Show this help message
 	@echo 'Available targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-setup: ## Run setup script to initialize project
-	chmod +x setup.sh
-	./setup.sh
-
-db-up: ## Start database with Docker Compose
-	docker compose up -d postgres
-
-db-down: ## Stop database
-	docker compose down
-
-db-reset: ## Reset database (stop, remove volumes, and start fresh)
-	docker compose down -v
-	docker compose up -d postgres
-
-build-backend: ## Build backend binary
-	cd backend && go build -o ../bin/api ./cmd/api
-
-build-frontend: ## Build frontend for production
-	cd frontend && npm run build
-
-build: build-backend build-frontend ## Build both backend and frontend
-
-test-backend: ## Run backend tests
-	cd backend && go test -v ./...
-
-test-frontend: ## Run frontend tests
-	cd frontend && npm test
-
-test: test-backend ## Run all tests
-
-run-backend: ## Run backend server
-	cd backend && go run ./cmd/api
-
-run-frontend: ## Run frontend dev server
-	cd frontend && npm run dev
-
 clean: ## Clean build artifacts
 	rm -rf bin/
 	rm -rf backend/vendor/
 	rm -rf frontend/dist/
-	rm -rf frontend/.astro/
 	rm -rf frontend/node_modules/
+
+sqlc: ## Generate SQLC code
+	sqlc generate
+
+swag: ## Makes the swagger files
+	swag init -g cmd/server/main.go -o ./api --parseInternal --parseDependency --instanceName yop
+
+dev: ## Runs the backend & frontend
+	(trap 'kill 0' SIGINT; air & cd web && npm run dev)
+docker-up: ## Runs docker
+	docker-compose up -d
+
+db-up: ## Runs just the databases
+	docker-compose up -d postgres
+	docker-compose up -d redis
+
+gen: ## Sync backend & frontend contracts
+	chmod +x scripts/gen-api.sh
+	./scripts/gen-api.sh
+
+GOBIN := $(shell go env GOPATH)/bin
+
+audit: ## Run quality checks
+	@echo "🔍 Auditing Backend..."
+	go mod verify
+	go mod tidy
+	go vet ./...
+
+	go test -v -race -buildvcs ./...
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+	@echo "🔍 Auditing Frontend..."
+	cd web && npm run check
+	@echo "✅ All checks passed!"
+
+setup: ## Run to init the project
+	chmod +x scripts/setup.sh
+	./scripts/setup.sh
+
+lint: ## Lints both front and backend
+	@echo "Linting Backend..."
+	golangci-lint run ./...
+
+	@echo "Linting Frontend..."
+	cd web && npm run lint
+
+
+reset-db: ## Run to reset the docker
+	docker-compose down -v
+	docker-compose up -d
+	@echo "Waiting for database to be ready..."
+	@sleep 3
+
+test-backend: ## Run all tests in the backend
+	go test -buildvcs -race ./...
+
+test-frontend: ## Run all tests in the frontend
+	cd web && npm run test
+
+test: ## Run all tests
+	make test-backend && make test-frontend
+
+format: ## Formats all code
+	go fmt ./...
+	cd web && npm run format 
+
+goose-circle: ## Completely reset goose
+	goose reset
+	goose up
