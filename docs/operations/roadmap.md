@@ -20,8 +20,8 @@
 - [ ] **Structured Logging:** Continue on the `logger *slog.Logger` from `main.go`
 
 **2. Reliability & Safety**
-- [ ] **Idempotency Middleware:** Redis check for `Idempotency-Key` on `POST/PATCH` to ensure no double transactions where necessary
-- [ ] **Global Errors:**  Standardised `ApiErrors` using `platform/apierrors` in Go and a centralised `config/errors.json` naming convention for consistency
+- [x] **Idempotency Middleware:** Redis check for `Idempotency-Key` on `POST/PATCH` to ensure no double transactions where necessary
+- [x] **Global Errors:**  Standardised `ApiErrors` using `platform/apierrors` in Go
 - [ ] **Constraint Consistency:** Read `CHECK` constraints from migrations, convert into `constraints.yml` then distribute to backend and frontend
 
 **3. Background Worker**

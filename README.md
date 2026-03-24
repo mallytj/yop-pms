@@ -1,59 +1,112 @@
 # Yop PMS
 
-Yop PMS is a modern, high-performance Property Management System designed for reliability and low operational cost. It is built with a type-safe stack from the database to the frontend to minimize runtime errors and improve developer velocity.
+Yop PMS is a modern, high-performance Property Management System built for reliability and low operational cost. The stack is type-safe end-to-end — from the database schema to the frontend — to minimise runtime errors and maximise developer velocity.
 
-## ✨ Features
+## Tech Stack
 
-*   **Type-Safe Stack:** End-to-end type safety from the database schema to the frontend framework.
-*   **High Performance:** Built with Go and SvelteKit for a responsive user experience and efficient resource usage.
-*   **Multi-Tenancy by Design:** Core architecture supports managing multiple properties with strict data isolation using Row-Level Security.
-*   **Schema-First API:** Uses OpenAPI to generate API contracts, ensuring the backend and frontend are always synchronized.
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Frontend | SvelteKit 5 (Runes) | Reactive UI, minimal boilerplate |
+| Backend | Go + Chi | High-performance HTTP server |
+| Database | PostgreSQL 18 | Primary data store, ACID-compliant |
+| Cache | Redis 7 | Read-through cache, idempotency, sessions |
+| DB Access | SQLC | Type-safe query generation (no ORM) |
+| Migrations | Goose | SQL migration management |
+| API Contract | OpenAPI / Swagger | Schema-first, generated TypeScript types |
+| Observability | OpenTelemetry | Distributed tracing + structured logging |
+| Containerisation | Docker | `scratch`-based image (~30MB) |
+| CI/CD | GitHub Actions | Build, test, deploy pipeline |
 
-## 🚀 Tech Stack
-***Please note that some of these have not yet been implemented, this is an overview of the project***
+## Architecture
 
-The project uses a carefully selected stack to balance performance, reliability, and developer experience.
+### Monorepo
+All code, documentation, and infrastructure lives in one repository. A single `docker-compose.yml` and `Makefile` orchestrate the entire system. See [ADR-001](./docs/adr/001-monorepo.md).
 
-*   **Frontend:** **SvelteKit (with Runes)** for a reactive, minimal-boilerplate UI.
-*   **Backend:** **Go** for its performance and concurrency model.
-*   **Database:** **PostgreSQL** for robust, ACID-compliant data storage and **Redis** for caching. Managed via `sqlc` for type-safety, migrated by `goose` for go compatibility.
-*   **API Specification:** **OpenAPI (Swagger)** for schema-first API development.
-*   **Worker:** Transactional Outbox pattern for async tasks (Emails, Webhooks).
-*   **Observability:** **OpenTelemetry** (OTel) for distributed tracing.
-*   **Containerization:** **Docker** for containerization and orchestration.
-*   **CI/CD:** **GitHub Actions** for CI/CD.
+### Schema-First API
+Swagger annotations in Go handlers are the single source of truth. `make gen` produces `/api/openapi.json` and generates `/web/src/lib/types/api.d.ts` — the frontend never defines its own API types. See [ADR-003](./docs/adr/003-schema_first_api.md).
 
+### Three-Layer Backend
 
-For more details, see [ADR-002: Technology Stack Selection](./docs/adr/002-techstack.md).
-
-## 🏗️ Architecture
-
-Yop PMS is built as a **Monorepo** to simplify development and ensure consistency across different parts of the application (backend, frontend, infrastructure).
-
-
-Key architectural decisions include:
-
-1.  **Monorepo:** A single repository houses all code, documentation, and infrastructure to ensure atomic commits and simplified onboarding. See [ADR-001: Monorepo](./docs/adr/001-monorepo.md).
-2.  **Schema-First API:** The API contract is the single source of truth, defined with Swagger comments in the Go backend. This prevents "contract drift" between the frontend and backend. See [ADR-003: Schema-First API Development](./docs/adr/003-schema_first_api.md).
-3.  **Core Database Principles:** The database schema is designed for high integrity, multi-tenancy, and performance, using features like UUIDv7 for primary keys and Row-Level Security for data isolation. See [ADR-004: Core Database Principles](./docs/adr/004-core_db_principles.md).
-
-## Getting Started
-1. Run `make setup` to install tools and create your `.env`.
-2. Run `make dev` to start the backend, frontend, and database.
-3. Visit `localhost:8080/swagger/index.html` for API docs.
-
-## Development
-
-When you change the API structure in the Go code, you must regenerate the API specification and the TypeScript types:
-
-```bash
-make gen
+```
+Handler  →  parse request, validate input, write response
+Service  →  business logic, caching, error mapping
+Store    →  SQLC-generated database queries (never edit manually)
 ```
 
-This command updates the `swagger.json`, converts it to `openapi.json`, and generates the frontend `api.d.ts` file automatically. This is also enforced by pre-push git hooks.
+Handlers have no knowledge of the cache or database. Services own data retrieval and map all database errors to typed `APIError` responses before they reach the handler.
 
-## Useful Links
-* [Architectural Design Records](./docs/adr/)
-* [Property Management ERD](./docs/database/yop-pms-erd.md)
-* [Database Conventions](./docs/database/conventions.md)
-* [Project Roadmap](./docs/operations/roadmap.md)
+### Platform Layer
+
+Cross-cutting concerns live in `internal/platform/` and are shared across all domains:
+
+| Package | Purpose |
+|---------|---------|
+| `apierror` | Typed error responses with PostgreSQL SQLSTATE mapping |
+| `cache` | Redis read-through cache client with prefix namespacing |
+| `logging` | Structured JSON logging via `slog`, OTel-enriched per request |
+| `middleware` | Request logger, idempotency enforcement |
+| `otel` | OpenTelemetry tracer provider setup |
+| `events` | PostgreSQL `LISTEN/NOTIFY` listener for reactive cache invalidation |
+
+See [Platform Layer Guide](./docs/PLATFORM_LAYER_GUIDE.md) for usage patterns.
+
+### Reactive Cache Invalidation
+PostgreSQL triggers fire `NOTIFY` on reservation, guest, and pricing changes. The `events` listener receives these immediately and invalidates only the affected cache keys. TTLs (24h) are a safety net for listener downtime, not the primary freshness mechanism. See [ADR-010](./docs/adr/010-reactive-cache-invalidation.md).
+
+### Database
+- **Financials** — `INTEGER` only (smallest currency unit, no floats)
+- **Timestamps** — `TIMESTAMPTZ` exclusively
+- **Primary keys** — UUIDv7 (time-sortable)
+- **Multi-tenancy** — `property_id` on every tenant-isolated table; Row-Level Security enabled
+- **Soft deletes** — `deleted_at TIMESTAMPTZ`; uniqueness indexes use `WHERE (deleted_at IS NULL)`
+
+See [ADR-004](./docs/adr/004-core_db_principles.md) and [Database Conventions](./docs/database/conventions.md).
+
+## Getting Started
+
+```bash
+make setup     # Install tools, create .env, install npm deps
+make docker-up # Start PostgreSQL, Redis, and the Go server
+make dev       # Start Go (Air hot-reload) + SvelteKit (Vite) concurrently
+```
+
+Visit `/swagger/index.html` for the API docs.
+
+See [Configuration](./docs/CONFIGURATION.md) for more in depth building
+
+## Common Commands
+
+```bash
+make gen          # Regenerate OpenAPI spec + TypeScript types (run after changing Swagger comments)
+make sqlc         # Regenerate SQLC store (run after changing SQL queries)
+make test         # Run all tests
+make audit        # go vet, govulncheck, svelte-check
+make lint         # golangci-lint + Prettier
+make format       # go fmt + Prettier
+make reset-db     # Full DB teardown and restart
+```
+
+## Local Services
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| Go server | 8080 | Backend API |
+| SvelteKit | 5173 | Frontend dev server |
+| PostgreSQL | 5433 | Primary database |
+| Redis | 6379 | Cache / sessions |
+| Adminer | 8081 | Database admin UI |
+| Redis Commander | 8082 | Redis admin UI |
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Architecture Decision Records](./docs/adr/) | Why every major decision was made |
+| [Platform Layer Guide](./docs/PLATFORM_LAYER_GUIDE.md) | How to use platform packages when building domain handlers |
+| [API Contracts](./docs/API_CONTRACTS.md) | API design conventions and contract generation |
+| [Configuration](./docs/CONFIGURATION.md) | Environment variables and configuration reference |
+| [Testing Guide](./docs/TESTING_GUIDE.md) | Testing strategy and patterns |
+| [Deployment](./docs/DEPLOYMENT.md) | Deployment procedures and infrastructure |
+| [Database ERD](./docs/database/yop-pms-erd.md) | Entity-relationship diagram |
+| [Database Conventions](./docs/database/conventions.md) | Schema design rules |
+| [Roadmap](./docs/operations/roadmap.md) | Planned features and milestones |

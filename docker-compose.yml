@@ -68,6 +68,14 @@ services:
       PORT: "8080"
     networks:
       - yop_network
+  
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"  # UI
+      - "4318:4318"    # OTLP HTTP (what your otel.go uses)
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
 
   redis-commander:
     image: rediscommander/redis-commander:latest
