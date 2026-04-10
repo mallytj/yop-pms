@@ -1,0 +1,14 @@
+run:
+  go: "1.25.8"
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive # Modern replacement for golint
+    - gocritic # Catches common micro-optimizations
