@@ -1,6 +1,7 @@
 # Platform Layer Guide
 
-This guide explains how to use the platform packages in `internal/platform/` when building domain handlers.
+This guide explains how to use the platform packages in `internal/platform/`
+when building domain handlers.
 
 ## Table of Contents
 
@@ -14,7 +15,8 @@ This guide explains how to use the platform packages in `internal/platform/` whe
 
 ## Error Handling
 
-All errors returned to clients must go through `apierror.MapPostgresError()` to ensure consistent error responses.
+All errors returned to clients must go through `apierror.MapPostgresError()` to
+ensure consistent error responses.
 
 ### Using Sentinel Errors (Domain Logic)
 
@@ -29,8 +31,12 @@ func (h *Handler) UpdateProperty(w http.ResponseWriter, r *http.Request) {
 
     // Validate input
     if propertyID == "" {
-        json.WriteError(w, r, apierror.ErrBadRequest.WithMessage("property ID is required"))
-        return
+        json.WriteError(w, r, apierror
+            .ErrBadRequest
+            .WithMessage(
+              "property ID is required"
+            ))
+            return
     }
 
     // If resource doesn't exist
@@ -62,6 +68,7 @@ if err != nil {
 ```
 
 The database error is mapped based on PostgreSQL SQLSTATE:
+
 - `23505` (Unique Violation) → 409 Conflict
 - `23503` (Foreign Key) → 400 Bad Request
 - `23514` (Check Violation) → 422 Unprocessable Entity
@@ -110,6 +117,7 @@ func (h *Handler) GetProperty(w http.ResponseWriter, r *http.Request) {
 ### Logger Context
 
 The per-request logger automatically includes:
+
 - `request_id` — Unique ID for the request
 - `method` — HTTP method (GET, POST, etc.)
 - `path` — Request path
@@ -368,11 +376,11 @@ events.New(cfg.DatabaseURL, logger, func() {
 
 The architecture has three layers. Each layer has one responsibility:
 
-| Layer | Responsibility |
-|-------|---------------|
+| Layer       | Responsibility                                            |
+| ----------- | --------------------------------------------------------- |
 | **Handler** | HTTP only — parse request, validate input, write response |
-| **Service** | Business logic + caching |
-| **Store** | Raw database queries (SQLC-generated) |
+| **Service** | Business logic + caching                                  |
+| **Store**   | Raw database queries (SQLC-generated)                     |
 
 ```go
 package booking
@@ -589,4 +597,3 @@ A: It's in the CORS allowed headers. Make sure you're running the current versio
 
 **Q: How do I add a custom span in my handler?**
 A: Use `go.opentelemetry.io/otel` directly (not yet documented; see ADR 0005 future considerations).
-
