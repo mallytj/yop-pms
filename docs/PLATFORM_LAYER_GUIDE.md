@@ -36,7 +36,7 @@ func (h *Handler) UpdateProperty(w http.ResponseWriter, r *http.Request) {
             .WithMessage(
               "property ID is required"
             ))
-            return
+        return
     }
 
     // If resource doesn't exist
@@ -51,7 +51,9 @@ func (h *Handler) UpdateProperty(w http.ResponseWriter, r *http.Request) {
 
 ```go
 // Add suggestions to the error response
-err := apierror.ErrConflict.WithMessage("property with name 'Sunset Resort' already exists").WithSuggestions([]string{"Try a different name", "Check for duplicates"})
+err := apierror.ErrConflict.WithMessage(
+    "property with name 'Sunset Resort' already exists",
+).WithSuggestions([]string{"Try a different name", "Check for duplicates"})
 json.WriteError(w, r, err)
 ```
 
@@ -275,7 +277,7 @@ func (h *Handler) UpdateProperty(w http.ResponseWriter, r *http.Request) {
 
 Use hierarchical keys with colons as separators:
 
-```
+```text
 yop:availability:property-uuid:2026-03-15
 yop:pricing:property-uuid:room-type-id
 yop:guest:guest-uuid:details
