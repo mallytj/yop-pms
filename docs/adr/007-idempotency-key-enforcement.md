@@ -1,11 +1,13 @@
 # ADR 007: Idempotency Key Enforcement
 
 ## Status
+
 **Accepted**
 
 ## Context
 
 In distributed systems, network retries can cause duplicate requests:
+
 - Client doesn't know if the first request succeeded (network timeout)
 - Retries the request, causing unintended side effects
 - Example: POST /bookings retried → two bookings created instead of one
@@ -41,37 +43,39 @@ We enforce idempotency via middleware for POST and PATCH requests:
 ## Consequences
 
 ### ✅ Positive
-* **Retry safety** — Clients can safely retry POST/PATCH without worrying about duplicates
-* **Simple contract** — Single header requirement; easy for clients to understand
-* **Transparent** — Handlers don't need to change; middleware handles everything
-* **24h TTL** — Prevents unbounded cache growth while allowing typical retry windows
-* **Graceful degradation** — Redis failure doesn't block requests
+
+- **Retry safety** — Clients can safely retry POST/PATCH without worrying about duplicates
+- **Simple contract** — Single header requirement; easy for clients to understand
+- **Transparent** — Handlers don't need to change; middleware handles everything
+- **24h TTL** — Prevents unbounded cache growth while allowing typical retry windows
+- **Graceful degradation** — Redis failure doesn't block requests
 
 ### ⚠️ Negative
-* **Client discipline required** — Clients must generate unique Idempotency-Keys per request; a predictable key defeats the purpose
-* **Header serialization overhead** — Response capture (headers, body, status) serialized to JSON and stored in Redis
-* **24h TTL assumption** — Some clients may retry after 24h; those requests won't be idempotent (acceptable trade-off)
-* **Body size limit** — Very large response bodies consume significant Redis memory (unlikely in practice for our API)
-* **Requires Redis** — Idempotency depends on Redis availability; local-only deployments can't use this
+
+- **Client discipline required** — Clients must generate unique Idempotency-Keys per request; a predictable key defeats the purpose
+- **Header serialization overhead** — Response capture (headers, body, status) serialized to JSON and stored in Redis
+- **24h TTL assumption** — Some clients may retry after 24h; those requests won't be idempotent (acceptable trade-off)
+- **Body size limit** — Very large response bodies consume significant Redis memory (unlikely in practice for our API)
+- **Requires Redis** — Idempotency depends on Redis availability; local-only deployments can't use this
 
 ## Alternatives Considered
 
-* **Database deduplication** — Store request fingerprints in the database, check before inserting. Rejected because:
+- **Database deduplication** — Store request fingerprints in the database, check before inserting. Rejected because:
   - More complex to implement (extra queries per write)
   - Harder to clean up stale entries
   - Database consistency becomes critical
 
-* **Client-side retry logic only** — Rejected because:
+- **Client-side retry logic only** — Rejected because:
   - Shifts responsibility to client; some clients won't implement correctly
   - Doesn't solve the duplicate request problem
 
-* **Outbox pattern** — Rejected for MVP because:
+- **Outbox pattern** — Rejected for MVP because:
   - More complex (requires background worker)
   - Unnecessary overhead for current scale
   - Can adopt later if idempotency requirements grow
 
 ## References
 
-* `internal/platform/middleware/idempotency.go` — Middleware implementation
-* [Stripe Idempotency Guide](https://stripe.com/docs/api/idempotent_requests) — Industry standard reference
-* [HTTP RFC 9110: Idempotent Methods](https://www.rfc-editor.org/rfc/rfc9110#name-overview)
+- `internal/platform/middleware/idempotency.go` — Middleware implementation
+- [Stripe Idempotency Guide](https://stripe.com/docs/api/idempotent_requests) — Industry standard reference
+- [HTTP RFC 9110: Idempotent Methods](https://www.rfc-editor.org/rfc/rfc9110#name-overview)

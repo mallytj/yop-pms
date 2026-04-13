@@ -5,6 +5,7 @@ This directory contains architecture decision records for Yop PMS. Each ADR docu
 ## Format
 
 Each ADR follows this structure:
+
 - **Status** — Accepted, Proposed, Deprecated, Superseded
 - **Context** — Why we needed to make a decision
 - **Decision** — What we decided to do
@@ -16,21 +17,21 @@ Each ADR follows this structure:
 
 ### Foundation & Architecture
 
-| # | Title | Status |
-|---|-------|--------|
-| [001](001-monorepo.md) | Monorepo | Accepted |
-| [002](002-techstack.md) | Tech Stack | Accepted |
-| [003](003-schema_first_api.md) | Schema-First API | Accepted |
+| #                                | Title              | Status   |
+| -------------------------------- | ------------------ | -------- |
+| [001](001-monorepo.md)           | Monorepo           | Accepted |
+| [002](002-techstack.md)          | Tech Stack         | Accepted |
+| [003](003-schema_first_api.md)   | Schema-First API   | Accepted |
 | [004](004-core_db_principles.md) | Core DB Principles | Accepted |
 
 ### Platform Layer & Infrastructure
 
-| # | Title | Status |
-|---|-------|--------|
-| [005](005-error-handling-strategy.md) | Error Handling Strategy | Accepted |
-| [006](006-structured-logging-approach.md) | Structured Logging | Accepted |
+| #                                         | Title                       | Status   |
+| ----------------------------------------- | --------------------------- | -------- |
+| [005](005-error-handling-strategy.md)     | Error Handling Strategy     | Accepted |
+| [006](006-structured-logging-approach.md) | Structured Logging          | Accepted |
 | [007](007-idempotency-key-enforcement.md) | Idempotency Key Enforcement | Accepted |
-| [008](008-redis-caching-layer.md) | Redis Caching Layer | Accepted |
+| [008](008-redis-caching-layer.md)         | Redis Caching Layer         | Accepted |
 | [009](009-opentelemetry-observability.md) | OpenTelemetry Observability | Accepted |
 | [010](010-reactive-cache-invalidation.md) | Reactive Cache Invalidation | Accepted |
 
@@ -48,14 +49,17 @@ Each ADR follows this structure:
 # ADR NNN: [Short Decision Title]
 
 ## Status
+
 **[Accepted | Proposed | Deprecated | Superseded by ADR-NNN]**
 
 ## Context
+
 **What is the problem we are solving?**
 
 Describe the forces at play, constraints, and the pain point that triggered this decision.
 
 ## Decision
+
 **What are we doing about it?**
 
 State the decision clearly. Use strong language like "We will use..." or "We have chosen to..."
@@ -63,24 +67,29 @@ State the decision clearly. Use strong language like "We will use..." or "We hav
 Include implementation details: specific libraries, patterns, or protocols that are vital.
 
 ## Consequences
+
 **What is the aftermath of this decision?**
 
 ### ✅ Positive (The "Wins")
-* **Benefit 1:** How this improves the system (performance, security, developer experience)
-* **Benefit 2:** Next benefit
+
+- **Benefit 1:** How this improves the system (performance, security, developer experience)
+- **Benefit 2:** Next benefit
 
 ### ⚠️ Negative (The "Costs")
-* **Trade-off 1:** What did we give up?
-* **Trade-off 2:** New complexity being introduced
+
+- **Trade-off 1:** What did we give up?
+- **Trade-off 2:** New complexity being introduced
 
 ## Alternatives Considered
-* **Alternative A:** Why we rejected this
-* **Alternative B:** Why this wasn't a fit
+
+- **Alternative A:** Why we rejected this
+- **Alternative B:** Why this wasn't a fit
 
 ## References
-* [Link to issue/ticket]
-* [Link to related ADR]
-* [Link to external documentation]
+
+- [Link to issue/ticket]
+- [Link to related ADR]
+- [Link to external documentation]
 ```
 
 ## ADR Workflow
@@ -92,6 +101,7 @@ Create a new ADR in `docs/adr/NNNN-title.md` with Status: Proposed. Open a PR fo
 ### Accepting
 
 Once consensus is reached:
+
 1. Change Status to Accepted
 2. Add implementation details if needed
 3. Link from related code and docs
@@ -99,6 +109,7 @@ Once consensus is reached:
 ### Deprecating
 
 If we decide to use a different approach:
+
 1. Create new ADR with the new decision
 2. In old ADR, change Status to Superseded by ADR-XXXX
 3. Update references in code to point to new ADR
@@ -108,21 +119,26 @@ If we decide to use a different approach:
 Find ADRs by topic:
 
 ### Foundation
+
 - [ADR-001](001-monorepo.md) — Monorepo architecture
 - [ADR-002](002-techstack.md) — Tech stack selection
 
 ### API & Database
+
 - [ADR-003](003-schema_first_api.md) — Schema-first API design
 - [ADR-004](004-core_db_principles.md) — Database conventions (financials, timestamps, uniqueness)
 
 ### Error Handling
+
 - [ADR-005](005-error-handling-strategy.md) — Centralized APIError with SQLSTATE mapping
 
 ### Observability & Logging
+
 - [ADR-006](006-structured-logging-approach.md) — Structured JSON logging with slog
 - [ADR-009](009-opentelemetry-observability.md) — Distributed tracing with OpenTelemetry
 
 ### Data & Caching
+
 - [ADR-007](007-idempotency-key-enforcement.md) — Idempotency via Redis + Idempotency-Key header
 - [ADR-008](008-redis-caching-layer.md) — Simple prefix-namespaced Redis cache client
 - [ADR-010](010-reactive-cache-invalidation.md) — PostgreSQL LISTEN/NOTIFY drives cache invalidation; TTLs are safety net
@@ -140,4 +156,3 @@ Find ADRs by topic:
 - [Lightweight ADRs by Michael Nygard](http://thinkrelevant.net/blog/2011/11/15/documenting-architecture-decisions/)
 - [ADRs on GitHub](https://github.com/joelparkerhenderson/architecture_decision_record)
 - [Architectural Thinking](https://www.thoughtworks.com/en-us/insights/article/architectural-thinking)
-

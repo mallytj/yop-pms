@@ -54,4 +54,3 @@
 
 - [ ] **Real-time Frontend:** Websocket integration for the planner
 - [ ] **Well-Documented Flows:** All complex flows must be documented in [docs/flows](./docs/flows)
-
