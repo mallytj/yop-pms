@@ -32,37 +32,31 @@ Complete documentation for the Yop PMS (Property Management System) project.
 
 All major decisions documented with context, tradeoffs, and consequences:
 
-| ADR | Title | Status |
-|-----|-------|--------|
-| [001](adr/001-monorepo.md) | Monorepo Structure | Accepted |
-| [002](adr/002-techstack.md) | Core Tech Stack | Accepted |
-| [003](adr/003-schema_first_api.md) | Schema-First API | Accepted |
-| [004](adr/004-core_db_principles.md) | Core DB Principles | Accepted |
-| [005](adr/005-error-handling-strategy.md) | Error Handling Strategy | Accepted |
-| [006](adr/006-structured-logging-approach.md) | Structured Logging | Accepted |
-| [007](adr/007-idempotency-key-enforcement.md) | Idempotency Keys | Accepted |
-| [008](adr/008-redis-caching-layer.md) | Redis Caching Layer | Accepted |
-| [009](adr/009-opentelemetry-observability.md) | OpenTelemetry Observability | Accepted |
-| [010](adr/010-reactive-cache-invalidation.md) | Reactive Cache Invalidation | Accepted |
-| [011](adr/011-check-constraint-consistency.md) | Constraint Consistency | Accepted |
+| ADR                                            | Title                       | Status   |
+| ---------------------------------------------- | --------------------------- | -------- |
+| [001](adr/001-monorepo.md)                     | Monorepo Structure          | Accepted |
+| [002](adr/002-techstack.md)                    | Core Tech Stack             | Accepted |
+| [003](adr/003-schema_first_api.md)             | Schema-First API            | Accepted |
+| [004](adr/004-core_db_principles.md)           | Core DB Principles          | Accepted |
+| [005](adr/005-error-handling-strategy.md)      | Error Handling Strategy     | Accepted |
+| [006](adr/006-structured-logging-approach.md)  | Structured Logging          | Accepted |
+| [007](adr/007-idempotency-key-enforcement.md)  | Idempotency Keys            | Accepted |
+| [008](adr/008-redis-caching-layer.md)          | Redis Caching Layer         | Accepted |
+| [009](adr/009-opentelemetry-observability.md)  | OpenTelemetry Observability | Accepted |
+| [010](adr/010-reactive-cache-invalidation.md)  | Reactive Cache Invalidation | Accepted |
+| [011](adr/011-check-constraint-consistency.md) | Constraint Consistency      | Accepted |
 
 ### Developer Guides
 
-| Document | Purpose |
-|----------|---------|
-| [guides/platform-layer.md](guides/platform-layer.md) | Using error handling, logging, JSON, caching in handlers |
-| [guides/backend-constraints.md](guides/backend-constraints.md) | Backend validation using DB constraints |
-| [guides/frontend-constraints.md](guides/frontend-constraints.md) | Frontend validation using DB constraints |
-| [guides/api-contracts.md](guides/api-contracts.md) | Standard response formats, error codes, headers |
-| [guides/testing.md](guides/testing.md) | Writing unit and integration tests |
-| [guides/configuration.md](guides/configuration.md) | Environment variables and setup |
-| [guides/openapi-sveltekit.md](guides/openapi-sveltekit.md) | Generated types in SvelteKit |
-
-### Operations Guides
-
-| Document | Purpose |
-|----------|---------|
-| [DEPLOYMENT.md](DEPLOYMENT.md) | Building, deploying, and scaling to production |
+| Document                                                         | Purpose                                                  |
+| ---------------------------------------------------------------- | -------------------------------------------------------- |
+| [guides/platform-layer.md](guides/platform-layer.md)             | Using error handling, logging, JSON, caching in handlers |
+| [guides/backend-constraints.md](guides/backend-constraints.md)   | Backend validation using DB constraints                  |
+| [guides/frontend-constraints.md](guides/frontend-constraints.md) | Frontend validation using DB constraints                 |
+| [guides/api-contracts.md](guides/api-contracts.md)               | Standard response formats, error codes, headers          |
+| [guides/testing.md](guides/testing.md)                           | Writing unit and integration tests                       |
+| [guides/configuration.md](guides/configuration.md)               | Environment variables and setup                          |
+| [guides/openapi-ts-usage.md](guides/openapi-ts-usage.md)         | Using OpenAPI contracts for the frontend                 |
 
 ---
 
@@ -71,6 +65,7 @@ All major decisions documented with context, tradeoffs, and consequences:
 The platform layer provides cross-cutting concerns for all domain endpoints:
 
 ### `internal/platform/apierror` — Consistent Error Handling
+
 - Sentinel errors: `ErrNotFound`, `ErrBadRequest`, `ErrConflict`, etc.
 - Automatic PostgreSQL error mapping (SQLSTATE → HTTP status)
 - Immutable error messages via `WithMessage()`
@@ -83,6 +78,7 @@ json.WriteError(w, r, err)  // Automatically maps DB errors
 ```
 
 ### `internal/platform/logging` — Structured Request Logging
+
 - Per-request logger with context (request_id, method, path, remote_ip)
 - OpenTelemetry trace/span ID enrichment
 - Environment-aware log levels (Debug in dev, Info in prod)
@@ -95,6 +91,7 @@ logger.Info("processing request", "property_id", propertyID)
 ```
 
 ### `internal/platform/json` — HTTP Response Encoding
+
 - `WriteJSON(w, status, data)` — Encode successful responses
 - `WriteError(w, r, err)` — Encode errors with automatic mapping
 - `ReadJSON(r, &dst)` — Parse requests with validation
@@ -107,7 +104,8 @@ json.WriteError(w, r, apierror.ErrBadRequest)
 ```
 
 ### `internal/platform/cache` — Redis Caching
-- Simple Get/Set/Delete operations with JSON serialization
+
+- Get/Set/Delete operations with JSON serialization
 - `GetOrSet()` for read-through caching
 - Pattern-based invalidation (SCAN+DEL, not KEYS)
 - Prefix namespacing to avoid collisions
@@ -121,6 +119,30 @@ err := app.cache.GetOrSet(ctx, key, &availability, 1*time.Hour,
         return app.store.GetAvailability(ctx, propID, date)
     })
 ```
+
+### `internal/platform/events` - Event Listener
+
+- `LISTEN/NOTFIY` implementation for Go
+- Used for reactive cache invalidation
+- May be used for WebSockets in future
+
+```go
+ eventListener := events.New(cfg.DatabaseURL, logger, func() {
+  if err := appCache.Invalidate(context.Background(), "yop:*"); err != nil {
+   logger.Error("failed to flush cache on event listener reconnect", "error", err)
+  }
+ })
+
+ eventListener.On("reservation_changes", cache.NewReservationChangeHandler(appCache, logger))
+ eventListener.Start()
+ defer eventListener.Stop()
+```
+
+### `internal/platform/constraints`
+
+- Consistent constraints between database, backend and frontend
+- Gets information from `config/constraints.g.yml`
+- [Usage Example](./guides/backend-constraints.md)
 
 ---
 
@@ -146,16 +168,6 @@ See [guides/platform-layer.md#full-example-handler](guides/platform-layer.md#ful
 
 See [guides/testing.md#testing-handlers](guides/testing.md#testing-handlers)
 
-### Deploy to Production
-
-1. Build Docker image
-2. Push to registry
-3. Run database migrations
-4. Update Kubernetes deployment
-5. Monitor health check and logs
-
-See [DEPLOYMENT.md](DEPLOYMENT.md)
-
 ### Handle a Database Error
 
 1. Call store function
@@ -173,7 +185,18 @@ See [guides/platform-layer.md#handling-database-errors](guides/platform-layer.md
 
 See [guides/platform-layer.md#caching](guides/platform-layer.md#caching)
 
----
+### Listen to an event
+
+1. Set `NOTIFY` in database
+2. Create `EventListener`
+3. Create event handlers in `internal/platform/event`
+
+See [guides/platform-layer.md#events](guides/platform-layer.md#events)
+
+### Accessing constraints
+
+See [guides/backend-constraints](./guides/backend-constraints.md) for backend
+See [guides/frontend-constraints](./guides/frontend-constraints.md) for frontend
 
 ## Key Concepts
 
@@ -206,7 +229,6 @@ When adding features:
 1. **Write an ADR** if it's a major decision
 2. **Update guides/platform-layer.md** if it affects handler development
 3. **Update guides/configuration.md** if it adds environment variables
-4. **Update DEPLOYMENT.md** if it requires infrastructure changes
-5. **Update guides/testing.md** if it introduces new testing patterns
+4. **Update guides/testing.md** if it introduces new testing patterns
 
 Keep docs in sync with code. Stale docs are worse than no docs.

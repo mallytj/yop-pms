@@ -61,7 +61,7 @@ HTTP/1.1 204 No Content
 
 ## Error Response Format
 
-All errors follow a **consistent envelope** with three fields:
+All errors follow a **consistent envelope** backed by the `internal/platform/apierror` package. This format ensures that both human users and automated systems can understand and resolve issues.
 
 ```http
 HTTP/1.1 400 Bad Request
@@ -70,27 +70,72 @@ Content-Type: application/json
 {
   "code": "BAD_REQUEST",
   "message": "property_id is required",
-  "status": 400
+  "status": 400,
+  "suggestions": [
+    "Ensure the property_id is provided in the request body",
+    "Check if the property_id is a valid UUID"
+  ]
 }
 ```
 
 ### Fields
 
-| Field   | Type   | Description                                                      |
-|---------|--------|------------------------------------------------------------------|
-| `code`  | string | Machine-readable error code (e.g., `BAD_REQUEST`, `CONFLICT`)    |
-| `message` | string | Human-readable error message suitable for displaying to users     |
-| `status` | int    | HTTP status code (for convenience; also in response headers)     |
+| Field         | Type     | Description                                                          |
+| ------------- | -------- | -------------------------------------------------------------------- |
+| `code`        | string   | Machine-readable error code (e.g., `BAD_REQUEST`, `CONFLICT`)        |
+| `message`     | string   | Human-readable error message suitable for displaying to users        |
+| `status`      | int      | HTTP status code (for convenience; also in response headers)         |
+| `suggestions` | string[] | (Optional) Actionable steps to resolve the error                     |
 
 ### Error Codes
 
-| Code                     | HTTP Status | Meaning                                           |
-|--------------------------|-------------|---------------------------------------------------|
-| `BAD_REQUEST`            | 400         | Malformed request (invalid JSON, missing fields) |
-| `NOT_FOUND`              | 404         | Resource doesn't exist                            |
-| `CONFLICT`               | 409         | Resource already exists or dates overlap          |
-| `UNPROCESSABLE_ENTITY`   | 422         | Request data violates business rules              |
-| `INTERNAL_ERROR`         | 500         | Server error (shouldn't normally see this)        |
+The `apierror` package provides standard sentinel errors:
+
+| Code                   | HTTP Status | Meaning                                          |
+| ---------------------- | ----------- | ------------------------------------------------ |
+| `BAD_REQUEST`          | 400         | Malformed request (invalid JSON, missing fields) |
+| `NOT_FOUND`            | 404         | Resource doesn't exist                           |
+| `CONFLICT`             | 409         | Resource already exists or dates overlap         |
+| `UNPROCESSABLE_ENTITY` | 422         | Request data violates business rules             |
+| `INTERNAL_ERROR`       | 500         | Server error (unexpected failure)                |
+
+---
+
+## Go Usage (`internal/platform/apierror`)
+
+When building handlers or services, use the `apierror` package to maintain consistency.
+
+### 1. Basic Sentinel
+```go
+return apierror.ErrNotFound
+```
+
+### 2. Custom Message
+```go
+return apierror.ErrBadRequest.WithMessage("check_in date cannot be in the past")
+```
+
+### 3. Adding Suggestions
+```go
+return apierror.ErrConflict.
+    WithMessage("room is already occupied").
+    WithSuggestions([]string{
+        "Select a different room",
+        "Change the check-in period"
+    })
+```
+
+### 4. Automatic DB Mapping
+The package automatically maps PostgreSQL errors (SQLSTATE) to appropriate `APIError` objects:
+- `UniqueViolation` → `CONFLICT`
+- `CheckViolation` → `UNPROCESSABLE_ENTITY`
+- `ExclusionViolation` → `CONFLICT` (e.g. overlapping dates)
+
+```go
+if err := store.Create(ctx, data); err != nil {
+    return apierror.MapStoreError(err)
+}
+```
 
 ---
 
@@ -98,29 +143,29 @@ Content-Type: application/json
 
 ### 2xx Success
 
-| Status | Meaning                                |
-|--------|----------------------------------------|
-| 200    | OK — Request succeeded, body included  |
+| Status | Meaning                                 |
+| ------ | --------------------------------------- |
+| 200    | OK — Request succeeded, body included   |
 | 201    | Created — Resource created successfully |
-| 204    | No Content — Success, no body          |
+| 204    | No Content — Success, no body           |
 
 ### 4xx Client Error
 
-| Status | Error Code           | Meaning                                  |
-|--------|----------------------|------------------------------------------|
-| 400    | `BAD_REQUEST`        | Malformed request or invalid JSON        |
-| 401    | `UNAUTHORIZED`       | Missing or invalid authentication        |
-| 403    | `FORBIDDEN`          | Authenticated but not authorized         |
-| 404    | `NOT_FOUND`          | Resource doesn't exist                   |
-| 409    | `CONFLICT`           | Duplicate unique constraint or overlap   |
-| 422    | `UNPROCESSABLE_ENTITY` | Data fails business rule validation     |
-| 429    | `RATE_LIMITED`       | Too many requests                        |
+| Status | Error Code             | Meaning                                |
+| ------ | ---------------------- | -------------------------------------- |
+| 400    | `BAD_REQUEST`          | Malformed request or invalid JSON      |
+| 401    | `UNAUTHORIZED`         | Missing or invalid authentication      |
+| 403    | `FORBIDDEN`            | Authenticated but not authorized       |
+| 404    | `NOT_FOUND`            | Resource doesn't exist                 |
+| 409    | `CONFLICT`             | Duplicate unique constraint or overlap |
+| 422    | `UNPROCESSABLE_ENTITY` | Data fails business rule validation    |
+| 429    | `RATE_LIMITED`         | Too many requests                      |
 
 ### 5xx Server Error
 
-| Status | Error Code      | Meaning                   |
-|--------|-----------------|---------------------------|
-| 500    | `INTERNAL_ERROR`| Server error (log details) |
+| Status | Error Code            | Meaning                     |
+| ------ | --------------------- | --------------------------- |
+| 500    | `INTERNAL_ERROR`      | Server error (log details)  |
 | 503    | `SERVICE_UNAVAILABLE` | Dependency down (DB, Redis) |
 
 ---
@@ -182,8 +227,8 @@ Content-Type: application/json
 
 ### Pagination Fields
 
-| Field      | Type    | Description                        |
-|------------|---------|-----------------------------------|
+| Field      | Type    | Description                       |
+| ---------- | ------- | --------------------------------- |
 | `limit`    | int     | Requested page size (default: 10) |
 | `offset`   | int     | Number of items skipped           |
 | `total`    | int     | Total count of items              |
@@ -215,7 +260,7 @@ All timestamps are ISO 8601 format with timezone:
 Standard fields on all resources:
 
 | Field        | Type      | Description                    |
-|--------------|-----------|--------------------------------|
+| ------------ | --------- | ------------------------------ |
 | `created_at` | timestamp | When resource was created      |
 | `updated_at` | timestamp | When resource was last updated |
 | `deleted_at` | timestamp | When resource was soft-deleted |
@@ -416,4 +461,3 @@ OPTIONS
 ```
 
 Allowed origins: Configured via `ALLOWED_ORIGINS` environment variable (space-separated list).
-

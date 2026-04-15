@@ -10,32 +10,32 @@ The implementation is located in `internal/platform/constraints/constraints.go`.
 package constraints
 
 import (
-	"embed"
-	"regexp"
-	"sync"
-	"gopkg.in/yaml.v3"
+ "embed"
+ "regexp"
+ "sync"
+ "gopkg.in/yaml.v3"
 )
 
 //go:embed ../../../config/constraints.g.yml
 var raw []byte
 
 type Field struct {
-	Required     bool                      `yaml:"required"`
-	MaxLength    *int                      `yaml:"max_length"`
-	MinLength    *int                      `yaml:"min_length"`
-	ExactLength  *int                      `yaml:"exact_length"`
-	Min          *int                      `yaml:"min"`
-	Max          *int                      `yaml:"max"`
-	Pattern      *string                   `yaml:"pattern"`
-	RequiredWith string                    `yaml:"required_with"`
-	ValidRange   bool                      `yaml:"valid_range"`
-	Jsonb        map[string]*JsonbSubField `yaml:"jsonb"`
+ Required     bool                      `yaml:"required"`
+ MaxLength    *int                      `yaml:"max_length"`
+ MinLength    *int                      `yaml:"min_length"`
+ ExactLength  *int                      `yaml:"exact_length"`
+ Min          *int                      `yaml:"min"`
+ Max          *int                      `yaml:"max"`
+ Pattern      *string                   `yaml:"pattern"`
+ RequiredWith string                    `yaml:"required_with"`
+ ValidRange   bool                      `yaml:"valid_range"`
+ Jsonb        map[string]*JsonbSubField `yaml:"jsonb"`
 }
 
 type TableEntry struct {
-	Fields      map[string]*Field `yaml:"fields"`
-	Comparisons []Comparison      `yaml:"comparisons"`
-	Notes       []string          `yaml:"notes"`
+ Fields      map[string]*Field `yaml:"fields"`
+ Comparisons []Comparison      `yaml:"comparisons"`
+ Notes       []string          `yaml:"notes"`
 }
 
 // ... see internal/platform/constraints/constraints.go for full implementation
@@ -52,7 +52,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
     // 2. Validate a field
     username := rules["username"]
-    
+
     if username.Required && req.Username == "" {
         json.WriteError(w, r, apierror.ErrBadRequest.WithMessage("username is required"))
         return
@@ -69,15 +69,15 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 ## 3. Supported Rules
 
-| Rule | Description |
-| :--- | :--- |
-| `required` | Column is `NOT NULL` |
-| `max_length` | Maximum string length |
-| `exact_length` | String must be exactly N characters (e.g. ISO codes) |
-| `min` / `max` | Numeric range boundaries |
-| `pattern` | Regex pattern (cached via `constraints.MatchPattern`) |
-| `required_with` | Both fields must be set or both absent |
-| `valid_range` | Check if a range type (TSTZRANGE) is valid (lower < upper) |
+| Rule            | Description                                                |
+| :-------------- | :--------------------------------------------------------- |
+| `required`      | Column is `NOT NULL`                                       |
+| `max_length`    | Maximum string length                                      |
+| `exact_length`  | String must be exactly N characters (e.g. ISO codes)       |
+| `min` / `max`   | Numeric range boundaries                                   |
+| `pattern`       | Regex pattern (cached via `constraints.MatchPattern`)      |
+| `required_with` | Both fields must be set or both absent                     |
+| `valid_range`   | Check if a range type (TSTZRANGE) is valid (lower < upper) |
 
 ## 4. Performance Notes
 

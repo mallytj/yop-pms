@@ -29,6 +29,7 @@ DB_URL=postgres://user:password@db-prod.aws.com:5432/yop_pms?sslmode=require
 **Format:** `postgres://[user[:password]@][netloc][:port][/dbname][?param1=value1&...]`
 
 **Parameters:**
+
 - `sslmode=disable` — No SSL (dev only)
 - `sslmode=require` — Require SSL (prod)
 - `sslmode=verify-full` — Verify SSL certificate
@@ -192,9 +193,9 @@ metadata:
   name: yop-config
 data:
   APP_ENV: prod
-  PORT: "8080"
+  PORT: '8080'
   SERVICE_NAME: yop-pms-prod
-  SERVICE_VERSION: "1.0.0"
+  SERVICE_VERSION: '1.0.0'
 ```
 
 ```yaml
@@ -212,13 +213,13 @@ stringData:
 ### Example: Docker Compose
 
 ```yaml
-version: "3.9"
+version: '3.9'
 
 services:
   api:
     image: yop-pms:latest
     ports:
-      - "8080:8080"
+      - '8080:8080'
     environment:
       DB_URL: postgres://yop:${DB_PASSWORD}@db:5432/yop_pms
       APP_ENV: prod
@@ -252,7 +253,7 @@ services:
   jaeger:
     image: jaegertracing/all-in-one
     ports:
-      - "16686:16686"
+      - '16686:16686'
 
 volumes:
   db-data:
@@ -334,6 +335,7 @@ if cfg.DatabaseURL == "" {
 ```
 
 Required variables that cause startup failure:
+
 - `DB_URL`
 
 Optional variables fall back to defaults if missing.
@@ -470,4 +472,3 @@ curl http://localhost:14268/api/traces
 # Enable verbose logging temporarily
 APP_ENV=dev make dev
 ```
-

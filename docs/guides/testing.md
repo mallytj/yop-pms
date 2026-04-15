@@ -596,4 +596,3 @@ t.Logf("error: %v", err)
 3. **Global state in tests** — Isolate each test; don't share data
 4. **Flaky timing tests** — Avoid `time.Sleep()`; use synchronization primitives
 5. **Not testing error cases** — Test both happy path and error scenarios
-

@@ -41,14 +41,15 @@ Handlers have no knowledge of the cache or database. Services own data retrieval
 
 Cross-cutting concerns live in `internal/platform/` and are shared across all domains:
 
-| Package      | Purpose                                                             |
-| ------------ | ------------------------------------------------------------------- |
-| `apierror`   | Typed error responses with PostgreSQL SQLSTATE mapping              |
-| `cache`      | Redis read-through cache client with prefix namespacing             |
-| `logging`    | Structured JSON logging via `slog`, OTel-enriched per request       |
-| `middleware` | Request logger, idempotency enforcement                             |
-| `otel`       | OpenTelemetry tracer provider setup                                 |
-| `events`     | PostgreSQL `LISTEN/NOTIFY` listener for reactive cache invalidation |
+| Package       | Purpose                                                             |
+| ------------- | ------------------------------------------------------------------- |
+| `apierror`    | Typed error responses with PostgreSQL SQLSTATE mapping              |
+| `cache`       | Redis read-through cache client with prefix namespacing             |
+| `logging`     | Structured JSON logging via `slog`, OTel-enriched per request       |
+| `middleware`  | Request logger, idempotency enforcement                             |
+| `otel`        | OpenTelemetry tracer provider setup                                 |
+| `events`      | PostgreSQL `LISTEN/NOTIFY` listener for reactive cache invalidation |
+| `constraints` | Global database backed constraints for consistent validation        |
 
 See [Platform Layer Guide](./docs/guides/platform-layer.md) for usage patterns.
 
@@ -103,16 +104,16 @@ make reset-db     # Full DB teardown and restart
 
 ## Documentation
 
-| Document                                               | Description                                                |
-| ------------------------------------------------------ | ---------------------------------------------------------- |
-| [Architecture Decision Records](./docs/adr/)           | Why every major decision was made                          |
-| [Platform Layer Guide](./docs/guides/platform-layer.md) | How to use platform packages when building domain handlers |
-| [Backend Constraints](./docs/guides/backend-constraints.md) | How to use DB constraints for backend validation       |
-| [Frontend Constraints](./docs/guides/frontend-constraints.md) | How to use DB constraints for frontend validation      |
+| Document                                                      | Description                                                |
+| ------------------------------------------------------------- | ---------------------------------------------------------- |
+| [Architecture Decision Records](./docs/adr/)                  | Why every major decision was made                          |
+| [Platform Layer Guide](./docs/guides/platform-layer.md)       | How to use platform packages when building domain handlers |
+| [Backend Constraints](./docs/guides/backend-constraints.md)   | How to use DB constraints for backend validation           |
+| [Frontend Constraints](./docs/guides/frontend-constraints.md) | How to use DB constraints for frontend validation          |
 | [API Contracts](./docs/guides/api-contracts.md)               | API design conventions and contract generation             |
 | [Configuration](./docs/guides/configuration.md)               | Environment variables and configuration reference          |
-| [Testing Guide](./docs/guides/testing.md)               | Testing strategy and patterns                              |
-| [Deployment](./docs/DEPLOYMENT.md)                     | Deployment procedures and infrastructure                   |
-| [Database ERD](./docs/database/yop-pms-erd.md)         | Entity-relationship diagram                                |
-| [Database Conventions](./docs/database/conventions.md) | Schema design rules                                        |
-| [Roadmap](./docs/operations/roadmap.md)                | Planned features and milestones                            |
+| [Testing Guide](./docs/guides/testing.md)                     | Testing strategy and patterns                              |
+| [Deployment](./docs/DEPLOYMENT.md)                            | Deployment procedures and infrastructure                   |
+| [Database ERD](./docs/database/yop-pms-erd.md)                | Entity-relationship diagram                                |
+| [Database Conventions](./docs/database/conventions.md)        | Schema design rules                                        |
+| [Roadmap](./docs/operations/roadmap.md)                       | Planned features and milestones                            |
