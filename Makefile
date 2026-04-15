@@ -80,3 +80,6 @@ format: ## Formats all code
 goose-circle: ## Completely reset goose
 	goose reset
 	goose up
+
+gen-constraints: ## Sync constraints.yml and constraints.ts from live DB check constraints
+	go run ./cmd/tools/sync-constraints/...
