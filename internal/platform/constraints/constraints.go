@@ -1,16 +1,15 @@
 package constraints
 
 import (
-	"embed"
 	"fmt"
 	"regexp"
 	"sync"
 
+	"github.com/lexxcode1/yop-pms/config"
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed ../../../config/constraints.g.yml
-var raw []byte
+var raw = config.RawConstraints
 
 // Field defines validation rules for a specific column.
 type Field struct {
