@@ -281,6 +281,50 @@ func (ns NullIdentityIdentityDocType) Value() (driver.Value, error) {
 	return string(ns.IdentityIdentityDocType), nil
 }
 
+type InternalOutboxEventStatus string
+
+const (
+	InternalOutboxEventStatusPending    InternalOutboxEventStatus = "pending"
+	InternalOutboxEventStatusProcessing InternalOutboxEventStatus = "processing"
+	InternalOutboxEventStatusCompleted  InternalOutboxEventStatus = "completed"
+	InternalOutboxEventStatusFailed     InternalOutboxEventStatus = "failed"
+)
+
+func (e *InternalOutboxEventStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InternalOutboxEventStatus(s)
+	case string:
+		*e = InternalOutboxEventStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InternalOutboxEventStatus: %T", src)
+	}
+	return nil
+}
+
+type NullInternalOutboxEventStatus struct {
+	InternalOutboxEventStatus InternalOutboxEventStatus `json:"internal_outbox_event_status"`
+	Valid                     bool                      `json:"valid"` // Valid is true if InternalOutboxEventStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInternalOutboxEventStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.InternalOutboxEventStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InternalOutboxEventStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInternalOutboxEventStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InternalOutboxEventStatus), nil
+}
+
 type InventoryHousekeepingStatus string
 
 const (
@@ -881,6 +925,18 @@ type IdentityTravelAgent struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type InternalOutboxEvent struct {
+	ID         uuid.UUID                 `json:"id"`
+	EventType  string                    `json:"event_type"`
+	Payload    []byte                    `json:"payload"`
+	Status     InternalOutboxEventStatus `json:"status"`
+	RetryCount int32                     `json:"retry_count"`
+	LastError  pgtype.Text               `json:"last_error"`
+	ProcessAt  pgtype.Timestamptz        `json:"process_at"`
+	CreatedAt  pgtype.Timestamptz        `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz        `json:"updated_at"`
 }
 
 type InventoryHousekeepingLog struct {

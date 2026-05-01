@@ -17,6 +17,7 @@ import (
 	"github.com/lexxcode1/yop-pms/internal/platform/events"
 	"github.com/lexxcode1/yop-pms/internal/platform/logging"
 	yopOtel "github.com/lexxcode1/yop-pms/internal/platform/otel"
+	"github.com/lexxcode1/yop-pms/internal/platform/worker"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -124,6 +125,18 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	eventListener.On("reservation_changes", cache.NewReservationChangeHandler(appCache, logger))
 	eventListener.Start()
 	defer eventListener.Stop()
+
+	// Outbox worker — polls internal.outbox_events and dispatches registered handlers.
+	// Route handlers enqueue events by inserting rows via SQLC; the worker processes them async.
+	outboxWorker := worker.New(dbPool, logger, worker.Config{
+		PollInterval: 5 * time.Second,
+		BatchSize:    10,
+		MaxRetries:   3,
+	})
+	// TODO: register domain handlers here as they are implemented, e.g.:
+	//   outboxWorker.Register(worker.EventConfirmationEmail, smtp.HandleConfirmation(smtpClient))
+	outboxWorker.Start()
+	defer outboxWorker.Stop()
 
 	app := &application{
 		config: cfg,

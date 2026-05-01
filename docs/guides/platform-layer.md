@@ -9,6 +9,8 @@ when building domain handlers.
 - [Logging](#logging)
 - [JSON Response Encoding](#json-response-encoding)
 - [Caching](#caching)
+- [Event Listening](#event-listening)
+- [Outbox Worker](#outbox-worker)
 - [Full Example Handler](#full-example-handler)
 
 ---
@@ -374,6 +376,142 @@ events.New(cfg.DatabaseURL, logger, func() {
 
 ### Invalidation Events
 
+Cache invalidation handlers live in `internal/platform/cache/` and are registered at startup in `main.go`. Each handler receives a parsed `events.Event` and evicts the keys it owns — the events package has no knowledge of cache internals.
+
+```go
+// internal/platform/cache/planner_invalidation.go
+func NewReservationChangeHandler(c *Client, logger *slog.Logger) events.Handler {
+    return func(ctx context.Context, event events.Event) error {
+        propertyID, _ := event.Data["property_id"].(string)
+        c.Invalidate(ctx, fmt.Sprintf("yop:planner:%s:*", propertyID))
+        return nil
+    }
+}
+```
+
+---
+
+## Outbox Worker
+
+Background tasks (emails, webhooks) must not block the request path. The outbox worker (`internal/platform/worker`) decouples them safely: a task row is inserted into `internal.outbox_events` as part of the same database transaction as the domain mutation. Even if the process crashes immediately after, the row survives and the worker delivers it on restart.
+
+**Rule:** anything that calls an external service (SMTP, webhook, push notification) goes through the outbox, never inline in a handler.
+
+### Enqueueing an event
+
+Call `worker.Enqueue` from a service method, passing the SQLC `*store.Queries` for the current request and a typed payload struct:
+
+```go
+import "github.com/lexxcode1/yop-pms/internal/platform/worker"
+
+func (s *Service) CreateReservation(ctx context.Context, req CreateReservationRequest) (Reservation, error) {
+    reservation, err := s.store.CreateReservation(ctx, ...)
+    if err != nil {
+        return Reservation{}, apierror.MapPostgresError(err)
+    }
+
+    // Enqueue for async delivery — never blocks the request
+    _ = worker.Enqueue(ctx, s.store, worker.EventConfirmationEmail, worker.ConfirmationEmailPayload{
+        ReservationID: reservation.ID.String(),
+        GuestEmail:    req.GuestEmail,
+        GuestName:     req.GuestName,
+        PropertyName:  req.PropertyName,
+    })
+
+    return reservation, nil
+}
+```
+
+Use `worker.EnqueueAt` to schedule delivery at a future time (e.g. pre-arrival emails 24 hours before check-in):
+
+```go
+worker.EnqueueAt(ctx, s.store, worker.EventPreArrivalEmail, worker.PreArrivalEmailPayload{
+    ReservationID: reservation.ID.String(),
+    GuestEmail:    req.GuestEmail,
+    GuestName:     req.GuestName,
+    PropertyName:  req.PropertyName,
+    CheckIn:       req.CheckIn,
+}, req.CheckIn.Add(-24*time.Hour))
+```
+
+### Event types and payload structs
+
+Event types use dot-namespaced constants. Each has a corresponding typed payload struct in `internal/platform/worker/payloads.go`:
+
+| Constant | Payload struct |
+|---|---|
+| `worker.EventConfirmationEmail` | `worker.ConfirmationEmailPayload` |
+| `worker.EventPreArrivalEmail` | `worker.PreArrivalEmailPayload` |
+| `worker.EventCancellationEmail` | `worker.CancellationEmailPayload` |
+
+To add a new event type: define a constant and a payload struct in `payloads.go`, then register a handler in `main.go`.
+
+### Handler registration
+
+Handlers are registered at startup in `cmd/server/main.go` — not inside domain packages. The worker is infrastructure; wiring it to specific domain logic is a startup concern.
+
+```go
+// cmd/server/main.go
+outboxWorker.Register(worker.EventConfirmationEmail, smtp.HandleConfirmation(smtpClient))
+outboxWorker.Register(worker.EventPreArrivalEmail,   smtp.HandlePreArrival(smtpClient))
+```
+
+A handler receives the raw JSONB payload and unmarshals it into its own typed struct:
+
+```go
+func HandleConfirmation(client *SMTPClient) worker.Handler {
+    return func(ctx context.Context, payload json.RawMessage) error {
+        var p worker.ConfirmationEmailPayload
+        if err := json.Unmarshal(payload, &p); err != nil {
+            return fmt.Errorf("parse payload: %w", err)
+        }
+        return client.SendConfirmation(ctx, p.GuestEmail, p.GuestName, p.ReservationID)
+    }
+}
+```
+
+Returning an error triggers a retry with exponential backoff (`min(2^n, 1800)` seconds, default 3 retries). After exhausting retries the event is dead-lettered (`status = 'failed'`).
+
+### Dead-letter channel
+
+When an event exhausts its retries the worker emits a `pg_notify` on `outbox_dead_lettered`:
+
+```json
+{ "id": "...", "event_type": "smtp.confirmation", "last_error": "dial tcp: connection refused" }
+```
+
+Subscribe to this channel via the event listener to surface recurring failures in monitoring or alert the property owner:
+
+```go
+eventListener.On("outbox_dead_lettered", func(ctx context.Context, e events.Event) error {
+    logger.Error("outbox event dead-lettered",
+        "id",         e.Data["id"],
+        "event_type", e.Data["event_type"],
+        "error",      e.Data["last_error"],
+    )
+    return nil
+})
+```
+
+### Querying stuck or failed events
+
+```sql
+-- All failed events in the last 24 hours
+SELECT id, event_type, retry_count, last_error, created_at
+FROM internal.outbox_events
+WHERE status = 'failed'
+  AND created_at > NOW() - INTERVAL '24 hours'
+ORDER BY created_at DESC;
+
+-- Events still pending (including backoff queue)
+SELECT id, event_type, retry_count, process_at
+FROM internal.outbox_events
+WHERE status = 'pending'
+ORDER BY process_at;
+```
+
+---
+
 ## Full Example Handler
 
 The architecture has three layers. Each layer has one responsibility:
@@ -398,6 +536,7 @@ import (
     "github.com/lexxcode1/yop-pms/internal/platform/cache"
     "github.com/lexxcode1/yop-pms/internal/platform/logging"
     yopjson "github.com/lexxcode1/yop-pms/internal/platform/json"
+    "github.com/lexxcode1/yop-pms/internal/platform/worker"
     "github.com/lexxcode1/yop-pms/internal/store"
 )
 // --- Service (business logic + caching) ---
@@ -420,6 +559,14 @@ func (s *Service) CreateReservation(ctx context.Context, req CreateReservationRe
 
     // Invalidate availability cache — co-located with the data mutation
     s.cache.Invalidate(ctx, fmt.Sprintf("yop:availability:%s:*", req.PropertyID))
+
+    // Enqueue confirmation email — async, never blocks the request path
+    _ = worker.Enqueue(ctx, s.store, worker.EventConfirmationEmail, worker.ConfirmationEmailPayload{
+        ReservationID: reservation.ID.String(),
+        GuestEmail:    req.GuestEmail,
+        GuestName:     req.GuestName,
+        PropertyName:  req.PropertyName,
+    })
 
     return reservation, nil
 }

@@ -52,5 +52,17 @@
 
 ## PR 3: Booking Engine (Future)
 
+### 1. Reservation Backend
+
+- [ ] Create `docs/rtm/reservations.md` for the reservation requirements
+- [ ] Create `docs/flows/reservation.md` for sequence diagrams of the reservation
+      flows both green and red paths
+- The `SKIP LOCKED` or `SELECT FOR UPDATE` strategy for handling concurrent
+  reservation attempts on the same room/date
+- [ ] Create `internal/booking/[handler/service].go` for the reservation domain
+      logic
+- [ ] Build swagger contracts for the routes
+- [ ] Add to `docs/guide` and `README.md`
+
 - [ ] **Real-time Frontend:** Websocket integration for the planner
 - [ ] **Well-Documented Flows:** All complex flows must be documented in [docs/flows](./docs/flows)
