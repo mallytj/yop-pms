@@ -13,6 +13,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -88,10 +89,18 @@ func (e *Engine) Start() {
 	)
 }
 
-// Stop cancels the poll loop and waits for all in-flight handlers to finish.
+// Stop cancels the poll loop and waits up to 30s for in-flight handlers to
+// finish. Handlers must respect their context to guarantee a clean drain —
+// a handler that blocks indefinitely will be abandoned after the timeout.
 func (e *Engine) Stop() {
 	e.cancel()
-	e.wg.Wait()
+	done := make(chan struct{})
+	go func() { e.wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		e.logger.Error("outbox worker: Stop() timed out waiting for in-flight handlers")
+	}
 }
 
 // run is the main poll loop.
@@ -145,7 +154,7 @@ func (e *Engine) claimBatch() ([]claimedRow, error) {
 	const sql = `
 WITH claimed AS (
     SELECT id FROM internal.outbox_events
-    WHERE (status = 'pending' OR status = 'processing')
+    WHERE status IN ('pending', 'processing')
       AND process_at <= NOW()
     ORDER BY process_at
     LIMIT $1
@@ -188,19 +197,27 @@ func (e *Engine) process(r claimedRow) {
 	e.mu.RUnlock()
 
 	// DB status updates must complete even after Stop() cancels e.ctx.
-	// Using a detached context prevents rows from being stranded in 'processing'
-	// and avoids double-processing after the 5-minute visibility timeout.
-	dbCtx := context.Background()
+	// A 10s timeout prevents indefinite hangs if Postgres is unreachable during drain.
+	dbCtx, dbCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer dbCancel()
 
 	if !ok {
 		e.logger.Warn("outbox worker: no handler registered", "event_type", r.eventType, "id", r.id)
-		e.markFailed(dbCtx, r, "no handler registered for event_type: "+r.eventType)
+		// Don't increment retry_count — this was never retried, just misconfigured.
+		e.markFailed(dbCtx, r, "no handler registered for event_type: "+r.eventType, false)
 		return
 	}
 
 	err := h(e.ctx, r.payload)
 	if err == nil {
 		e.markCompleted(dbCtx, r.id)
+		return
+	}
+
+	// On shutdown the engine context is cancelled; handlers that respect ctx will
+	// return context.Canceled. The visibility timeout reclaims the row naturally —
+	// no retry record needed.
+	if errors.Is(err, context.Canceled) {
 		return
 	}
 
@@ -212,7 +229,7 @@ func (e *Engine) process(r claimedRow) {
 	)
 
 	if r.retryCount+1 >= e.maxRetries {
-		e.markFailed(dbCtx, r, err.Error())
+		e.markFailed(dbCtx, r, err.Error(), true)
 		return
 	}
 	e.scheduleRetry(dbCtx, r, err.Error())
@@ -248,17 +265,20 @@ WHERE id = $1
 
 // markFailed dead-letters the event and emits a pg_notify on 'outbox_dead_lettered'
 // so the event listener can surface recurring failures in the master dashboard.
-func (e *Engine) markFailed(ctx context.Context, r claimedRow, errMsg string) {
+// Pass bumpRetry=true when the event exhausted retries (increments retry_count to
+// reflect the final attempt); false when dead-lettering without a retry (e.g. no
+// handler registered) so retry_count stays at 0 and ops queries aren't misleading.
+func (e *Engine) markFailed(ctx context.Context, r claimedRow, errMsg string, bumpRetry bool) {
 	const sql = `
 UPDATE internal.outbox_events
 SET
     status      = 'failed',
-    retry_count = retry_count + 1,
+    retry_count = CASE WHEN $3 THEN retry_count + 1 ELSE retry_count END,
     last_error  = $2,
     updated_at  = NOW()
 WHERE id = $1
 `
-	if _, err := e.db.Exec(ctx, sql, r.id, errMsg); err != nil {
+	if _, err := e.db.Exec(ctx, sql, r.id, errMsg, bumpRetry); err != nil {
 		e.logger.Error("outbox worker: mark failed failed", "id", r.id, "error", err)
 		return
 	}

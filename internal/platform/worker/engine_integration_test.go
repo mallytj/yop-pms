@@ -233,9 +233,17 @@ func TestWorker_Integration_RetryOnFailure(t *testing.T) {
 		}
 	}
 
-	time.Sleep(200 * time.Millisecond) // let markFailed settle
-	if n := countByStatus(t, pool, "failed"); n != 1 {
-		t.Errorf("failed count = %d; want 1 (dead-lettered after maxRetries)", n)
+	failDeadline := time.After(2 * time.Second)
+	for {
+		if countByStatus(t, pool, "failed") == 1 {
+			break
+		}
+		select {
+		case <-failDeadline:
+			t.Errorf("failed count never reached 1 within 2s after maxRetries")
+			return
+		case <-time.After(20 * time.Millisecond):
+		}
 	}
 }
 

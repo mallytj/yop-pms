@@ -34,12 +34,12 @@
 
 ### **3. Background Worker**
 
-- [ ] **Outbox Schema:** Create `admin.outbox_events` table with indexes for
+- [x] **Outbox Schema:** Create `admin.outbox_events` table with indexes for
       `SKIP LOCKED`
-- [ ] **Worker Engine:** Background Goroutine with a polling loop and
+- [x] **Worker Engine:** Background Goroutine with a polling loop and
       `outbox_events` listeners
-- [ ] **Task Handlers:** Initial system notifications handler (e.g log/slack)
-- [ ] **Dead Letter Stategy:** Only run a task 5 number of times, if it fails
+- [x] **Task Handlers:** Initial system notifications handler (e.g log/slack)
+- [x] **Dead Letter Stategy:** Only run a task 5 number of times, if it fails
       set as a `dead_outbox_event` (will be handled in another area)
 
 ### **4. Reactive Cache & Events**
@@ -57,8 +57,10 @@
 - [ ] Create `docs/rtm/reservations.md` for the reservation requirements
 - [ ] Create `docs/flows/reservation.md` for sequence diagrams of the reservation
       flows both green and red paths
-- The `SKIP LOCKED` or `SELECT FOR UPDATE` strategy for handling concurrent
-  reservation attempts on the same room/date
+  - The `SKIP LOCKED` or `SELECT FOR UPDATE` strategy for handling concurrent
+    reservation attempts on the same room/date
+  - Link to Websocket or similar for real time frontend in future
+  -
 - [ ] Create `internal/booking/[handler/service].go` for the reservation domain
       logic
 - [ ] Build swagger contracts for the routes
