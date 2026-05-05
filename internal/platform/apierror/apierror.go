@@ -2,7 +2,6 @@ package apierror
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
