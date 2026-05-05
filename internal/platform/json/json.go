@@ -36,7 +36,7 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) error {
 		apiErr = apierror.MapPostgresError(err)
 
 		// If not a database error, log as unexpected error
-		if apiErr == apierror.ErrInternal {
+		if apiErr.Code == apierror.ErrInternal.Code {
 			logger.Error("unexpected error", "error", err)
 		}
 	}
