@@ -123,30 +123,6 @@ func Idempotency(rdb *redis.Client) func(http.Handler) http.Handler {
 			if rc.status >= 200 && rc.status < 300 {
 				cacheResponse(redisCtx, rdb, idempotencyKey, rc)
 			}
-			defer cancel()
-
-			// Check if we have a cached response
-			cachedData, err := rdb.Get(ctx, idempotencyPrefix+idempotencyKey).Result()
-			if err == nil {
-				// Cache hit - replay response
-				replayCachedResponse(w, cachedData)
-				return
-			} else if err != redis.Nil {
-				// Redis error - fail open with warning
-				logger := logging.FromContext(r.Context())
-				logger.Warn("redis error during idempotency check, allowing request through", "error", err)
-			}
-
-			// New request - capture response and cache it
-			rc := newResponseCapture(w)
-
-			// Call next handler
-			next.ServeHTTP(rc, r)
-
-			// Cache the response if status is 2xx
-			if rc.status >= 200 && rc.status < 300 {
-				cacheResponse(ctx, rdb, idempotencyKey, rc)
-			}
 		})
 	}
 }
