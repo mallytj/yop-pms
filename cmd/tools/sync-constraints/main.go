@@ -125,7 +125,7 @@ var (
 	reJsonbInList = regexp.MustCompile(`(?i)\(?(\w+)\)?\s*->>\s*'(\w+)'(?:::\w+)?\)?\s+IN\s*\(([^)]+)\)`)
 	reJsonbAnyArr = regexp.MustCompile(`(?i)\(?(\w+)\)?\s*->>\s*'(\w+)'(?:::\w+)?\)?\s*=\s*ANY\s*\(ARRAY\[([^\]]+)\]\)`)
 	// extract quoted values from IN / ARRAY lists
-	reQuotedVal = regexp.MustCompile(`'([^']+)'`)
+	reQuotedVal = regexp.MustCompile(`'((?:''|[^'])+)'`)
 )
 
 func intPtr(n int) *int       { return &n }
