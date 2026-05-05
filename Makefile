@@ -1,5 +1,8 @@
 .PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc
 
+COVERAGE_FILE = cover.out
+COVERAGE_HTML = cover.html
+
 help: ## Show this help message
 	@echo 'Usage: make [target]'
 	@echo ''
@@ -83,3 +86,21 @@ goose-circle: ## Completely reset goose
 
 gen-constraints: ## Sync constraints.yml and constraints.ts from live DB check constraints
 	go run ./cmd/tools/sync-constraints/...
+
+## test-cover: Run tests and open coverage report in browser
+test-cover:
+	@echo "Running tests and generating coverage..."
+	go test -v -coverprofile=$(COVERAGE_FILE) ./...
+	go tool cover -html=$(COVERAGE_FILE) -o $(COVERAGE_HTML)
+	@echo "Opening coverage report..."
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		open $(COVERAGE_HTML); \
+	elif [ "$$(uname)" = "Linux" ]; then \
+		xdg-open $(COVERAGE_HTML); \
+	else \
+		echo "Please open $(COVERAGE_HTML) manually."; \
+	fi
+
+## clean-cover: Remove coverage files
+clean-cover:
+	rm -f $(COVERAGE_FILE) $(COVERAGE_HTML)

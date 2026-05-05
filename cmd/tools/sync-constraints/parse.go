@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -289,7 +288,6 @@ func parseJsonb(clause string) (string, map[string]*JsonbSubField) {
 	col := ""
 	fields := make(map[string]*JsonbSubField)
 
-	// key presence: col ? 'key'
 	for _, m := range reJsonbHasKey.FindAllStringSubmatch(clause, -1) {
 		candidate, key := m[1], m[2]
 		if functionNames[candidate] {
@@ -304,7 +302,6 @@ func parseJsonb(clause string) (string, map[string]*JsonbSubField) {
 		fields[key].Required = true
 	}
 
-	// ->> 'key' IN ('a','b')
 	for _, m := range reJsonbInList.FindAllStringSubmatch(clause, -1) {
 		candidate, key, list := m[1], m[2], m[3]
 		if functionNames[candidate] {
@@ -313,8 +310,7 @@ func parseJsonb(clause string) (string, map[string]*JsonbSubField) {
 		if col == "" {
 			col = candidate
 		}
-		vals := extractQuotedValues(list)
-		if len(vals) > 0 {
+		if vals := extractQuotedValues(list); len(vals) > 0 {
 			if fields[key] == nil {
 				fields[key] = &JsonbSubField{}
 			}
@@ -322,7 +318,6 @@ func parseJsonb(clause string) (string, map[string]*JsonbSubField) {
 		}
 	}
 
-	// ->> 'key' = ANY(ARRAY[...])
 	for _, m := range reJsonbAnyArr.FindAllStringSubmatch(clause, -1) {
 		candidate, key, arr := m[1], m[2], m[3]
 		if functionNames[candidate] {
@@ -331,8 +326,7 @@ func parseJsonb(clause string) (string, map[string]*JsonbSubField) {
 		if col == "" {
 			col = candidate
 		}
-		vals := extractQuotedValues(arr)
-		if len(vals) > 0 {
+		if vals := extractQuotedValues(arr); len(vals) > 0 {
 			if fields[key] == nil {
 				fields[key] = &JsonbSubField{}
 			}
@@ -353,7 +347,3 @@ func extractQuotedValues(s string) []string {
 	}
 	return vals
 }
-
-// suppress unused import — fmt is used in main.go but parse.go needs it for
-// parseCrossCol callers; keep the reference here.
-var _ = fmt.Sprintf
