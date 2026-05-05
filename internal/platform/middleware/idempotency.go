@@ -99,7 +99,7 @@ func Idempotency(rdb *redis.Client) func(http.Handler) http.Handler {
 				return
 			}
 
-redisCtx := context.Background()
+			redisCtx := context.Background()
 
 			// Check if we have a cached response
 			cachedData, err := rdb.Get(redisCtx, idempotencyPrefix+idempotencyKey).Result()
