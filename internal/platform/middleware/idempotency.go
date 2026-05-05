@@ -51,9 +51,11 @@ func (rc *responseCapture) WriteHeader(status int) {
 	rc.written = true
 	rc.status = status
 
-	// Copy headers from our map before writing to underlying writer
-	for k, v := range rc.headers {
-		rc.ResponseWriter.Header().Set(k, v)
+	// Capture headers from the underlying writer for caching
+	for k, v := range rc.ResponseWriter.Header() {
+		if len(v) > 0 {
+			rc.headersCopy[k] = v[0]
+		}
 	}
 
 	rc.ResponseWriter.WriteHeader(status)
