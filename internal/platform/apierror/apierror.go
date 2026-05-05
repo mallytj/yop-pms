@@ -109,6 +109,6 @@ func MapPostgresError(err error) *APIError {
 		return ErrUnprocessable.WithMessage("the request violates a business rule")
 
 	default:
-		return ErrInternal.WithMessage(fmt.Sprintf("unexpected database error: %v", err))
+		return ErrInternal.WithMessage("an unexpected database error occurred")
 	}
 }
