@@ -217,7 +217,7 @@ func (e *Engine) process(r claimedRow) {
 	// On shutdown the engine context is cancelled; handlers that respect ctx will
 	// return context.Canceled. The visibility timeout reclaims the row naturally —
 	// no retry record needed.
-	if errors.Is(err, context.Canceled) {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return
 	}
 
