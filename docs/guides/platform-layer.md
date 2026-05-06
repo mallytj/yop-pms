@@ -684,7 +684,7 @@ The middleware stack is ordered as:
 5. **Recoverer** — Catches panics
 6. **StripSlashes** — Normalizes paths
 7. **CORS** — Handles cross-origin requests
-8. **Idempotency** — Enforces idempotency keys (only on /v1)
+8. **Idempotency** — Enforces atomically reserved, request-scoped idempotency keys (only on /v1)
 
 **Important:** otelchi must run FIRST. The RequestLogger middleware calls `logging.WithTraceID()` which relies on the span created by otelchi.
 

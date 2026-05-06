@@ -14,7 +14,7 @@ import (
 type Config struct {
 	ServiceName    string `example:"yop-pms"`
 	ServiceVersion string `example:"0.1.0"`
-	OTLPEndpoint   string `example:"http://localhost:4318"`
+	OTLPEndpoint   string `example:"localhost:4318"`
 	Environment    string `example:"dev"`
 }
 

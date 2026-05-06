@@ -189,8 +189,10 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 ### Idempotency Behavior
 
 - **Missing key** → 400 Bad Request
-- **First request** → Process normally, cache response (status + body)
-- **Duplicate key** → Return cached response (same status + body)
+- **First request** → Reserve key, process normally, cache response (status + body)
+- **Duplicate key for the same request** → Return cached response (same status + body)
+- **Duplicate key while the original request is still processing** → Wait briefly for the cached response, then return it; if it is still processing after the wait, return 409 Conflict
+- **Duplicate key for a different request** → 409 Conflict
 - **TTL** → Cached responses stored for 24 hours
 
 ### Idempotency Key Format
@@ -199,6 +201,7 @@ Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 - Case-sensitive
 - Client-generated (server doesn't generate keys)
 - Can be any format; opaque to API
+- Must not be reused across different methods, paths, request bodies, or authenticated principals
 
 ---
 
@@ -432,10 +435,12 @@ Content-Type: application/json
 ## Best Practices for API Consumers
 
 1. **Always include `Idempotency-Key` for POST/PATCH** — UUID is recommended
-2. **Handle all error codes** — Don't assume 200/201 for all requests
-3. **Use timestamps as-is** — Already timezone-aware
-4. **Implement exponential backoff** — For 5xx errors and rate limiting (429)
-5. **Log error responses** — Include `code` + `message` in logs for debugging
+2. **Generate one key per logical request** — Reuse the same key only for retries of that exact method, path, body, and authenticated principal
+3. **Handle 409 for idempotency conflicts** — A reused key for a different request or a long-running in-flight request returns Conflict
+4. **Handle all error codes** — Don't assume 200/201 for all requests
+5. **Use timestamps as-is** — Already timezone-aware
+6. **Implement exponential backoff** — For 5xx errors and rate limiting (429)
+7. **Log error responses** — Include `code` + `message` in logs for debugging
 
 ---
 

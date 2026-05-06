@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
@@ -221,6 +224,126 @@ func TestIdempotency_DifferentKeys(t *testing.T) {
 	// Handler should be called twice (different keys)
 	if handlerCalled != 2 {
 		t.Errorf("Handler called: got %d, want 2", handlerCalled)
+	}
+}
+
+func TestIdempotency_SameKeyDifferentRequestReturnsConflict(t *testing.T) {
+	rdb, cleanup := newTestRedis(t)
+	defer cleanup()
+
+	middleware := Idempotency(rdb)
+
+	handlerCalled := 0
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled++
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte("created"))
+	})
+
+	wrappedHandler := middleware(handler)
+
+	w1 := httptest.NewRecorder()
+	r1 := httptest.NewRequest("POST", "/test", bytes.NewReader([]byte(`{"name":"first"}`)))
+	r1.Header.Set("Idempotency-Key", "reused-key")
+	wrappedHandler.ServeHTTP(w1, r1)
+
+	if w1.Code != http.StatusCreated {
+		t.Errorf("First request status: got %d, want %d", w1.Code, http.StatusCreated)
+	}
+
+	w2 := httptest.NewRecorder()
+	r2 := httptest.NewRequest("POST", "/test", bytes.NewReader([]byte(`{"name":"second"}`)))
+	r2.Header.Set("Idempotency-Key", "reused-key")
+	wrappedHandler.ServeHTTP(w2, r2)
+
+	if w2.Code != http.StatusConflict {
+		t.Errorf("Second request status: got %d, want %d", w2.Code, http.StatusConflict)
+	}
+
+	if handlerCalled != 1 {
+		t.Errorf("Handler called: got %d, want 1", handlerCalled)
+	}
+}
+
+func TestIdempotency_ConcurrentSameKeyExecutesHandlerOnce(t *testing.T) {
+	rdb, cleanup := newTestRedis(t)
+	defer cleanup()
+
+	middleware := Idempotency(rdb)
+
+	handlerStarted := make(chan struct{})
+	releaseHandler := make(chan struct{})
+	var handlerCalled int32
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&handlerCalled, 1)
+		close(handlerStarted)
+		<-releaseHandler
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte("created"))
+	})
+
+	wrappedHandler := middleware(handler)
+
+	firstDone := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("POST", "/test", bytes.NewReader([]byte("{}")))
+		r.Header.Set("Idempotency-Key", "concurrent-key")
+		wrappedHandler.ServeHTTP(w, r)
+		firstDone <- w
+	}()
+
+	select {
+	case <-handlerStarted:
+	case <-time.After(time.Second):
+		t.Fatal("first request did not enter handler")
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	secondDone := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		defer wg.Done()
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest("POST", "/test", bytes.NewReader([]byte("{}")))
+		r.Header.Set("Idempotency-Key", "concurrent-key")
+		wrappedHandler.ServeHTTP(w, r)
+		secondDone <- w
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	if got := atomic.LoadInt32(&handlerCalled); got != 1 {
+		t.Fatalf("Handler called while first request was in progress: got %d, want 1", got)
+	}
+
+	close(releaseHandler)
+
+	var first *httptest.ResponseRecorder
+	select {
+	case first = <-firstDone:
+	case <-time.After(time.Second):
+		t.Fatal("first request did not finish")
+	}
+
+	var second *httptest.ResponseRecorder
+	select {
+	case second = <-secondDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("second request did not replay cached response")
+	}
+	wg.Wait()
+
+	if first.Code != http.StatusCreated {
+		t.Errorf("First request status: got %d, want %d", first.Code, http.StatusCreated)
+	}
+	if second.Code != http.StatusCreated {
+		t.Errorf("Second request status: got %d, want %d", second.Code, http.StatusCreated)
+	}
+	if second.Body.String() != "created" {
+		t.Errorf("Second response body: got %q, want %q", second.Body.String(), "created")
+	}
+	if got := atomic.LoadInt32(&handlerCalled); got != 1 {
+		t.Errorf("Handler called: got %d, want 1", got)
 	}
 }
 

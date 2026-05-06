@@ -202,7 +202,7 @@ See [guides/frontend-constraints](./guides/frontend-constraints.md) for frontend
 
 ### Idempotency
 
-All POST/PATCH requests must include `Idempotency-Key` header. Responses are cached for 24 hours, so repeating the same request returns the same result (no duplicates).
+All POST/PATCH requests must include `Idempotency-Key` header. The first request reserves the key atomically, successful responses are cached for 24 hours, and repeating the same request returns the same response without duplicate processing. Reusing a key for a different request returns 409 Conflict.
 
 See [ADR-007](adr/007-idempotency-key-enforcement.md)
 
