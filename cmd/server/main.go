@@ -10,8 +10,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lexxcode1/yop-pms/internal/platform/cache"
 	"github.com/lexxcode1/yop-pms/internal/platform/config"
+	"github.com/lexxcode1/yop-pms/internal/platform/events"
+	"github.com/lexxcode1/yop-pms/internal/platform/logging"
+	yopOtel "github.com/lexxcode1/yop-pms/internal/platform/otel"
+	"github.com/lexxcode1/yop-pms/internal/platform/worker"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -20,6 +26,7 @@ type application struct {
 	db     *pgxpool.Pool
 	rdb    *redis.Client
 	logger *slog.Logger
+	cache  *cache.Client
 }
 
 // @title			Yop PMS Backend API
@@ -30,9 +37,7 @@ type application struct {
 func main() {
 	cfg := config.MustLoad()
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
+	logger := logging.NewLogger(cfg.Environment)
 	slog.SetDefault(logger)
 
 	if err := run(cfg, logger); err != nil {
@@ -46,7 +51,17 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	dbPool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	// Create pgx pool with OTel tracer
+	poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("unable to parse database URL", "error", err)
+		return err
+	}
+
+	// Attach OTel pgx tracer
+	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer()
+
+	dbPool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		logger.Error("unable to connect to database", "error", err)
 		return err
@@ -80,11 +95,55 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		logger.Info("redis cache cleared for development")
 	}
 
+	// Setup OpenTelemetry
+	otelShutdown, err := yopOtel.Setup(ctx, yopOtel.Config{
+		ServiceName:    cfg.ServiceName,
+		ServiceVersion: cfg.ServiceVersion,
+		OTLPEndpoint:   cfg.OTLPEndpoint,
+		Environment:    cfg.Environment,
+	})
+	if err != nil {
+		logger.Error("otel setup failed", "error", err)
+		return err
+	}
+	defer func() {
+		if err := otelShutdown(context.Background()); err != nil {
+			logger.Error("otel shutdown failed", "error", err)
+		}
+	}()
+
+	appCache := cache.New(rdb, "yop:", logger)
+
+	// Events listener — dedicated connection outside the pool (LISTEN blocks the connection).
+	// On reconnect, flush the entire cache to avoid serving stale data from the disconnect window.
+	eventListener := events.New(cfg.DatabaseURL, logger, func() {
+		if err := appCache.Invalidate(context.Background(), "yop:*"); err != nil {
+			logger.Error("failed to flush cache on event listener reconnect", "error", err)
+		}
+	})
+
+	eventListener.On("reservation_changes", cache.NewReservationChangeHandler(appCache, logger))
+	eventListener.Start()
+	defer eventListener.Stop()
+
+	// Outbox worker — polls internal.outbox_events and dispatches registered handlers.
+	// Route handlers enqueue events by inserting rows via SQLC; the worker processes them async.
+	outboxWorker := worker.New(dbPool, logger, worker.Config{
+		PollInterval: 5 * time.Second,
+		BatchSize:    10,
+		MaxRetries:   3,
+	})
+	// TODO: register domain handlers here as they are implemented, e.g.:
+	//   outboxWorker.Register(worker.EventConfirmationEmail, smtp.HandleConfirmation(smtpClient))
+	outboxWorker.Start()
+	defer outboxWorker.Stop()
+
 	app := &application{
 		config: cfg,
 		db:     dbPool,
 		rdb:    rdb,
 		logger: logger,
+		cache:  appCache,
 	}
 
 	srv := &http.Server{
@@ -94,6 +153,7 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
+
 	errChan := make(chan error, 1)
 	go func() {
 		logger.Info("starting server", "addr", srv.Addr)

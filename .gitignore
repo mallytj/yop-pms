@@ -3,3 +3,13 @@ tmp/
 .claude/
 
 .env
+/cover.out
+/cover.html
+
+.gemini/
+gha-creds-*.json
+/.github
+
+# Binaries
+/server
+/sync-constraints

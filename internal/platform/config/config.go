@@ -15,6 +15,9 @@ type Config struct {
 	RedisAddr      string
 	RedisPassword  string
 	AllowedOrigins []string
+	OTLPEndpoint   string // OpenTelemetry collector endpoint (optional)
+	ServiceName    string // Service name for OpenTelemetry (default: "yop-pms")
+	ServiceVersion string // Service version for OpenTelemetry (default: "0.1.0")
 }
 
 // MustLoad loads the configuration from environment variables.
@@ -31,6 +34,9 @@ func MustLoad() *Config {
 		RedisAddr:      getEnv("REDIS_ADDR", "localhost:6379"),
 		RedisPassword:  getEnv("REDIS_PASSWORD", ""),
 		AllowedOrigins: strings.Split(origins, " "),
+		OTLPEndpoint:   getEnv("OTLP_ENDPOINT", ""),
+		ServiceName:    getEnv("SERVICE_NAME", "yop-pms"),
+		ServiceVersion: getEnv("SERVICE_VERSION", "0.1.0"),
 	}
 
 	return cfg

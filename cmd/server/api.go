@@ -2,29 +2,32 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	platformjson "github.com/lexxcode1/yop-pms/internal/platform/json"
+	yopMw "github.com/lexxcode1/yop-pms/internal/platform/middleware"
+	"github.com/riandyrn/otelchi"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func (app *application) routes() http.Handler {
 	r := chi.NewRouter()
 
+	// OpenTelemetry tracing - MUST be first to capture full request lifecycle
+	r.Use(otelchi.Middleware("yop-pms", otelchi.WithChiRoutes(r)))
+
+	// Structured request logging with OTel trace enrichment
+	r.Use(yopMw.RequestLogger(app.logger))
+
 	// Adds a request ID into context of each request
-	// May potentially be deprecated in lieu of
-	// OpenTelemetry
 	r.Use(middleware.RequestID)
 
 	// Stores IP address for DDoS protection
 	r.Use(middleware.RealIP)
-
-	// Logs start and end of each request
-	r.Use(middleware.Logger)
 
 	// Recovers from panics, returns 500 when possible
 	r.Use(middleware.Recoverer)
@@ -35,7 +38,7 @@ func (app *application) routes() http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   app.config.AllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "Idempotency-Key"},
 		AllowCredentials: true,
 	}))
 
@@ -44,7 +47,11 @@ func (app *application) routes() http.Handler {
 	// API Docs
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
-	r.Route("/v1", func(_ chi.Router) {
+	// V1 API routes with idempotency middleware
+	r.Route("/v1", func(r chi.Router) {
+		// Idempotency enforcement for POST/PATCH requests on v1 API
+		r.Use(yopMw.Idempotency(app.rdb))
+
 		// In future PR (Reservations), we will add domain routers here:
 		// r.Mount("/bookings", booking.NewHandler(app.store).Routes())
 		// r.Mount("/rooms", room.NewHandler(app.store).Routes())
@@ -107,10 +114,7 @@ func (app *application) HealthHandler(w http.ResponseWriter, r *http.Request) {
 		Services: services,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
+	if err := platformjson.WriteJSON(w, statusCode, resp); err != nil {
 		app.logger.Error("failed to encode health response", "error", err)
 	}
 }

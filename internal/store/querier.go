@@ -6,9 +6,12 @@ package store
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 type Querier interface {
+	CreateOutboxEvent(ctx context.Context, arg *CreateOutboxEventParams) (uuid.UUID, error)
 	SetCurrentPropertyID(ctx context.Context, propertyID string) error
 }
 

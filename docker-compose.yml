@@ -8,9 +8,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "${DB_PORT}:5432"
+      - '${DB_PORT}:5432'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
     container_name: yop_adminer
     restart: always
     ports:
-      - "8081:8080"
+      - '8081:8080'
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,12 +36,12 @@ services:
     container_name: yop_redis
     restart: always
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - '${REDIS_PORT:-6379}:6379'
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -54,20 +54,29 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - '8080:8080'
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      DB_URL: "postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable"
-      REDIS_ADDR: "redis:6379"
+      DB_URL: 'postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable'
+      REDIS_ADDR: 'redis:6379'
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-      ENVIRONMENT: "dev"
-      PORT: "8080"
+      ENVIRONMENT: 'dev'
+      PORT: '8080'
     networks:
       - yop_network
+
+  jaeger:
+    container_name: yop_jaeger
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - '16686:16686' # UI
+      - '4318:4318' # OTLP HTTP (what your otel.go uses)
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
 
   redis-commander:
     image: rediscommander/redis-commander:latest
@@ -75,7 +84,7 @@ services:
     environment:
       - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD}
     ports:
-      - "8082:8081"
+      - '8082:8081'
     depends_on:
       redis:
         condition: service_healthy
@@ -89,3 +98,4 @@ volumes:
 networks:
   yop_network:
     driver: bridge
+
