@@ -132,7 +132,7 @@ func (l *Listener) connect(isReconnect bool) error {
 	l.mu.RUnlock()
 
 	for _, ch := range channels {
-		if _, err := conn.Exec(l.ctx, "LISTEN "+ch); err != nil {
+		if _, err := conn.Exec(l.ctx, fmt.Sprintf("LISTEN %q", ch)); err != nil {
 			return fmt.Errorf("listen %s: %w", ch, err)
 		}
 	}
