@@ -26,14 +26,26 @@ Each ADR follows this structure:
 
 ### Platform Layer & Infrastructure
 
-| #                                         | Title                       | Status   |
-| ----------------------------------------- | --------------------------- | -------- |
-| [005](005-error-handling-strategy.md)     | Error Handling Strategy     | Accepted |
-| [006](006-structured-logging-approach.md) | Structured Logging          | Accepted |
-| [007](007-idempotency-key-enforcement.md) | Idempotency Key Enforcement | Accepted |
-| [008](008-redis-caching-layer.md)         | Redis Caching Layer         | Accepted |
-| [009](009-opentelemetry-observability.md) | OpenTelemetry Observability | Accepted |
-| [010](010-reactive-cache-invalidation.md) | Reactive Cache Invalidation | Accepted |
+| #                                          | Title                        | Status   |
+| ------------------------------------------ | ---------------------------- | -------- |
+| [005](005-error-handling-strategy.md)      | Error Handling Strategy      | Accepted |
+| [006](006-structured-logging-approach.md)  | Structured Logging           | Accepted |
+| [007](007-idempotency-key-enforcement.md)  | Idempotency Key Enforcement  | Accepted |
+| [008](008-redis-caching-layer.md)          | Redis Caching Layer          | Accepted |
+| [009](009-opentelemetry-observability.md)  | OpenTelemetry Observability  | Accepted |
+| [010](010-reactive-cache-invalidation.md)  | Reactive Cache Invalidation  | Accepted |
+| [011](011-check-constraint-consistency.md) | Check Constraint Consistency | Accepted |
+| [012](012-transactional-outbox-worker.md)  | Transactional Outbox Worker  | Accepted |
+| [014](014-cursor-pagination.md)            | Cursor Pagination            | Accepted |
+
+### Reservations Domain
+
+| #                                           | Title                            | Status   |
+| ------------------------------------------- | -------------------------------- | -------- |
+| [013](013-locking-availability-strategy.md) | Locking & Availability Strategy  | Accepted |
+| [016](016-state-machine-rollup.md)          | Reservation State Machine Rollup | Accepted |
+
+> ADR-015 reserved for Source-Aware Reservation Flows + OTA webhook auth — to be written when OTA integration begins.
 
 ## How to Create a New ADR
 
@@ -142,6 +154,17 @@ Find ADRs by topic:
 - [ADR-007](007-idempotency-key-enforcement.md) — Idempotency via Redis + Idempotency-Key header
 - [ADR-008](008-redis-caching-layer.md) — Simple prefix-namespaced Redis cache client
 - [ADR-010](010-reactive-cache-invalidation.md) — PostgreSQL LISTEN/NOTIFY drives cache invalidation; TTLs are safety net
+- [ADR-011](011-check-constraint-consistency.md) — DB check constraints synced to backend YAML and frontend TypeScript
+- [ADR-014](014-cursor-pagination.md) — Cursor pagination convention for list endpoints
+
+### Background Work
+
+- [ADR-012](012-transactional-outbox-worker.md) — Transactional outbox pattern for emails, audit, deferred work
+
+### Reservations Domain
+
+- [ADR-013](013-locking-availability-strategy.md) — Hold-as-lock + auto-pin + ledger-as-truth
+- [ADR-015](016-state-machine-rollup.md) — Item state changes drive reservation status via deterministic rollup
 
 ## Principles
 
