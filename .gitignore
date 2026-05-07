@@ -1,6 +1,7 @@
 # Air temp files
 tmp/
 .claude/
+.worktrees/
 
 .env
 /cover.out
