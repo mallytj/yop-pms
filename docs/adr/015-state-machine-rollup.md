@@ -1,4 +1,4 @@
-# ADR 016: Reservation State Machine Rollup Rule
+# ADR 015: Reservation State Machine Rollup Rule
 
 ## Status
 
@@ -35,12 +35,12 @@ The reservation status is **derived from its items** by a deterministic rollup r
 
 Given the multiset of item statuses for a reservation, the reservation status is set as follows (first match wins):
 
-| Condition on items                              | Reservation status |
-| ----------------------------------------------- | ------------------ |
-| All items in `cancelled` (or `archived`-from-cancel) | `cancelled`     |
-| All items in terminal states AND ≥1 `checked_out` | `checked_out`    |
-| ≥1 item `checked_in` AND no items in `booked`    | `checked_in`      |
-| Otherwise                                        | _unchanged_        |
+| Condition on items                                   | Reservation status |
+| ---------------------------------------------------- | ------------------ |
+| All items in `cancelled` (or `archived`-from-cancel) | `cancelled`        |
+| All items in terminal states AND ≥1 `checked_out`    | `checked_out`      |
+| ≥1 item `checked_in` AND no items in `booked`        | `checked_in`       |
+| Otherwise                                            | _unchanged_        |
 
 Terminal states for items: `checked_out`, `no_show`, `cancelled`, `archived`.
 
