@@ -1,6 +1,7 @@
 # Reservation API RTM
 
-> Foundation requirements for the reservation domain. Edge cases live in section 8 — every edge case maps to a test.
+> Foundation requirements for the reservation domain. Edge cases live in section
+> 8 — every edge case maps to a test.
 
 ## 1. Core CRUD
 
@@ -11,7 +12,8 @@
 | R-RES-CRUD-003  | Read a list of reservations filtered by the parameters defined in section 9 (cursor pagination)                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | R-RES-CRUD-004a | `PATCH /reservations/{id}` updates reservation-level metadata only: notes, group_id, travel_agent_id, primary_guest_id. Requires `If-Match: <version>` header (R-RES-VALID-012)                                                                                                                                                                                                                                                                                                                                  |
 | R-RES-CRUD-004b | `PATCH /reservations/{id}/items/{item_id}` updates item-level fields: stay_period, booked_room_type_id, rate_plan_id, guest_id, adults_count, children_count. Triggers availability re-check, ledger row move, booked_daily_rates recompute in single transaction. Requires `If-Match: <item_version>`                                                                                                                                                                                                           |
-| R-RES-CRUD-005  | `POST /reservations/{id}/cancel` body `{ reason_code, reason_notes, fee_pence (nullable), waive_fee (bool), refund_action: none\|refund_deposit\|hold_for_review }`. Side-effects in single tx: reservation.status=`cancelled`, all non-terminal items → `cancelled`, future-dated ledger rows deleted, fee posted as folio_transaction on Folio A (unless `waive_fee`), `NOTIFY reservation_changes`, cancellation email enqueued via outbox. `reservations:waive_fee` permission required for `waive_fee=true` |
+| R-RES-CRUD-005  | `POST /reservations/{id}/cancel` body `{ reason_code, reason_notes, fee_pence (nullable), waive_fee (bool), fee_override_reason (nullable), refund_action: none\|refund_deposit\|hold_for_review }`. **Side-effects differ by source state.** From `confirmed` / `checked_out`-pending / `no_show`: reservation.status=`cancelled`, all non-terminal items → `cancelled`, future-dated ledger rows deleted, fee posted as folio_transaction on Folio A (unless `waive_fee`), `NOTIFY reservation_changes`, cancellation email enqueued via outbox. From `hold` (per R-RES-VALID-014): same transitions and ledger deletion **but no folio transaction** — `fee_pence`, `waive_fee`, `fee_override_reason` ignored. `reservations:waive_fee` permission required for `waive_fee=true`. `fee_pence` caller-provided in v1 (see R-RES-CRUD-005a) |
+| R-RES-CRUD-005a | `GET /reservations/{id}/cancellation-quote` is a **stub** for v1. Cancellation policy + fee computation are deferred to the finance PR. Returns `{ computed_fee_pence: null, policy: "deferred", currency: <property.currency> }`. The single property-level currency is used; mixed-currency cancellation maths is out of scope. Frontend wires the call site now; backend math lands with finance PR. When live, `reservations:fee_override` gates caller-provided `fee_pence` that deviates from the quote |
 | R-RES-CRUD-006  | Reactivate a cancelled reservation (set `status` back to `confirmed`, clear `deleted_at`). Reactivation re-checks availability and re-pins ledger rows; returns 409 if dates are no longer available                                                                                                                                                                                                                                                                                                             |
 | R-RES-CRUD-007  | Reservation code format `RES-XXXXXX`, sequential per property. Backed by `operations.reservation_sequences (property_id PK, next_value)` table; incremented in tx via `SELECT … FOR UPDATE`. Schema migration M1                                                                                                                                                                                                                                                                                                 |
 | R-RES-CRUD-008  | Reservation creation generates an audit log entry via the transactional outbox worker                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -20,7 +22,10 @@
 | R-RES-CRUD-011  | Each reservation item must be associated with a room inventory ledger entry to ensure no overbooking                                                                                                                                                                                                                                                                                                                                                                                                             |
 | R-RES-CRUD-012  | All entities must be isolated by authenticated `property_id` to prevent cross-property data access (RLS via `app.current_property_id`)                                                                                                                                                                                                                                                                                                                                                                           |
 | R-RES-CRUD-013  | Reservation lifecycle: `hold` is the default state on creation for sources `website` and `internal`. `walkin` flag bypasses hold and lands directly in `checked_in` (R-RES-CRUD-014). OTA inbound (section 10) lands in `confirmed`                                                                                                                                                                                                                                                                              |
-| R-RES-CRUD-014  | `is_walkin: true` on POST requires `lower(stay_period) = today`, `assigned_room_id` set on every item, and creates reservation + items in `checked_in` state, ledger rows in `sold`. Source remains `internal`                                                                                                                                                                                                                                                                                                   |
+| R-RES-CRUD-014  | `is_walkin: true` on POST requires `lower(stay_period)::date = today`, `assigned_room_id` set on every item, and creates reservation + items in `checked_in` state, ledger rows in `sold`. Source remains `internal`. **Stay-period bounds for walk-ins:** `lower = greatest(now(), today @ default_checkin_time)` — late arrivals after the default check-in time use `now()`, not a past timestamp; arrivals before default check-in time use the default (early-arrival treated as standard). `upper = departure_date @ default_checkout_time`. Each item must resolve a `rate_plan_id` — if omitted, server falls back to `property_settings.walkin_rate_plan_id`. Per-night rate adjustments after create via `PATCH .../booked-rates` (R-RES-CRUD-016, requires `reservations:rate_override`)                                                                          |
+| R-RES-CRUD-016  | `PATCH /reservations/{id}/items/{item_id}/booked-rates` accepts an array of `{ calendar_date, nightly_rate_pence, reason }`. Updates `pricing.booked_daily_rates` rows in place (per-night override). Audit log carries before/after. Past nights immutable post-checkout per snapshot rule. Permission: `reservations:rate_override`                                                                                                                                                                                                          |
+| R-RES-CRUD-017  | `POST /reservations/{id}/items` adds a new item to a non-terminal reservation. Body shape mirrors items array entry in `POST /reservations`. Triggers availability check, ledger pin, `booked_daily_rates` insert, envelope recompute (ADR-020), reservation `version` bump. Rejected (409) if reservation status terminal (`cancelled`, `checked_out`, `archived`). Permission: `reservations:add_item`                                                                                                                                      |
+| R-RES-CRUD-018  | `POST /reservations/{id}/confirm` transitions a `hold` reservation to `confirmed` via the staff path. Idempotent on `confirmed` (returns 200, no-op per R-RES-EDGE-061). Validates `guest_id NOT NULL`. Website holds also confirm via payment webhook (flow 1.1). Permission: `reservations:confirm`                                                                                                                                                                                                                                          |
 | R-RES-CRUD-015  | Inline guest creation: POST accepts `primary_guest_id` (existing) OR `primary_guest` (full guest payload, created in same tx). Same option per item for additional guests. Email-based dedup: matching active guest is reused, returned with `was_existing: true`                                                                                                                                                                                                                                                |
 
 ## 2. Availability & Conflict Prevention
@@ -31,7 +36,7 @@
 | R-RES-AVAIL-002 | Availability check reads `inventory.room_inventory_ledger` (statuses `sold`, `on_hold`, `maintenance`, `decommissioned`) for the requested period. Maintenance and decommissioning written to ledger directly (M3); availability is single-source-of-truth via the ledger                                                                                                                                                                                                                                          |
 | R-RES-AVAIL-003 | Per-room overlap prevented at DB level via existing EXCLUDE constraint on `reservation_items (assigned_room_id WITH =, stay_period WITH &&)` AND `inventory.room_inventory_ledger UNIQUE(room_id, calendar_date)`. Per-room-type overlap prevented at application level via aggregate count: `available_count = total_rooms_in_type - ledger_rows_blocking(date)` per date in stay_period. Hold creation auto-pins a specific room (R-RES-AVAIL-009) so per-type race resolves to per-room race, which DB prevents |
 | R-RES-AVAIL-004 | Concurrent reservation attempts for the same room/date range MUST be serialised (see ADR-013 for locking strategy)                                                                                                                                                                                                                                                                                                                                                                                                 |
-| R-RES-AVAIL-005 | Availability check must include buffer periods (e.g. housekeeping turnaround) per property setting `housekeeping_buffer_minutes` (M4)                                                                                                                                                                                                                                                                                                                                                                              |
+| R-RES-AVAIL-005 | ~~Availability check enforces `housekeeping_buffer_minutes`~~ — **superseded by ADR-018**. Same-day turnover protection comes from the gap between `default_checkout_time` and `default_checkin_time` baked into `stay_period` bounds. `housekeeping_buffer_minutes` is advisory only, surfaced to staff for scheduling                                                                                                                                                                                              |
 | R-RES-AVAIL-006 | The system must report which specific dates conflict when a reservation is rejected for overlap                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | R-RES-AVAIL-007 | Availability response must include remaining inventory count per room type for the requested dates                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | R-RES-AVAIL-008 | Availability check must satisfy all length of stay, occupancy and further restrictions defined in the price grid for the requested room type and dates (consolidated with R-RES-RATE-005)                                                                                                                                                                                                                                                                                                                          |
@@ -50,6 +55,7 @@
 | R-RES-GROOM-004 | Room assignment must validate the room is not already assigned to another overlapping reservation                                                         |
 | R-RES-GROOM-005 | Unassigned rooms must be assignable up to and including the day of check-in                                                                               |
 | R-RES-GROOM-006 | Guest details (name, contact) must be validated against guest table constraints on creation                                                               |
+| R-RES-GROOM-007 | An already-assigned room may be changed to any available room of the same type. Pre-checkin: standard conflict check (ledger UNIQUE + EXCLUDE GIST), no extra permission. Post-checkin room move (guest physically relocates): additionally requires `reservations:post_checkin_mutate`. In both cases ledger rows are updated in place (`UPDATE SET room_id`), not deleted and re-inserted |
 
 ## 4. Rate & Pricing
 
@@ -78,23 +84,28 @@
 | R-RES-VALID-010 | Reservation must respect minimum/maximum occupancy constraints of the room type                                                                                                                                                                                                                                                                           |
 | R-RES-VALID-011 | A walkin reservation must be created on the same day, a room must be immediately assigned (see R-RES-CRUD-014)                                                                                                                                                                                                                                            |
 | R-RES-VALID-012 | All mutating endpoints (`PATCH /reservations/{id}`, `PATCH /reservations/{id}/items/{item_id}`, `POST .../cancel`, `POST .../reactivate`) require `If-Match: <version>` header. Version mismatch returns 412 Precondition Failed with `{ current_version, server_value }`. Successful mutation bumps `version` by 1. Items have own `version` column (M2) |
+| R-RES-VALID-013 | Reservation cancel rejected with 409 if **any** item is `checked_in`. Caller must check-out / shorten the active items first. Item-level cancel (4.6) likewise rejects `checked_in` items per §7.2 |
+| R-RES-VALID-014 | Cancel of a `hold` reservation produces no folio transaction. `fee_pence` and `waive_fee` are ignored on holds. Worker-driven hold expiry (R-RES-INTEG-007) likewise posts no fee |
+| R-RES-VALID-015 | `stay_period` bounds carry property check-in/out times (ADR-018). Request bodies accept `arrival_date` / `departure_date` as DATE; server composes the TSTZRANGE. Explicit timestamps require `reservations:override_restrictions` |
 
 ## 6. Integration Points
 
-| ID              | Requirement Description                                                                                                                                                                                                                                                                |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R-RES-INTEG-001 | Cache reservation queries (individual and list) via `platform/cache` with TTL and pattern-based invalidation                                                                                                                                                                           |
-| R-RES-INTEG-002 | Invalidate reservation cache on create, update, cancel, and room assignment                                                                                                                                                                                                            |
-| R-RES-INTEG-003 | Emit `NOTIFY reservation_changes` on PostgreSQL for reactive cache invalidation and future real-time updates                                                                                                                                                                           |
-| R-RES-INTEG-004 | Enqueue notification emails (confirmation, cancellation) via the transactional outbox worker outside of transaction                                                                                                                                                                    |
-| R-RES-INTEG-005 | Rate calculation must call `GetOrSet` on the price grid cache for performance                                                                                                                                                                                                          |
-| R-RES-INTEG-006 | Reservation state changes must be traceable via OpenTelemetry spans                                                                                                                                                                                                                    |
-| R-RES-INTEG-007 | Hold-expiry worker scans for `hold` reservations exceeding source-specific TTL (`website_hold_ttl_seconds`, `internal_hold_ttl_seconds` — property settings, M4). Action: cancel reservation, delete ledger rows, mark related checkout_session `expired`, NOTIFY                      |
-| R-RES-INTEG-008 | Archival worker scans for terminal reservations (`checked_out`, `cancelled`) older than `reservation_archive_after_days` (M4, default 365). Sets `status='archived'` and soft-archives related items + folios. Excluded from default list queries; opt-in via `?include_archived=true` |
+| ID              | Requirement Description                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R-RES-INTEG-001 | Cache reservation queries (individual and list) via `platform/cache` with TTL and pattern-based invalidation                                                                                                                                                                                                                                                                                                                                |
+| R-RES-INTEG-002 | Invalidate reservation cache on create, update, cancel, and room assignment                                                                                                                                                                                                                                                                                                                                                                 |
+| R-RES-INTEG-003 | Emit `NOTIFY reservation_changes` on PostgreSQL for reactive cache invalidation and future real-time updates                                                                                                                                                                                                                                                                                                                                |
+| R-RES-INTEG-004 | Enqueue notification emails (confirmation, cancellation) via the transactional outbox worker outside of transaction                                                                                                                                                                                                                                                                                                                         |
+| R-RES-INTEG-005 | Rate calculation must call `GetOrSet` on the price grid cache for performance                                                                                                                                                                                                                                                                                                                                                               |
+| R-RES-INTEG-006 | Reservation state changes must be traceable via OpenTelemetry spans                                                                                                                                                                                                                                                                                                                                                                         |
+| R-RES-INTEG-007 | Hold-expiry worker scans for `hold` reservations exceeding source-specific TTL (`website_hold_ttl_seconds`, `internal_hold_ttl_seconds` — property settings, M4). **Multi-tiered TTL applies:** internal holds with an attached `guest_id` receive a longer grace period (`internal_guest_hold_ttl_seconds`) than anonymous internal holds. Action: cancel reservation, delete ledger rows, mark related checkout_session `expired`, NOTIFY |
+| R-RES-INTEG-008 | Archival worker scans for terminal reservations (`checked_out`, `cancelled`) older than `reservation_archive_after_days` (M4, default 365). Sets `status='archived'` and soft-archives related items + folios. Excluded from default list queries; opt-in via `?include_archived=true`                                                                                                                                                      |
 
 ## 6.5 Authorization
 
-Permissions resolved against `auth.users` + roles. Cross-property staff scoped via `app.current_property_id`. See companion `/docs/requirements/authorization.md`.
+Permissions resolved against `auth.users` + roles. Cross-property staff scoped
+via `app.current_property_id`. See companion
+`/docs/requirements/authorization.md`.
 
 | Action                                         | Permission                           |
 | ---------------------------------------------- | ------------------------------------ |
@@ -110,10 +121,15 @@ Permissions resolved against `auth.users` + roles. Cross-property staff scoped v
 | Assign / reassign room                         | `reservations:assign_room`           |
 | Mark `no_show` manually                        | `reservations:mark_no_show`          |
 | Manual archive / unarchive                     | `reservations:archive`               |
+| Confirm a `hold` reservation (explicit)        | `reservations:confirm`               |
+| Add a new item to an existing reservation      | `reservations:add_item`              |
+| Per-night rate edit on `booked_daily_rates`    | `reservations:rate_override`         |
+| Cancel-fee override (when finance PR lands)    | `reservations:fee_override`          |
 
 ## 7. State Machines
 
-Reservation and item have separate state machines. Item transitions drive reservation rollup (see ADR-015).
+Reservation and item have separate state machines. Item transitions drive
+reservation rollup (see ADR-015).
 
 ### 7.1 Reservation status (`operations.reservation_status`)
 
@@ -131,7 +147,8 @@ Reservation and item have separate state machines. Item transitions drive reserv
 | State         | Allowed Transitions                        | Notes                                                                                    |
 | ------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | `booked`      | → `checked_in`, → `no_show`, → `cancelled` | Default on item insert                                                                   |
-| `checked_in`  | → `checked_out`                            | Requires `assigned_room_id NOT NULL`                                                     |
+| `checked_in`  | → `checked_out`, → `overstay`              | Requires `assigned_room_id NOT NULL`. `→ overstay` is **worker-triggered**, not actor-triggered (R-RES-WORKER-005) |
+| `overstay`    | → `checked_in` (extend), → `checked_out`   | Set by worker after `upper(stay_period) + late_checkout_grace_minutes`. Receptionist resolves via PATCH dates (extend, returns to `checked_in`) or force checkout. **Worker-set source state**, all transitions out are actor-triggered |
 | `checked_out` | → `archived`                               | Set on guest checkout                                                                    |
 | `no_show`     | → `cancelled`, → `archived`                | Set manually (`reservations:mark_no_show`) or by no-show worker after configurable grace |
 | `cancelled`   | → `archived`                               | Set by reservation cancel cascade or item-level cancel                                   |
@@ -146,9 +163,37 @@ Reservation and item have separate state machines. Item transitions drive reserv
 
 Captured in ADR-015.
 
+### 7.4 Action endpoint idempotency
+
+Action endpoints behave per the table below when the target is already in
+the destination state, or when the source state forbids the transition.
+Constructive actions are idempotent no-ops on already-applied state;
+destructive actions reject because a fee / refund / state decision was
+already made. See R-RES-EDGE-061.
+
+> **Reading the table.** Each row is `(endpoint, source state)`. If the
+> source is the destination state itself → "200 no-op" for constructive
+> actions; otherwise → 409. For `reactivate`, the only valid source is
+> `cancelled`, so every other source state lands in 409 — there is no
+> "already-applied" semantics.
+
+| Endpoint                          | Source state                                            | Result      |
+| --------------------------------- | --------------------------------- | ----------- |
+| `POST .../confirm`                | `confirmed`                       | 200 no-op   |
+| `POST .../confirm`                | `cancelled` / `checked_in` / `checked_out` / `archived` | 409 |
+| `POST .../cancel`                 | `cancelled` / `checked_out` / `archived`                | 409 (per R-RES-EDGE-040) |
+| `PATCH .../checkin`               | item `checked_in`                 | 200 no-op   |
+| `PATCH .../checkin`               | item `cancelled` / `no_show` / `checked_out` / `archived` / `overstay` | 409 |
+| `PATCH .../checkout`              | item `checked_out`                | 200 no-op   |
+| `PATCH .../checkout`              | item not in `checked_in` / `overstay` | 409     |
+| `POST .../reactivate`             | reservation `confirmed` / any non-`cancelled` | 409 |
+| `PATCH .../no-show`               | item `no_show`                    | 200 no-op   |
+| `PATCH .../no-show`               | item not `booked`                 | 409         |
+
 ## 8. Edge Cases
 
-> Each edge case must map to a test. Expected Behaviour references the requirement that resolves it.
+> Each edge case must map to a test. Expected Behaviour references the
+> requirement that resolves it.
 
 | ID             | Edge Case                                                                                          | Expected Behaviour                                                                                                            | Test Status |
 | -------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------- |
@@ -209,6 +254,9 @@ Captured in ADR-015.
 | R-RES-EDGE-055 | OpenTelemetry span fails to initialise                                                             | Logged at warn; reservation operation proceeds                                                                                |             |
 | R-RES-EDGE-056 | Reservation created successfully but `NOTIFY` fails                                                | Cache TTL fallback; consumers eventually consistent                                                                           |             |
 | R-RES-EDGE-057 | Length of stay requirements updated whilst reservations exist over the new requirement             | Existing reservations grandfathered; only new bookings enforce updated LOS                                                    |             |
+| R-RES-EDGE-058 | Overstay collides with an incoming reservation                                                     | Item flagged `overstay`; receptionist negotiates room move (2.3) or extends current stay if free                              |             |
+| R-RES-EDGE-059 | Cancel attempted on a partially-checked-in reservation                                              | Per R-RES-VALID-013 — 409 with the list of `checked_in` item IDs. Caller must check-out / shorten first                       |             |
+| R-RES-EDGE-061 | Action endpoint called with target already in destination state                                    | Constructive (confirm/checkin/checkout) → 200 no-op; destructive (cancel/reactivate) → 409. Per state-machine rule (§7.4)      |             |
 
 ## 9. API Endpoints
 
@@ -233,22 +281,37 @@ Captured in ADR-015.
 | `DELETE` | `/api/v1/reservation-groups/{id}/reservations/{rid}`                                                                                                                             | Detach reservation from group                      |
 | `POST`   | `/api/v1/reservation-groups/{id}/cancel`                                                                                                                                         | Cascade cancel group                               |
 | `POST`   | `/api/v1/channels/{channel_id}/webhook`                                                                                                                                          | OTA inbound webhook (section 10)                   |
+| `POST`   | `/api/v1/reservations/{id}/confirm`                                                                                                                                              | Confirm a `hold` reservation (staff path)          |
+| `POST`   | `/api/v1/reservations/{id}/items`                                                                                                                                                | Add a new item to a non-terminal reservation       |
+| `PATCH`  | `/api/v1/reservations/{id}/items/{item_id}/booked-rates`                                                                                                                         | Per-night rate override (manager's special / discount) |
+| `GET`    | `/api/v1/reservations/{id}/items/{item_id}/booked-rates`                                                                                                                         | Read per-night rate rows for an item               |
+| `GET`    | `/api/v1/reservations/{id}/folios/{folio_id}`                                                                                                                                    | Folio read incl. paginated transactions            |
+| `GET`    | `/api/v1/reservations/{id}/cancellation-quote`                                                                                                                                   | Cancel-fee preview (stub until finance PR)         |
+
+> **List filter rewrite (Q17):** the `?date_from=&date_to=` row above will be
+> replaced with discrete params: `arriving_from`, `arriving_to`,
+> `departing_from`, `departing_to`, `in_house_on`, `stay_overlaps_from`,
+> `stay_overlaps_to`. Default sort: `arrival_date` asc, with `id` tiebreak.
+> See `docs/TODO.md`.
 
 ## 10. OTA Inbound (skeleton)
 
-Full per-channel mappings live in companion doc `/docs/requirements/ota-channels.md`.
+Full per-channel mappings live in companion doc
+`/docs/requirements/ota-channels.md`.
 
 | ID            | Requirement Description                                                                                                                                                                                 |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | R-RES-OTA-001 | `POST /api/v1/channels/{channel_id}/webhook` accepts inbound OTA reservation payload. Auth: HMAC-SHA256 over body, key per channel                                                                      |
-| R-RES-OTA-002 | Idempotency: `channel_message_id` (from payload), persisted in dedup table `operations.ota_inbound_messages (channel_id, channel_message_id PK, processed_at)`. Replay returns 200 with cached response |
+| R-RES-OTA-002 | Idempotency: `channel_message_id` (from payload), persisted in dedup table `operations.ota_inbound_messages (channel_id, channel_message_id PK, processed_at, action)`. Replay returns 200 with cached response. `action` enum `('create','modify','cancel')` set per payload |
 | R-RES-OTA-003 | Webhook returns 202 Accepted within 200ms. Payload mapped to canonical reservation by background worker; failures retried with exponential backoff, dead-lettered after N attempts                      |
+| R-RES-OTA-006 | v1 routes `action='create'` and `action='cancel'`. `action='modify'` is **dead-lettered** with a staff notification — manual reconciliation until phase 2. Cancel-target lookup mechanism (channel reservation identifier on `operations.reservations`) deferred to `/docs/requirements/ota-channels.md` |
 | R-RES-OTA-004 | OTA reservations land in `confirmed` state directly (already paid via OTA). No `hold` phase, no checkout_session                                                                                        |
 | R-RES-OTA-005 | Per-channel payload mapping defined in companion doc `/docs/requirements/ota-channels.md`                                                                                                               |
 
 ## 11. Group Reservations (skeleton)
 
-Allotments, cutoff dates, group rates, rooming list management defined in companion doc `/docs/requirements/reservation-groups.md`.
+Allotments, cutoff dates, group rates, rooming list management defined in
+companion doc `/docs/requirements/reservation-groups.md`.
 
 | ID            | Requirement Description                                                                                                                   |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -268,6 +331,7 @@ Allotments, cutoff dates, group rates, rooming list management defined in compan
 | R-RES-WORKER-002 | Archival          | Daily                                 | See R-RES-INTEG-008                                                                     |
 | R-RES-WORKER-003 | No-show sweep     | Daily after configured no-show grace  | Mark un-checked-in items past `lower(stay_period) + no_show_grace_minutes` as `no_show` |
 | R-RES-WORKER-004 | Outbox dispatcher | Continuous (existing platform/worker) | Emails per R-RES-INTEG-004                                                              |
+| R-RES-WORKER-005 | Overstay sweep    | Every N minutes                       | Select `status='checked_in' AND now() > upper(stay_period) + late_checkout_grace_minutes`; transition to `overstay`. Notify dashboard. ADR-018 |
 
 ## 13. Schema Migrations Required
 
@@ -277,7 +341,11 @@ Allotments, cutoff dates, group rates, rooming list management defined in compan
 | M2  | `version INTEGER NOT NULL DEFAULT 1` on `operations.reservation_items`                                                                                                                                                                                                                                                                             |
 | M3  | Add `'maintenance'` to `inventory.inventory_status` enum + nullable `maintenance_block_id UUID` FK on ledger; relax CHECK to `(status='sold' AND reservation_id IS NOT NULL) OR (status='on_hold' AND checkout_session_id IS NOT NULL) OR (status='maintenance' AND maintenance_block_id IS NOT NULL) OR status IN ('available','decommissioned')` |
 | M4  | Property settings: `website_hold_ttl_seconds`, `internal_hold_ttl_seconds`, `reservation_archive_after_days`, `housekeeping_buffer_minutes`, `no_show_grace_minutes`                                                                                                                                                                               |
-| M5  | `operations.ota_inbound_messages (channel_id, channel_message_id, processed_at, response_jsonb)`                                                                                                                                                                                                                                                   |
+| M5  | `operations.ota_inbound_messages (channel_id, channel_message_id, processed_at, response_jsonb, action)`. Prerequisite: `CREATE TYPE operations.ota_action AS ENUM ('create','modify','cancel')`. Column `action operations.ota_action NOT NULL DEFAULT 'create'`. Schema details for OTA cancel-target lookup deferred to `/docs/requirements/ota-channels.md` |
+| M6  | `operations.reservations.stay_period_envelope TSTZRANGE`. Project is greenfield — no row backfill required. Set `NOT NULL` directly. GIST index on `(property_id, stay_period_envelope)`. (ADR-020)                                                                                                                                                |
+| M7  | Extend `operations.reservation_item_status` with `'overstay'`. Add transitions in app code per §7.2                                                                                                                                                                                                                                                |
+| M8  | Rename `operations.checkout_sessions` → `operations.payment_authorizations`. Add `provider`, `auth_id`, `expires_at`, `captured_at`, `voided_at`. (ADR-019 — implementation deferred to finance PR)                                                                                                                                                |
+| M9! | **DESTRUCTIVE — must run atomically in a single transaction.** Rewrites every `operations.reservations.stay_period` row from midnight bounds to property-time bounds (`default_checkin_time`, `default_checkout_time`). Greenfield project — no production data, but rewrite is irreversible without migration log. Bang suffix marks the atomicity requirement. (ADR-018) |
 
 ## 14. Related ADRs
 
@@ -285,13 +353,21 @@ Allotments, cutoff dates, group rates, rooming list management defined in compan
 - ADR-008 — Redis caching layer (existing)
 - ADR-010 — Reactive cache invalidation (existing)
 - ADR-012 — Transactional outbox worker (existing)
-- ADR-013 — Locking + availability strategy (hold-as-lock, auto-pin, ledger-as-truth)
+- ADR-013 — Locking + availability strategy (hold-as-lock, auto-pin,
+  ledger-as-truth)
 - ADR-014 — Cursor pagination convention
 - ADR-015 — State machine rollup rule (item → reservation derivation)
+- ADR-016 — Guest-aware hold TTLs
+- ADR-017 — Real-time frontend updates via SSE (push for cache invalidation)
+- ADR-018 — `stay_period` time semantics (TSTZ bounds = property check-in/out times)
+- ADR-019 — Payment authorization model for website holds (deferred impl)
+- ADR-020 — Reservation `stay_period_envelope` materialised column
 
 ## 15. Companion Docs
 
 - `/docs/requirements/ota-channels.md` — OTA per-channel payload mappings
-- `/docs/requirements/reservation-groups.md` — Allotments, cutoff dates, group rates, rooming lists
+- `/docs/requirements/reservation-groups.md` — Allotments, cutoff dates, group
+  rates, rooming lists
 - `/docs/requirements/folios.md` — Folio routing, B/C lifecycle, transfer rules
-- `/docs/requirements/authorization.md` — Role definitions and permission resolution
+- `/docs/requirements/authorization.md` — Role definitions and permission
+  resolution
