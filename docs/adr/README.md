@@ -43,9 +43,11 @@ Each ADR follows this structure:
 | #                                           | Title                            | Status   |
 | ------------------------------------------- | -------------------------------- | -------- |
 | [013](013-locking-availability-strategy.md) | Locking & Availability Strategy  | Accepted |
-| [016](016-state-machine-rollup.md)          | Reservation State Machine Rollup | Accepted |
-
-> ADR-015 reserved for Source-Aware Reservation Flows + OTA webhook auth — to be written when OTA integration begins.
+| [015](015-state-machine-rollup.md)          | Reservation State Machine Rollup | Accepted |
+| [016](016-guest-aware-hold-ttl.md)          | Guest-Aware Hold TTLs            | Accepted |
+| [018](018-stay-period-time-semantics.md)    | `stay_period` Time Semantics     | Proposed |
+| [019](019-payment-authorization-model.md)   | Payment Authorization for Holds  | Proposed |
+| [020](020-reservation-envelope.md)          | Reservation Envelope Column      | Proposed |
 
 ## How to Create a New ADR
 
@@ -164,7 +166,15 @@ Find ADRs by topic:
 ### Reservations Domain
 
 - [ADR-013](013-locking-availability-strategy.md) — Hold-as-lock + auto-pin + ledger-as-truth
-- [ADR-015](016-state-machine-rollup.md) — Item state changes drive reservation status via deterministic rollup
+- [ADR-015](015-state-machine-rollup.md) — Item state changes drive reservation status via deterministic rollup
+- [ADR-016](016-guest-aware-hold-ttl.md) — Multi-tiered hold expiry based on source and guest presence
+- [ADR-018](018-stay-period-time-semantics.md) — `stay_period` TSTZRANGE bounds carry property check-in/out times
+- [ADR-019](019-payment-authorization-model.md) — Card auth at hold time for website source
+- [ADR-020](020-reservation-envelope.md) — Materialised `stay_period_envelope` column on reservations
+
+### Frontend / Transport
+
+- [ADR-017](017-realtime-frontend-sse.md) — SSE push for real-time frontend updates
 
 ## Principles
 
