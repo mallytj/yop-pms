@@ -34,7 +34,9 @@ Status enum:
 
 ### 2. Reservation creation auto-pins a specific room at hold time
 
-When a hold reservation is created with only a room type (no specific room chosen — typical for guest web booking), the system selects an available room of that type using a deterministic policy (lowest room number that has no blocking ledger row across the stay) and writes ledger rows for each calendar date in `stay_period`.
+When a hold reservation is created with only a room type (no specific room chosen — typical for guest web booking), the system selects an available room of that type using a deterministic policy (`SELECT id FROM rooms ... FOR UPDATE SKIP LOCKED` ordered by room number) and writes ledger rows for each calendar date in `stay_period`.
+
+This allows concurrent booking of the same room type. If two guests book the last two rooms, Guest A locks room 101, and Guest B skips 101 to lock 102. Both succeed atomically.
 
 The `reservation_items.assigned_room_id` column stays NULL until staff explicitly confirms the assignment. The ledger row is the implementation detail; the assignment column is the guest-visible commitment. The ledger row may be moved to a different room of the same type without changing `assigned_room_id` — useful when housekeeping shuffles the floor plan.
 
