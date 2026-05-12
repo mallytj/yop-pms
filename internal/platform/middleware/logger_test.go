@@ -20,15 +20,14 @@ func TestRequestLogger_Basic(t *testing.T) {
 	handlerCalled := false
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handlerCalled = true
-
-		// Check that logger is in context
+		_ = r // revive: parameter required for r.Context() below
 		ctxLogger := logging.FromContext(r.Context())
 		if ctxLogger == nil {
 			t.Fatal("Logger not found in context")
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test"))
+		_, _ = w.Write([]byte("test"))
 	})
 
 	wrappedHandler := middleware(handler)
@@ -59,9 +58,9 @@ func TestRequestLogger_ResponseCapture(t *testing.T) {
 
 	middleware := RequestLogger(logger)
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("created"))
+		_, _ = w.Write([]byte("created"))
 	})
 
 	wrappedHandler := middleware(handler)
@@ -170,7 +169,7 @@ func TestResponseWriter_Wrapping(t *testing.T) {
 	rw := &responseWriter{ResponseWriter: w}
 
 	rw.WriteHeader(http.StatusBadRequest)
-	rw.Write([]byte("error"))
+	_, _ = rw.Write([]byte("error"))
 
 	if rw.status != http.StatusBadRequest {
 		t.Errorf("Status: got %d, want %d", rw.status, http.StatusBadRequest)

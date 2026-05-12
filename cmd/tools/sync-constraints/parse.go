@@ -28,19 +28,19 @@ func stripOuterParens(s string) string {
 // parenDepth returns the minimum running depth of parentheses in s.
 // A non-negative result means the string is self-balanced (no unmatched ')').
 func parenDepth(s string) int {
-	depth, min := 0, 0
+	depth, minDepth := 0, 0
 	for _, c := range s {
 		switch c {
 		case '(':
 			depth++
 		case ')':
 			depth--
-			if depth < min {
-				min = depth
+			if depth < minDepth {
+				minDepth = depth
 			}
 		}
 	}
-	return min
+	return minDepth
 }
 
 // isNullCheck reports whether a clause is solely an IS [NOT] NULL assertion.

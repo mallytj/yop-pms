@@ -37,7 +37,7 @@ func notification(channel, payload string) *pgconn.Notification {
 
 func TestOn_RegistersHandler(t *testing.T) {
 	l := newTestListener(nil)
-	l.On("ch", func(ctx context.Context, e Event) error { return nil })
+	l.On("ch", func(_ context.Context, _ Event) error { return nil })
 
 	if len(l.handlers["ch"]) != 1 {
 		t.Errorf("expected 1 handler, got %d", len(l.handlers["ch"]))
@@ -46,8 +46,8 @@ func TestOn_RegistersHandler(t *testing.T) {
 
 func TestOn_MultipleHandlers_SameChannel(t *testing.T) {
 	l := newTestListener(nil)
-	l.On("ch", func(ctx context.Context, e Event) error { return nil })
-	l.On("ch", func(ctx context.Context, e Event) error { return nil })
+	l.On("ch", func(_ context.Context, _ Event) error { return nil })
+	l.On("ch", func(_ context.Context, _ Event) error { return nil })
 
 	if len(l.handlers["ch"]) != 2 {
 		t.Errorf("expected 2 handlers, got %d", len(l.handlers["ch"]))
@@ -56,9 +56,9 @@ func TestOn_MultipleHandlers_SameChannel(t *testing.T) {
 
 func TestOn_MultipleChannels_Independent(t *testing.T) {
 	l := newTestListener(nil)
-	l.On("ch_a", func(ctx context.Context, e Event) error { return nil })
-	l.On("ch_b", func(ctx context.Context, e Event) error { return nil })
-	l.On("ch_b", func(ctx context.Context, e Event) error { return nil })
+	l.On("ch_a", func(_ context.Context, _ Event) error { return nil })
+	l.On("ch_b", func(_ context.Context, _ Event) error { return nil })
+	l.On("ch_b", func(_ context.Context, _ Event) error { return nil })
 
 	if len(l.handlers["ch_a"]) != 1 {
 		t.Errorf("ch_a: expected 1 handler, got %d", len(l.handlers["ch_a"]))
@@ -77,7 +77,7 @@ func TestDispatch_ValidPayload_CallsHandler(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	l.On("reservation_changes", func(ctx context.Context, e Event) error {
+	l.On("reservation_changes", func(_ context.Context, e Event) error {
 		defer wg.Done()
 		received = e
 		return nil
@@ -105,7 +105,7 @@ func TestDispatch_SetsTimestamp(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	l.On("ch", func(ctx context.Context, e Event) error {
+	l.On("ch", func(_ context.Context, e Event) error {
 		defer wg.Done()
 		received = e
 		return nil
@@ -123,7 +123,7 @@ func TestDispatch_InvalidJSON_DoesNotCallHandler(t *testing.T) {
 	l := newTestListener(nil)
 
 	called := false
-	l.On("ch", func(ctx context.Context, e Event) error {
+	l.On("ch", func(_ context.Context, _ Event) error {
 		called = true
 		return nil
 	})
@@ -139,18 +139,20 @@ func TestDispatch_InvalidJSON_DoesNotCallHandler(t *testing.T) {
 }
 
 func TestDispatch_UnknownChannel_IsNoop(t *testing.T) {
+	_ = t
 	l := newTestListener(nil)
 	// Should not panic with no handlers registered for this channel
 	l.dispatch(notification("unknown_channel", `{"key":"value"}`))
 }
 
 func TestDispatch_HandlerError_DoesNotPanic(t *testing.T) {
+	_ = t
 	l := newTestListener(nil)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	l.On("ch", func(ctx context.Context, e Event) error {
+	l.On("ch", func(_ context.Context, _ Event) error {
 		defer wg.Done()
 		return errors.New("something went wrong")
 	})
@@ -166,7 +168,7 @@ func TestDispatch_AllHandlersCalled(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(3)
 
-	handler := func(ctx context.Context, e Event) error {
+	handler := func(_ context.Context, _ Event) error {
 		defer wg.Done()
 		count.Add(1)
 		return nil
@@ -191,12 +193,12 @@ func TestDispatch_OnlyCallsHandlersForChannel(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	l.On("ch_a", func(ctx context.Context, e Event) error {
+	l.On("ch_a", func(_ context.Context, _ Event) error {
 		defer wg.Done()
 		calledA.Store(true)
 		return nil
 	})
-	l.On("ch_b", func(ctx context.Context, e Event) error {
+	l.On("ch_b", func(_ context.Context, _ Event) error {
 		calledB.Store(true)
 		return nil
 	})
@@ -220,7 +222,7 @@ func TestStop_WaitsForInFlightHandlers(t *testing.T) {
 	started := make(chan struct{})
 	finished := make(chan struct{})
 
-	l.On("ch", func(ctx context.Context, e Event) error {
+	l.On("ch", func(_ context.Context, _ Event) error {
 		close(started)
 		time.Sleep(30 * time.Millisecond)
 		close(finished)
@@ -257,6 +259,7 @@ func TestOnReconnect_CalledAfterConnect(t *testing.T) {
 }
 
 func TestOnReconnect_NilSafe(t *testing.T) {
+	_ = t
 	l := newTestListener(nil)
 	// Should not panic when onReconnect is nil
 	l.reconnect()

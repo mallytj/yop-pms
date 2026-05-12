@@ -120,10 +120,10 @@ func TestInvalidate_Pattern(t *testing.T) {
 	ctx := context.Background()
 
 	// Set multiple values with different patterns
-	c.Set(ctx, "availability:uuid1:date1", "data1", 1*time.Hour)
-	c.Set(ctx, "availability:uuid1:date2", "data2", 1*time.Hour)
-	c.Set(ctx, "availability:uuid2:date1", "data3", 1*time.Hour)
-	c.Set(ctx, "other:key", "data4", 1*time.Hour)
+	_ = c.Set(ctx, "availability:uuid1:date1", "data1", 1*time.Hour)
+	_ = c.Set(ctx, "availability:uuid1:date2", "data2", 1*time.Hour)
+	_ = c.Set(ctx, "availability:uuid2:date1", "data3", 1*time.Hour)
+	_ = c.Set(ctx, "other:key", "data4", 1*time.Hour)
 
 	// Invalidate all availability keys for uuid1
 	err := c.Invalidate(ctx, "test:availability:uuid1:*")
@@ -154,7 +154,7 @@ func TestGetOrSet_CacheHit(t *testing.T) {
 	ctx := context.Background()
 
 	// Pre-populate cache
-	c.Set(ctx, "data:1", "cached_value", 1*time.Hour)
+	_ = c.Set(ctx, "data:1", "cached_value", 1*time.Hour)
 
 	loaderCalled := false
 	var result string
@@ -222,7 +222,7 @@ func TestPrefix_Namespace(t *testing.T) {
 	ctx := context.Background()
 
 	// Set with "test:" prefix (from newTestCache)
-	c.Set(ctx, "mykey", "myvalue", 1*time.Hour)
+	_ = c.Set(ctx, "mykey", "myvalue", 1*time.Hour)
 
 	// Try to get with same prefix
 	var value string
@@ -257,7 +257,7 @@ func TestTTL_Expiration(t *testing.T) {
 	ctx := context.Background()
 
 	// Set with very short TTL
-	c.Set(ctx, "shortlived", "value", 100*time.Millisecond)
+	_ = c.Set(ctx, "shortlived", "value", 100*time.Millisecond)
 
 	// Should exist immediately
 	var value string
@@ -295,9 +295,9 @@ func TestInvalidateIf_SelectiveDelete(t *testing.T) {
 
 	ctx := context.Background()
 
-	c.Set(ctx, "planner:prop-1:2026-03-01:2026-03-10", "data1", time.Hour)
-	c.Set(ctx, "planner:prop-1:2026-03-10:2026-03-20", "data2", time.Hour)
-	c.Set(ctx, "planner:prop-1:2026-03-20:2026-03-30", "data3", time.Hour)
+	_ = c.Set(ctx, "planner:prop-1:2026-03-01:2026-03-10", "data1", time.Hour)
+	_ = c.Set(ctx, "planner:prop-1:2026-03-10:2026-03-20", "data2", time.Hour)
+	_ = c.Set(ctx, "planner:prop-1:2026-03-20:2026-03-30", "data3", time.Hour)
 
 	// Only delete the middle key
 	target := "test:planner:prop-1:2026-03-10:2026-03-20"
@@ -325,7 +325,7 @@ func TestInvalidateIf_PredicateFalse_NothingDeleted(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	c.Set(ctx, "keep:1", "value", time.Hour)
+	_ = c.Set(ctx, "keep:1", "value", time.Hour)
 
 	err := c.InvalidateIf(ctx, "test:keep:*", func(string) bool { return false })
 	if err != nil {
@@ -375,7 +375,7 @@ func TestComplexTypes(t *testing.T) {
 	}
 
 	// Set and get complex type
-	c.Set(ctx, "person:1", original, 1*time.Hour)
+	_ = c.Set(ctx, "person:1", original, 1*time.Hour)
 
 	var retrieved Person
 	err := c.Get(ctx, "person:1", &retrieved)

@@ -38,10 +38,10 @@ func TestIdempotency_PassthroughGET(t *testing.T) {
 	middleware := Idempotency(rdb)
 
 	handlerCalled := 0
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		handlerCalled++
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test"))
+		_, _ = w.Write([]byte("test"))
 	})
 
 	wrappedHandler := middleware(handler)
@@ -66,9 +66,9 @@ func TestIdempotency_PostWithoutKey(t *testing.T) {
 
 	middleware := Idempotency(rdb)
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test"))
+		_, _ = w.Write([]byte("test"))
 	})
 
 	wrappedHandler := middleware(handler)
@@ -90,10 +90,10 @@ func TestIdempotency_PostWithKeyNewRequest(t *testing.T) {
 	middleware := Idempotency(rdb)
 
 	handlerCalled := 0
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		handlerCalled++
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("created"))
+		_, _ = w.Write([]byte("created"))
 	})
 
 	wrappedHandler := middleware(handler)
@@ -124,10 +124,10 @@ func TestIdempotency_PostWithKeyCached(t *testing.T) {
 	middleware := Idempotency(rdb)
 
 	handlerCalled := 0
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		handlerCalled++
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("created"))
+		_, _ = w.Write([]byte("created"))
 	})
 
 	wrappedHandler := middleware(handler)
@@ -174,10 +174,10 @@ func TestIdempotency_PatchWithoutCaching(t *testing.T) {
 	middleware := Idempotency(rdb)
 
 	handlerCalled := 0
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		handlerCalled++
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("error"))
+		_, _ = w.Write([]byte("error"))
 	})
 
 	wrappedHandler := middleware(handler)
@@ -201,10 +201,10 @@ func TestIdempotency_DifferentKeys(t *testing.T) {
 	middleware := Idempotency(rdb)
 
 	handlerCalled := 0
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		handlerCalled++
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, _ = w.Write([]byte("ok"))
 	})
 
 	wrappedHandler := middleware(handler)
@@ -234,10 +234,10 @@ func TestIdempotency_SameKeyDifferentRequestReturnsConflict(t *testing.T) {
 	middleware := Idempotency(rdb)
 
 	handlerCalled := 0
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		handlerCalled++
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("created"))
+		_, _ = w.Write([]byte("created"))
 	})
 
 	wrappedHandler := middleware(handler)
@@ -274,12 +274,12 @@ func TestIdempotency_ConcurrentSameKeyExecutesHandlerOnce(t *testing.T) {
 	handlerStarted := make(chan struct{})
 	releaseHandler := make(chan struct{})
 	var handlerCalled int32
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		atomic.AddInt32(&handlerCalled, 1)
 		close(handlerStarted)
 		<-releaseHandler
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("created"))
+		_, _ = w.Write([]byte("created"))
 	})
 
 	wrappedHandler := middleware(handler)
@@ -363,7 +363,7 @@ func TestIdempotency_ResponseCapture_AutoStatus(t *testing.T) {
 	w := httptest.NewRecorder()
 	rc := newResponseCapture(w)
 
-	rc.Write([]byte("test"))
+	_, _ = rc.Write([]byte("test"))
 
 	if rc.status != http.StatusOK {
 		t.Errorf("Status: got %d, want %d", rc.status, http.StatusOK)

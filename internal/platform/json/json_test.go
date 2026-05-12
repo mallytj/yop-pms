@@ -65,6 +65,7 @@ func TestWriteError_APIError(t *testing.T) {
 }
 
 func TestWriteError_UnexpectedError(t *testing.T) {
+	_ = t
 	w := httptest.NewRecorder()
 	ctx := context.Background()
 	logger := logging.NewLogger("dev")

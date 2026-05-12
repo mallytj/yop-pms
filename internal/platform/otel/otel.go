@@ -24,7 +24,7 @@ type Config struct {
 func Setup(ctx context.Context, cfg Config) (shutdown func(context.Context) error, err error) {
 	// If no OTLP endpoint is configured, use a no-op tracer provider
 	if cfg.OTLPEndpoint == "" {
-		return func(ctx context.Context) error { return nil }, nil
+		return func(_ context.Context) error { return nil }, nil
 	}
 
 	// Create an exporter (prefer gRPC if endpoint suggests it, otherwise HTTP)

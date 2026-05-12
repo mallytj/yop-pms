@@ -39,12 +39,13 @@ func main() {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 
 	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
+		cancel()
 		log.Fatalf("connect: %v", err)
 	}
+	defer cancel()
 	defer conn.Close(ctx)
 
 	constraints := make(constraintMap)
@@ -69,7 +70,8 @@ func main() {
 		ORDER BY tc.table_schema, tc.table_name, cc.constraint_name
 	`)
 	if err != nil {
-		log.Fatalf("query check constraints: %v", err)
+		conn.Close(ctx)
+		log.Fatalf("query check constraints: %v", err) //nolint:gocritic
 	}
 
 	for checkRows.Next() {

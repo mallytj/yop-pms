@@ -308,9 +308,9 @@ WHERE id = $1
 
 // backoffSeconds returns min(2^retryCount, 1800) seconds.
 func backoffSeconds(retryCount int) int {
-	const max = 1800
+	const maxBackoff = 1800
 	if retryCount >= 11 {
-		return max
+		return maxBackoff
 	}
 	return 1 << retryCount
 }

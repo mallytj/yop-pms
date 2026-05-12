@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestNewLogger_Dev(t *testing.T) {
@@ -74,7 +74,7 @@ func TestWithTraceID_NoSpan(t *testing.T) {
 
 func TestWithTraceID_WithSpan(t *testing.T) {
 	// Create a tracer provider and tracer
-	tp := trace.NewNoopTracerProvider()
+	tp := noop.NewTracerProvider()
 	tracer := tp.Tracer("test")
 
 	ctx, span := tracer.Start(context.Background(), "test-span")

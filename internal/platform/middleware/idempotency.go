@@ -87,7 +87,7 @@ func (rc *responseCapture) Write(b []byte) (int, error) {
 
 	n, err := rc.body.Write(b)
 	if err == nil {
-		rc.ResponseWriter.Write(b)
+		_, _ = rc.ResponseWriter.Write(b)
 	}
 
 	return n, err
@@ -206,7 +206,14 @@ func reserveIdempotencyKey(ctx context.Context, rdb *redis.Client, redisKey stri
 		return false, err
 	}
 
-	return rdb.SetNX(ctx, redisKey, string(data), idempotencyLockTTL).Result()
+	err = rdb.SetArgs(ctx, redisKey, string(data), redis.SetArgs{Mode: "NX", TTL: idempotencyLockTTL}).Err()
+	if errors.Is(err, redis.Nil) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func handleExistingIdempotencyKey(ctx context.Context, rdb *redis.Client, redisKey string, fingerprint string, w http.ResponseWriter) (bool, error) {
@@ -292,7 +299,7 @@ func replayCachedResponse(w http.ResponseWriter, cached idempotencyResponse) {
 
 	// Write status and body
 	w.WriteHeader(cached.Status)
-	w.Write(bodyBytes)
+	_, _ = w.Write(bodyBytes)
 }
 
 // cacheResponse serializes and stores the response in Redis
