@@ -41,6 +41,7 @@ Each is a hard, recorded decision. Read before contradicting.
 - 018 `stay_period` time semantics (TSTZ bounds = property check-in/out)
 - 019 Payment authorization model (deferred impl)
 - 020 Reservation `stay_period_envelope` materialised column
+- 021 Audit logs via database trigger (reservations + items → `auth.audit_logs`)
 
 ## Requirements (`docs/requirements/`)
 
@@ -98,9 +99,24 @@ config/                 generated constraints + runtime config
 
 ## Domain Terms
 
+**Item (ReservationItem)** — A single room's stay within a reservation. Carries its own `stay_period` (TSTZRANGE), room assignment, occupancy (`adults_count`, `children_count`), rate plan, and status. Multiple items = multiple rooms. One item = one capacity consumption unit per night. The reservation's `stay_period_envelope` is the union of its items' periods (ADR-020).
+_Avoid_: Line item, room booking, sub-reservation
+
+**Property Settings** — Per-property operational configuration stored as columns on `operations.property_settings`. Includes hold TTLs (`website_hold_ttl_seconds`, `internal_hold_ttl_seconds`), checkout grace periods (`late_checkout_grace_minutes`), archive thresholds (`reservation_archive_after_days`), and no-show grace (`no_show_grace_minutes`). Read on every hold-create and every worker tick.
+
+**Audit Log** — Immutable record in `auth.audit_logs` of every INSERT/UPDATE/DELETE on `reservations` and `reservation_items`. Written automatically by database trigger (ADR-021), never by application code. Records `user_id`, `action`, `entity`, `entity_id`, and a `changes JSONB` diff.
+_Avoid_: Event log, activity feed, change history
+
 **Admin/Tab Room** — A house reservation kept permanently in `checked_in` used as a holding account for outstanding balances. When a guest's folio cannot be settled at checkout (e.g. corporate billing, disputed charge), staff transfers the balance to the Admin/Tab Room folio before checking the guest out. Folio transfer is a finance PR concern. Checkout hard-blocks on `balance > 0` — this is the standard resolution path.
 
 **Do Not Move (DNM)** — Flag on `reservation_item` set by staff. Indicates guest must not be relocated. Checked before room assignment (§2.2), reassignment, post-checkin room move (§2.3), and mid-stay room type change (§2.5). Override requires `reservations:override_dnm` permission + recorded reason. Frontend shows warning; hard block without the permission.
+
+## Example dialogue
+
+> **Dev:** "When a staff member checks in a guest, what happens to the audit log?"
+> **Domain expert:** "Nothing the handler needs to do. The database trigger writes an **Audit Log** row automatically. All the handler does is update the **Item** status to `checked_in`. The trigger captures the old status, new status, who did it, and when."
+> **Dev:** "And if the **Property Settings** have a 2-hour hold TTL, and the hold expires?"
+> **Domain expert:** "The **Hold Expiry Sweep** worker cancels the **Reservation** and all its **Items**. The trigger writes audit rows for each change with `user_id` set to the system user. Same guarantee — no code path can skip the audit."
 
 ## What lives where (LLM cheatsheet)
 
