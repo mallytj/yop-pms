@@ -15,7 +15,6 @@ handlers.
   - `default_checkin_time TIME NOT NULL DEFAULT '15:00'`
   - `default_checkout_time TIME NOT NULL DEFAULT '11:00'`
   - `late_checkout_grace_minutes INT NOT NULL DEFAULT 60`
-  - `walkin_rate_plan_id UUID REFERENCES pricing.rate_plans(id)`
   - `cancellation_auth_amount_pence INT` (used by ADR-019; null = one
     night's rate)
 - [ ] **M5 (new + amend)** —
@@ -45,6 +44,10 @@ handlers.
   Greenfield so no prod fallout, but irreversible without migration log.
   The bang in the migration name flags the atomicity requirement to anyone
   running `make goose-circle`. (ADR-018)
+
+- [ ] **M12 (new)** — add `daily_room_capacity INT CHECK (daily_room_capacity > 0)` (nullable = unlimited) to `pricing.daily_price_grid`. Enables rate plan capacity restrictions per calendar date (e.g. seasonal package capped at 3 rooms/day). Check at booking/rate-change time: count existing `booked_daily_rates` rows for `(rate_plan_id, calendar_date)` across property. Override via `reservations:override_rate_plan_capacity`.
+- [ ] **M11 (new)** — add `'pending_cancellation'` to `operations.reservation_status` enum. Finance PR owns `pending_cancellation → cancelled` transition (fee settlement gate). Room re-bookable immediately on entry to this state.
+- [ ] **M10 (new)** — fix `pricing.booked_daily_rates` unique constraint: drop `UNIQUE (reservation_item_id, calendar_date)`, replace with `UNIQUE (reservation_item_id, calendar_date) WHERE (deleted_at IS NULL)`. Required for soft-delete + re-insert pattern (§2.6 rate change, §3.4 early checkout, §2.1 date change). Per convention in CLAUDE.md.
 
 ## Indexes
 
