@@ -52,7 +52,7 @@ func Struct(v any, tableKey string) []error {
 	}
 
 	rv := reflect.ValueOf(v)
-	if rv.Kind() == reflect.Ptr {
+	if rv.Kind() == reflect.Pointer {
 		rv = rv.Elem()
 	}
 	if rv.Kind() != reflect.Struct {
@@ -86,7 +86,7 @@ func validateStruct(rv reflect.Value, entry *constraints.TableEntry) []error {
 		if nestedTable, ok := field.Tag.Lookup("constraints"); ok && fv.Kind() == reflect.Slice {
 			for j := 0; j < fv.Len(); j++ {
 				elem := fv.Index(j)
-				if elem.Kind() == reflect.Ptr {
+				if elem.Kind() == reflect.Pointer {
 					elem = elem.Elem()
 				}
 				if nested := validateStruct(elem, constraints.Table(nestedTable)); len(nested) > 0 {
@@ -108,7 +108,7 @@ func checkField(fc *constraints.Field, name string, fv reflect.Value) []error {
 	var errs []error
 
 	kind := fv.Kind()
-	if kind == reflect.Ptr {
+	if kind == reflect.Pointer {
 		if fv.IsNil() {
 			if fc.Required {
 				errs = append(errs, fieldErr(name, "is required"))
@@ -125,8 +125,7 @@ func checkField(fc *constraints.Field, name string, fv reflect.Value) []error {
 		errs = append(errs, fieldErr(name, "is required"))
 	}
 
-	switch kind {
-	case reflect.String:
+	if kind == reflect.String {
 		if err := checkString(fc, name, fv.String()); err != nil {
 			errs = append(errs, err)
 		}
@@ -199,7 +198,7 @@ func checkJSONBSubField(jsf *constraints.JsonbSubField, name string, fv reflect.
 	var errs []error
 
 	kind := fv.Kind()
-	if kind == reflect.Ptr {
+	if kind == reflect.Pointer {
 		if fv.IsNil() {
 			return nil // nil pointer in JSONB context — skip
 		}
@@ -237,8 +236,8 @@ func jsonFieldName(field reflect.StructField) string {
 	if tag == "" || tag == "-" {
 		return ""
 	}
-	if idx := strings.IndexByte(tag, ','); idx != -1 {
-		return tag[:idx]
+	if before, _, ok := strings.Cut(tag, ","); ok {
+		return before
 	}
 	return tag
 }
@@ -261,7 +260,7 @@ func isZero(fv reflect.Value, kind reflect.Kind) bool {
 		return fv.Len() == 0
 	case reflect.Array:
 		// uuid.UUID is [16]byte — check against uuid.Nil
-		if fv.Type() == reflect.TypeOf(uuid.UUID{}) {
+		if fv.Type() == reflect.TypeFor[uuid.UUID]() {
 			return fv.Interface().(uuid.UUID) == uuid.Nil
 		}
 		return false
