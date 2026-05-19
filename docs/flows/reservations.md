@@ -3,18 +3,33 @@
 Sequence diagrams for every significant reservation lifecycle path. Each diagram
 maps to one or more edge cases in `docs/requirements/reservations.md §8`.
 
-> **`stay_period` time semantics (ADR-018).** Bounds are TSTZRANGE values
-> pinned to property `default_checkin_time` (lower) and
-> `default_checkout_time` (upper) — **not** midnight. API request bodies
-> accept `arrival_date`/`departure_date` as DATE; server composes the range.
-> Same-day turnover protection emerges from the gap between checkout and
-> check-in times. `housekeeping_buffer_minutes` is advisory only.
+> **`stay_period` time semantics (ADR-018).** Bounds are TSTZRANGE values pinned
+> to property `default_checkin_time` (lower) and `default_checkout_time` (upper)
+> — **not** midnight. API request bodies accept `arrival_date`/`departure_date`
+> as DATE; server composes the range. Same-day turnover protection emerges from
+> the gap between checkout and check-in times. `housekeeping_buffer_minutes` is
+> advisory only.
+
+Idempotency
 
 > **Idempotency-Key handling.** All POST/PATCH endpoints share an
-> `Idempotency-Key` middleware (R-RES-VALID-004). Concurrent retries with
-> the same key receive `409 IDEMPOTENCY_IN_PROGRESS` (R-RES-EDGE-044).
-> Diagrams show the Redis SET NX step where it makes the flow easier to
-> follow but it is the same middleware in every case.
+> `Idempotency-Key` middleware (R-RES-VALID-004). Concurrent retries with the
+> same key receive `409 IDEMPOTENCY_IN_PROGRESS` (R-RES-EDGE-044). Diagrams show
+> the Redis SET NX step where it makes the flow easier to follow but it is the
+> same middleware in every case.
+
+Cache decision
+
+> **Per-reservation Redis cache.** Individual reservation objects are NOT cached
+> by ID. Availability cache (`cache:availability:*`) and idempotency keys remain
+> in Redis. All mutations emit `NOTIFY reservation_changes` for reactive
+> frontend updates (ADR-010, ADR-017).
+
+Defer
+
+> **`payment_authorization` table.** Currently `operations.checkout_sessions` in
+> schema. M8 migration renames to `operations.payment_authorizations` (ADR-019,
+> deferred to finance PR). Flows use the canonical post-M8 name.
 
 ## Table of Contents
 
@@ -33,6 +48,7 @@ maps to one or more edge cases in `docs/requirements/reservations.md §8`.
   - [2.5 Mid-stay room type change](#25-mid-stay-room-type-change)
   - [2.6 Rate change during stay](#26-rate-change-during-stay)
   - [2.7 Add item to existing reservation](#27-add-item-to-existing-reservation)
+  - [2.8 Rate adjustment (discount / surcharge)](#28-rate-adjustment-discount--surcharge)
 - [3. Check-in / Check-out](#3-check-in-check-out)
   - [3.1 Whole-reservation check-in](#31-whole-reservation-check-in)
   - [3.2 Per-item check-in (partial, multi-room)](#32-per-item-check-in-partial-multi-room)
@@ -44,7 +60,7 @@ maps to one or more edge cases in `docs/requirements/reservations.md §8`.
   - [4.1 Cancellation with fee](#41-cancellation-with-fee)
   - [4.2 Cancellation with waived fee](#42-cancellation-with-waived-fee)
   - [4.3 No-show — manual](#43-no-show--manual)
-  - [4.4 No-show — sweep worker](#44-no-show--sweep-worker)
+  - [4.4 No-show — dashboard reminder](#44-no-show--dashboard-reminder)
   - [4.5 Reactivation — availability pass](#45-reactivation--availability-pass)
   - [4.6 Item-level cancel (multi-room)](#46-item-level-cancel-multi-room)
   - [4.7 Concurrent cancel + update race](#47-concurrent-cancel--update-race)
@@ -88,6 +104,7 @@ sequenceDiagram
     participant Worker
 
     Guest->>API: POST /reservations {source=website, room_type, dates, guest_payload, payment_method_token}
+    API->>API: Check permission reservations:create
     API->>Redis: SET NX idempotency:{key} (2min TTL, in-progress) — collision returns 409 IDEMPOTENCY_IN_PROGRESS
     API->>Ext: Authorize card (no capture) — ADR-019
     Ext-->>API: auth_id, expires_at
@@ -104,9 +121,10 @@ sequenceDiagram
     API->>DB: INSERT outbox_events (type=audit_log)
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: cache reservation:{id}
     API->>Redis: SET idempotency:{key} completed response (24h TTL)
     API-->>Guest: 201 {reservation envelope, payment_authorization_id}
+
+    Note over Guest: Frontend polls SSE or refreshes on 201
 
     Guest->>Ext: Submit payment (capture against existing auth)
     Ext->>API: POST /payments/webhook {auth_id, captured=true}
@@ -117,7 +135,6 @@ sequenceDiagram
     API->>DB: INSERT outbox_events (type=confirmation_email)
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
     API-->>Ext: 200 OK
 
     Worker->>DB: poll outbox_events
@@ -131,8 +148,11 @@ sequenceDiagram
 
 ### 1.2 Website hold → abandoned → auto-cancelled
 
-Guest starts booking but never completes payment. Hold TTL expires. Worker
-cancels.
+Guest starts booking but never completes payment. The website hold exists
+specifically to lock the room during the short window between card authorization
+and payment capture — preventing another guest booking the same room while the
+first is entering card details. `website_hold_ttl_seconds` (property_settings)
+controls the window. Worker cancels and voids the authorization on expiry.
 
 ```mermaid
 sequenceDiagram
@@ -143,7 +163,7 @@ sequenceDiagram
     participant Worker
 
     Guest->>API: POST /reservations {source=website}
-    API->>DB: INSERT reservation (status=hold) + ledger rows + checkout_session
+    API->>DB: INSERT reservation (status=hold) + ledger rows + payment_authorization
     API-->>Guest: 201 {reservation envelope, payment_authorization_id}
 
     Note over Guest: Guest abandons — never completes payment
@@ -157,10 +177,9 @@ sequenceDiagram
         Worker->>DB: DELETE ledger rows for reservation_id
         Worker->>DB: UPDATE payment_authorization SET voided_at=NOW()
         Worker->>DB: INSERT outbox_events (type=void_auth, payload={auth_id, provider})
-        Note over Worker: Provider void runs out-of-band via outbox dispatcher (R-RES-INTEG-004) — retried with exponential backoff. Tx commits cancel even if provider void temporarily unavailable.
+        Note over Worker: Provider void runs out-of-band via outbox dispatcher (R-RES-INTEG-004) — retried with exponential backoff. Tx commits cancel even if provider void temporarily unavailable. CRITICAL: dead-letter alert fires if void exhausts retries — manual intervention required to prevent auth expiry leaving uncaptured funds.
         Worker->>DB: NOTIFY reservation_changes
         Worker->>DB: COMMIT
-        Worker->>Redis: INVALIDATE reservation:{id}
     end
 
     Note over DB: No folio transaction — hold cancellation per R-RES-VALID-014
@@ -178,6 +197,12 @@ reviews and confirms.
 > can safely take time entering guest details before confirming — no race with
 > concurrent bookings.
 
+> **Room pre-assignment at hold.** Staff may optionally provide
+> `assigned_room_id` at hold creation (e.g. guest requests a specific room). If
+> provided, that room is pinned directly and `reservation_item.assigned_room_id`
+> is set immediately — skipping the auto-pin step. Same availability + conflict
+> check applies.
+
 ```mermaid
 sequenceDiagram
     actor Staff
@@ -187,33 +212,53 @@ sequenceDiagram
 
     Note over Staff: Step 1 — lock the room before entering guest details
 
-    Staff->>API: POST /reservations {source=internal, room_type, dates}
+    Staff->>API: POST /reservations {source=internal, room_type, dates, assigned_room_id?}
+    API->>API: Check permission reservations:create
     API->>Redis: SET NX idempotency:{key}
     API->>DB: BEGIN
-    API->>DB: SELECT availability
-    API->>DB: SELECT room FOR UPDATE SKIP LOCKED (deterministic auto-pin)
-    API->>DB: INSERT reservation (status=hold, source=internal, guest_id=NULL)
-    API->>DB: INSERT reservation_item (assigned_room_id=NULL)
-    API->>DB: INSERT ledger rows (status=sold, auto-pinned room)
+    alt assigned_room_id provided
+        API->>DB: SELECT availability for assigned_room_id on dates (ledger conflict check)
+        alt Room unavailable
+            API->>DB: ROLLBACK
+            API-->>Staff: 409 Conflict {conflicting_dates}
+        else Room free
+            API->>DB: SELECT room FOR UPDATE (explicit pin — validate same type, no conflict)
+            API->>DB: INSERT reservation (status=hold, source=internal, guest_id=NULL)
+            API->>DB: INSERT reservation_item (assigned_room_id=provided)
+            API->>DB: INSERT ledger rows (status=sold, specified room)
+        end
+    else no assigned_room_id
+        API->>DB: SELECT availability for room_type on dates
+        alt Unavailable
+            API->>DB: ROLLBACK
+            API-->>Staff: 409 Conflict {conflicting_dates}
+        else Available
+            API->>DB: SELECT room FOR UPDATE SKIP LOCKED (deterministic auto-pin)
+            API->>DB: INSERT reservation (status=hold, source=internal, guest_id=NULL)
+            API->>DB: INSERT reservation_item (assigned_room_id=NULL)
+            API->>DB: INSERT ledger rows (status=sold, auto-pinned room)
+        end
+    end
     API->>DB: INSERT booked_daily_rates
     API->>DB: INSERT folio A
     API->>DB: INSERT outbox_events (type=audit_log)
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: cache reservation:{id}
+    API->>Redis: SET idempotency:{key} completed response (24h TTL)
     API-->>Staff: 201 {reservation_id, status=hold}
 
     Note over DB: guest_id nullable on hold — NOT NULL enforced at confirm only
 
     Note over Staff: Step 2 — attach guest (staff takes their time, room is locked)
 
-    Staff->>API: PATCH /reservations/{id} {guest_id | guest_payload}
+    Staff->>API: PATCH /reservations/{id} {guest_id | guest_payload} If-Match: {version}
+    API->>API: Check permission reservations:update
     API->>DB: BEGIN
-    API->>DB: INSERT guest (if guest_payload — inline, email dedup)
+    Note over Staff: Frontend pg_trgm search first — staff selects existing guest or creates new. INSERT only if no match selected. Prevents duplicate guest records.
+    API->>DB: INSERT guest (if new — inline) OR link existing guest_id
     API->>DB: UPDATE reservation SET guest_id=..., version=version+1
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
     API-->>Staff: 200 {reservation}
 
     Note over Staff: Step 3 — confirm when ready
@@ -226,7 +271,6 @@ sequenceDiagram
     API->>DB: INSERT outbox_events (type=confirmation_email)
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
     API-->>Staff: 200 {reservation}
 
     Note over DB: Hold expires after internal_hold_ttl_seconds if not confirmed (worker cleans up)
@@ -244,34 +288,35 @@ sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
     participant Worker
 
     Staff->>API: POST /reservations {source=internal, is_walkin=true, assigned_room_id=101, arrival_date=today, departure_date=tomorrow, rate_plan_id?, guest_payload}
-    API->>Redis: SET NX idempotency:{key}
+    API->>API: Check permission reservations:create
     API->>DB: BEGIN
-    API->>DB: Validate lower(stay_period) = today
+    API->>DB: Validate lower(stay_period) = NOW() (actual walk-in time — not midnight)
     API->>DB: Validate assigned_room_id NOT NULL
-    API->>DB: INSERT guest (inline, email dedup)
+    Note over Staff: Frontend autocomplete search first — staff selects existing guest or creates new. INSERT only if no match selected.
+    API->>DB: INSERT guest (if new) OR link existing guest_id
     API->>DB: INSERT reservation (status=checked_in, source=internal)
     API->>DB: INSERT reservation_item (status=checked_in, assigned_room_id=101)
     API->>DB: INSERT ledger rows (status=sold, room=101)
-    API->>DB: INSERT booked_daily_rates
+    API->>DB: INSERT booked_daily_rates (rate_plan_id if provided, else property default rate plan)
     API->>DB: INSERT folio A
     API->>DB: INSERT outbox_events (type=audit_log)
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: cache reservation:{id}
     API-->>Staff: 201 {reservation, status=checked_in}
 
     Note over API: No hold phase — single atomic transition to checked_in
-    Note over API: rate_plan_id resolves via property_settings.walkin_rate_plan_id when omitted (R-RES-CRUD-014). Per-night discount post-create via PATCH .../booked-rates
     Note over DB: IF assigned_room_id has conflicting ledger row → ROLLBACK → 409
 ```
 
 ---
 
 ### 1.5 OTA inbound → async worker → confirmed
+
+> **Deferred to a future PR.** OTA channel integration is out of scope for the
+> current reservation API milestone. Flow documented here for planning only.
 
 OTA pushes reservation via signed webhook. Acked in <200ms. Worker maps payload
 and creates reservation.
@@ -310,11 +355,10 @@ sequenceDiagram
         Worker->>DB: NOTIFY reservation_changes
         Worker->>DB: UPDATE ota_inbound_messages status=processed, response=jsonb
         Worker->>DB: COMMIT
-        Worker->>Redis: cache reservation:{id}
     end
 
     Note over Worker: On failure: retry with exponential backoff, dead-letter after N attempts
-    Note over DB: No checkout_session — OTA already paid
+    Note over DB: No payment_authorization — OTA already paid upstream
 ```
 
 ---
@@ -355,8 +399,9 @@ sequenceDiagram
 
 ### 2.1 Item date change
 
-Stay period updated. Triggers availability re-check, ledger row move,
-booked_daily_rates recompute. Single transaction.
+Stay period updated. Diff-based: only ledger rows and booked_daily_rates rows
+outside the new period are removed; overlapping rows are preserved. Single
+transaction.
 
 ```mermaid
 sequenceDiagram
@@ -366,6 +411,7 @@ sequenceDiagram
     participant Redis
 
     Staff->>API: PATCH /reservations/{id}/items/{item_id} {stay_period: new_range} If-Match: {item_version}
+    API->>API: Check permission reservations:update_item
     API->>DB: SELECT reservation_item WHERE id=item_id — check version matches
     alt Version mismatch
         API-->>Staff: 412 Precondition Failed {current_version}
@@ -376,20 +422,20 @@ sequenceDiagram
             API->>DB: ROLLBACK
             API-->>Staff: 409 Conflict {conflicting_dates}
         else Available
-            API->>DB: DELETE ledger rows WHERE reservation_id=id (old dates)
-            API->>DB: INSERT ledger rows for new stay_period (same pinned room)
-            API->>DB: DELETE booked_daily_rates WHERE reservation_item_id=item_id
-            API->>DB: INSERT booked_daily_rates for new nights
+            API->>DB: DELETE ledger rows WHERE reservation_item_id=item_id AND calendar_date NOT IN new_period
+            API->>DB: INSERT ledger rows for dates IN new_period NOT IN old_period (same pinned room)
+            API->>DB: UPDATE booked_daily_rates SET deleted_at=NOW() WHERE reservation_item_id=item_id AND calendar_date NOT IN new_period
+            API->>DB: INSERT booked_daily_rates for nights IN new_period NOT IN old_period
             API->>DB: UPDATE reservation_item SET stay_period=new, version=version+1
             API->>DB: UPDATE reservation SET version=version+1
             API->>DB: NOTIFY reservation_changes
             API->>DB: COMMIT
-            API->>Redis: INVALIDATE reservation:{id}
             API-->>Staff: 200 {updated item}
         end
     end
 
     Note over API: Post-checkin date PATCH (R-RES-EDGE-002/051): requires reservations:post_checkin_mutate. Extension allowed. Shortening governed by 3.4. Past nights immutable.
+    Note over Staff: Frontend refreshes on NOTIFY via SSE
 ```
 
 ---
@@ -406,11 +452,18 @@ sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Staff->>API: PATCH /reservations/{id}/items/{item_id}/assign-room {room_id: 101}
+    API->>API: Check permission reservations:assign_room
     API->>DB: BEGIN
     API->>DB: SELECT room — validate room is same type as booked_room_type_id
+    API->>DB: SELECT reservation_item — check do_not_move flag
+    alt DNM set AND no reservations:override_dnm permission
+        API->>DB: ROLLBACK
+        API-->>Staff: 403 Forbidden {code: DO_NOT_MOVE, item_id}
+    else DNM set WITH reservations:override_dnm permission
+        Note over API: Log override reason — continue
+    end
     API->>DB: SELECT ledger rows WHERE room_id=101 AND dates overlap — conflict check
     alt Room conflict
         API->>DB: ROLLBACK
@@ -420,12 +473,11 @@ sequenceDiagram
         API->>DB: UPDATE reservation_item SET assigned_room_id=101, version=version+1
         API->>DB: NOTIFY reservation_changes
         API->>DB: COMMIT
-        API->>Redis: INVALIDATE reservation:{id}
         API-->>Staff: 200 {updated item}
     end
 
-    Note over DB: EXCLUDE GIST on assigned_room_id catches concurrent assignment race
     Note over DB: Same endpoint for initial assign and reassignment — ledger UPDATE replaces room_id in place
+    Note over Staff: Frontend shows DNM warning badge on item if flag set. When staff holds reservations:override_dnm, a confirmation dialog is presented requiring a written reason — submit is disabled until reason is entered.
 ```
 
 ---
@@ -440,49 +492,56 @@ sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Note over Staff: Guest currently in room 101. Moving to room 102 mid-stay.
 
     Staff->>API: PATCH /reservations/{id}/items/{item_id}/assign-room {room_id: 102} If-Match: {item_version}
+    API->>API: Check permission reservations:assign_room
     API->>API: Check permission reservations:post_checkin_mutate
     alt No permission
         API-->>Staff: 403 Forbidden
     else Permitted
         API->>DB: BEGIN
-        API->>DB: SELECT room 102 — validate same type as booked_room_type_id
-        API->>DB: SELECT ledger rows WHERE room_id=102 AND dates overlap — conflict check
-        alt Room 102 conflict
+        API->>DB: SELECT reservation_item — check do_not_move flag
+        alt DNM set AND no reservations:override_dnm permission
             API->>DB: ROLLBACK
-            API-->>Staff: 409 Conflict {conflicting_reservation}
-        else Room 102 free
-            API->>DB: UPDATE ledger rows SET room_id=102 WHERE reservation_item_id=item_id
-            API->>DB: UPDATE reservation_item SET assigned_room_id=102, version=version+1
-            API->>DB: NOTIFY reservation_changes
-            API->>DB: COMMIT
-            API->>Redis: INVALIDATE reservation:{id}
-            API-->>Staff: 200 {updated item}
+            API-->>Staff: 403 Forbidden {code: DO_NOT_MOVE, item_id}
+        else DNM override or not set
+            API->>DB: SELECT room 102 — validate same type as booked_room_type_id
+            API->>DB: SELECT ledger rows WHERE room_id=102 AND dates overlap — conflict check
+            alt Room 102 conflict
+                API->>DB: ROLLBACK
+                API-->>Staff: 409 Conflict {conflicting_reservation}
+            else Room 102 free
+                API->>DB: UPDATE ledger rows SET room_id=102 WHERE reservation_item_id=item_id
+                API->>DB: UPDATE reservation_item SET assigned_room_id=102, version=version+1
+                API->>DB: NOTIFY reservation_changes
+                API->>DB: COMMIT
+                API-->>Staff: 200 {updated item}
+            end
         end
     end
 
     Note over Staff: Housekeeping notified separately — physical room move is outside system scope
+    Note over Staff: Frontend shows DNM warning if flag set — confirmation dialog requires written reason before submit
+    Note over Staff: Room type change (upgrade/downgrade) during or before stay: see §2.5 Mid-stay room type change
 ```
 
 ---
 
 ### 2.4 Metadata update
 
-Simple fields (notes, travel_agent_id, group_id, primary_guest_id). No availability check. No
-ledger change.
+Simple fields (notes, travel_agent_id, group_id, primary_guest_id). No
+availability check. No ledger change.
 
 ```mermaid
 sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Staff->>API: PATCH /reservations/{id} {notes: "...", travel_agent_id: ...} If-Match: {version}
+    API->>API: Check permission reservations:update
     API->>DB: SELECT reservation — check version + not cancelled
     alt Version mismatch
         API-->>Staff: 412 Precondition Failed
@@ -491,9 +550,10 @@ sequenceDiagram
         API->>DB: UPDATE reservation SET notes=..., travel_agent_id=..., version=version+1
         API->>DB: NOTIFY reservation_changes
         API->>DB: COMMIT
-        API->>Redis: INVALIDATE reservation:{id}
         API-->>Staff: 200 {reservation}
     end
+
+    Note over Staff: Frontend updates optimistically on submit, reconciles on NOTIFY
 ```
 
 ---
@@ -504,37 +564,50 @@ Guest upgrades or downgrades room type during their stay. Ledger split: past
 dates on original room are preserved; future dates move to new type. Requires
 `reservations:post_checkin_mutate`.
 
+For pre-stay room type change: same flow without the permission guard and with
+full recompute across all nights (no ledger split needed).
+
 ```mermaid
 sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Note over Staff: Guest booked Double Mon-Fri. Checked in Mon. Upgrades to Suite from Wed.
 
-    Staff->>API: PATCH /reservations/{id}/items/{item_id} {booked_room_type_id: suite_id} If-Match: {item_version}
-    API->>API: Check permission reservations:post_checkin_mutate
-    API->>DB: BEGIN
-    API->>DB: SELECT availability for Suite on remaining nights (today onwards)
-    alt Suite unavailable
-        API->>DB: ROLLBACK
-        API-->>Staff: 409 Conflict {conflicting_dates}
-    else Suite available
-        API->>DB: SELECT suite room FOR UPDATE SKIP LOCKED (auto-pin future dates only)
-        API->>DB: DELETE ledger rows WHERE reservation_item_id=id AND calendar_date >= today
-        API->>DB: INSERT ledger rows for new suite room (calendar_date >= today, status=sold)
-        API->>DB: DELETE booked_daily_rates WHERE reservation_item_id=id AND calendar_date >= today
-        API->>DB: INSERT booked_daily_rates for suite from today (new rate plan lookup)
-        API->>DB: UPDATE reservation_item SET booked_room_type_id=suite_id, version=version+1
-        API->>DB: NOTIFY reservation_changes
-        API->>DB: COMMIT
-        API->>Redis: INVALIDATE reservation:{id}
-        API-->>Staff: 200 {updated item}
+    Staff->>API: PATCH /reservations/{id}/items/{item_id} {booked_room_type_id: suite_id, retain_price: bool} If-Match: {item_version}
+    API->>API: Check permission reservations:change_room_type
+    API->>API: Check permission reservations:post_checkin_mutate (if status=checked_in)
+    API->>DB: SELECT reservation_item — check do_not_move flag
+    alt DNM set AND no reservations:override_dnm permission
+        API-->>Staff: 403 Forbidden {code: DO_NOT_MOVE, item_id}
+    else DNM override or not set
+        API->>DB: BEGIN
+        API->>DB: SELECT availability for Suite on remaining nights (today onwards)
+        alt Suite unavailable
+            API->>DB: ROLLBACK
+            API-->>Staff: 409 Conflict {conflicting_dates}
+        else Suite available
+            API->>DB: SELECT suite room FOR UPDATE SKIP LOCKED (auto-pin future dates only)
+            API->>DB: DELETE ledger rows WHERE reservation_item_id=id AND calendar_date >= today
+            API->>DB: INSERT ledger rows for new suite room (calendar_date >= today, status=sold)
+            API->>DB: UPDATE booked_daily_rates SET deleted_at=NOW() WHERE reservation_item_id=id AND calendar_date >= today
+            alt retain_price=true (reservations:adjust_rate required)
+                API->>DB: INSERT booked_daily_rates for suite from today (original prices retained, adjustment recorded)
+            else retain_price=false or omitted
+                API->>DB: INSERT booked_daily_rates for suite from today (new rate plan lookup)
+            end
+            API->>DB: UPDATE reservation_item SET booked_room_type_id=suite_id, version=version+1
+            API->>DB: NOTIFY reservation_changes
+            API->>DB: COMMIT
+            API-->>Staff: 200 {updated item, nightly_diff: [{date, old_price_pence, new_price_pence}]}
+        end
     end
 
     Note over DB: Past ledger rows (Mon-Tue on Double) preserved — history immutable post-checkin
     Note over Staff: Physical room move handled separately via 2.3 (assign-room) if needed
+    Note over Staff: Frontend shows DNM warning if flag set
+    Note over Staff: Frontend presents [Retain Price] / [Update Price] dialog when room type differs — [Update Price] reveals a night-by-night git-diff style comparison (old price vs new price per date) before confirm
 ```
 
 ---
@@ -542,53 +615,60 @@ sequenceDiagram
 ### 2.6 Rate change during stay
 
 Staff applies a different rate plan to remaining nights. Past
-`booked_daily_rates` rows are untouched (snapshot). Future rows deleted and
-recomputed. Pre-checkin variant: full recompute, no permission guard.
+`booked_daily_rates` rows are untouched (snapshot). Future rows soft-deleted and
+recomputed. Rate plan daily capacity checked (M12). Pre-checkin variant: full
+recompute, no permission guard.
 
 ```mermaid
 sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Note over Staff: Guest on BAR rate. Staff applies promotional rate from today onwards.
 
-    Staff->>API: PATCH /reservations/{id}/items/{item_id} {rate_plan_id: promo_id} If-Match: {item_version}
+    Staff->>API: PATCH /reservations/{id}/items/{item_id} {rate_plan_id: promo_id, retain_price: bool} If-Match: {item_version}
+    API->>API: Check permission reservations:update_item
     API->>API: Check permission reservations:post_checkin_mutate (if status=checked_in)
     API->>DB: BEGIN
-    API->>DB: SELECT price grid for promo_id across remaining nights
-    API->>DB: DELETE booked_daily_rates WHERE reservation_item_id=id AND calendar_date >= today
-    API->>DB: INSERT booked_daily_rates for remaining nights at new rate
-    API->>DB: UPDATE reservation_item SET rate_plan_id=promo_id, version=version+1
-    API->>DB: NOTIFY reservation_changes
-    API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
-    API-->>Staff: 200 {updated item}
+    API->>DB: SELECT price for promo_id on remaining nights
+    API->>DB: COUNT booked_daily_rates WHERE rate_plan_id=promo_id AND calendar_date IN remaining nights GROUP BY calendar_date
+    alt Any date exceeds daily_room_capacity
+        API->>DB: ROLLBACK
+        API-->>Staff: 409 Conflict {code: RATE_PLAN_CAPACITY_EXCEEDED, conflicting_dates: [...], capacity: N}
+        Note over Staff: Frontend offers override button if staff holds reservations:override_rate_plan_capacity
+    else Within capacity (or override_rate_plan_capacity permitted)
+        API->>DB: UPDATE booked_daily_rates SET deleted_at=NOW() WHERE reservation_item_id=id AND calendar_date >= today
+        API->>DB: INSERT booked_daily_rates for remaining nights at new rate
+        API->>DB: UPDATE reservation_item SET rate_plan_id=promo_id, version=version+1
+        API->>DB: NOTIFY reservation_changes
+        API->>DB: COMMIT
+        API-->>Staff: 200 {updated item}
+    end
 
     Note over DB: Past booked_daily_rates rows untouched — snapshot preserved per R-RES-EDGE-038
     Note over DB: Pre-checkin (R-RES-EDGE-039): same flow, all nights recomputed, no permission guard
+    Note over Staff: Frontend presents [Retain Price] / [Update Price] dialog — [Update Price] shows night-by-night git-diff comparison before confirm. Retain requires reservations:adjust_rate.
 ```
 
 ---
 
 ### 2.7 Add item to existing reservation
 
-Receptionist adds an extra room to an existing non-terminal reservation.
-Common scenario: guest's group expands, or replacement for a previously
-cancelled item (per `CONTEXT.md` — cancelled items immutable; new item
-appended). Requires `reservations:add_item`.
+Receptionist adds an extra room to an existing non-terminal reservation. Common
+scenario: guest's group expands, or replacement for a previously cancelled item
+(per `CONTEXT.md` — cancelled items immutable; new item appended). Requires
+`reservations:add_item`.
 
 ```mermaid
 sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Staff->>API: POST /reservations/{id}/items {arrival_date, departure_date, booked_room_type_id, rate_plan_id, guest_id?, adults_count, children_count} If-Match: {version}
     API->>API: Check permission reservations:add_item
-    API->>DB: SELECT reservation — validate status NOT IN (cancelled, checked_out, archived)
+    API->>DB: SELECT reservation — validate status NOT IN (cancelled, pending_cancellation, checked_out, archived)
     alt Terminal status
         API-->>Staff: 409 Conflict {code: TERMINAL_RESERVATION}
     else Non-terminal
@@ -602,17 +682,72 @@ sequenceDiagram
             API->>DB: INSERT reservation_item (status=booked)
             API->>DB: INSERT ledger rows (status=sold)
             API->>DB: INSERT booked_daily_rates (one per night)
-            API->>DB: Recompute reservation.stay_period_envelope (ADR-020)
+            API->>DB: SELECT stay_period_envelope — recompute only if new item dates extend beyond current envelope (ADR-020)
             API->>DB: UPDATE reservation SET stay_period_envelope=…, version=version+1
             API->>DB: NOTIFY reservation_changes
             API->>DB: COMMIT
-            API->>Redis: INVALIDATE reservation:{id}
             API-->>Staff: 201 {reservation envelope}
         end
     end
 
     Note over DB: Cancelled items remain cancelled — immutable history. New item gets new id
-    Note over API: Per Q11 lean-envelope rule, response = full GET /{id} body
+    Note over Staff: Frontend toasts "Room added" on 201
+    Note over Staff: NOTIFY reservation_changes triggers SSE push — calendar grid updates without a page reload
+```
+
+---
+
+### 2.8 Rate adjustment (discount / surcharge)
+
+Staff applies a discount or surcharge to one or more nights via the rate matrix
+(per-night or whole-stay). Stored in
+`booked_daily_rates.adjustment {type, value, reason}`. `final_price_pence`
+recomputed on approval. Whole-stay adjustments are distributed across nights by
+the frontend before submission — the API receives per-night rows.
+
+Staff without `reservations:adjust_rate` may submit a pending adjustment; a
+manager with the permission approves it before `final_price_pence` changes.
+
+```mermaid
+sequenceDiagram
+    actor Staff
+    actor Manager
+    participant API
+    participant DB as PostgreSQL
+
+    Note over Staff: Staff applies discount/surcharge via rate matrix (single night or balanced across stay).
+
+    Staff->>API: PATCH /reservations/{id}/items/{item_id}/booked-rates {adjustments: [{calendar_date, type, value, reason}]} If-Match: {item_version}
+    API->>API: Check permission reservations:update_item
+    API->>DB: BEGIN
+    API->>DB: UPDATE booked_daily_rates SET adjustment={type,value,reason} WHERE calendar_date IN requested_dates
+
+    alt Has reservations:adjust_rate
+        API->>DB: UPDATE booked_daily_rates SET adjustment_approved=true, adjustment_approved_by_user_id=staff_id, final_price_pence=computed
+        API->>DB: UPDATE reservation_item SET version=version+1
+        API->>DB: NOTIFY reservation_changes
+        API->>DB: COMMIT
+        API-->>Staff: 200 {rates, approved: true}
+    else No reservations:adjust_rate
+        API->>DB: UPDATE booked_daily_rates SET adjustment_approved=false
+        API->>DB: UPDATE reservation_item SET version=version+1
+        API->>DB: NOTIFY reservation_changes
+        API->>DB: COMMIT
+        API-->>Staff: 200 {rates, pending_approval: true}
+        Note over Staff: Frontend shows "Pending manager approval" on affected nights — final_price_pence unchanged until approved
+    end
+
+    Note over Manager: Pending adjustments surface on manager dashboard via SSE
+
+    Manager->>API: POST /reservations/{id}/items/{item_id}/booked-rates/approve {calendar_dates: [...]} If-Match: {item_version}
+    API->>API: Check permission reservations:adjust_rate
+    API->>DB: BEGIN
+    API->>DB: UPDATE booked_daily_rates SET adjustment_approved=true, adjustment_approved_by_user_id=manager_id, final_price_pence=computed WHERE calendar_date IN dates AND adjustment_approved=false
+    API->>DB: NOTIFY reservation_changes
+    API->>DB: COMMIT
+    API-->>Manager: 200 {approved rates}
+
+    Note over DB: final_price_pence = base_price_pence + value (fixed) OR round(base_price_pence * value / 100) (percentage). Negative value = discount, positive = surcharge.
 ```
 
 ---
@@ -629,13 +764,14 @@ sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Staff->>API: PATCH /reservations/{id}/checkin If-Match: {version}
+    API->>API: Check permission reservations:update
     API->>DB: SELECT all reservation_items WHERE reservation_id=id
     API->>DB: Validate ALL items have assigned_room_id NOT NULL
     alt Any item unassigned
-        API-->>Staff: 409 Conflict {unassigned_item_ids}
+        API-->>Staff: 409 Conflict {code: UNASSIGNED_ITEMS, unassigned_item_ids}
+        Note over Staff: Frontend highlights unassigned items — prompt room assignment before retry
     else All assigned
         API->>DB: BEGIN
         API->>DB: UPDATE reservation_items SET status=checked_in (all booked items)
@@ -643,8 +779,9 @@ sequenceDiagram
         API->>DB: UPDATE reservation SET status=checked_in, version=version+1
         API->>DB: NOTIFY reservation_changes
         API->>DB: COMMIT
-        API->>Redis: INVALIDATE reservation:{id}
         API-->>Staff: 200 {reservation, status=checked_in}
+        Note over Staff: Frontend toast "Checked in successfully"
+        Note over Staff: NOTIFY reservation_changes triggers SSE push — calendar grid reflects checked_in status without reload
     end
 ```
 
@@ -660,29 +797,30 @@ sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Note over Staff: Two-room reservation. Guest A arrives. Guest B arrives tomorrow.
 
     Staff->>API: PATCH /reservations/{id}/items/{item_a}/checkin If-Match: {item_version}
+    API->>API: Check permission reservations:update
     API->>DB: SELECT item_a — validate assigned_room_id NOT NULL, status=booked
     API->>DB: BEGIN
     API->>DB: UPDATE reservation_item item_a SET status=checked_in, version=version+1
     API->>DB: Run rollup — item_b still booked → reservation stays confirmed
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
     API-->>Staff: 200 {item, status=checked_in}
 
     Note over DB: Reservation stays confirmed until ALL items leave booked state (ADR-016 rollup)
 
     Staff->>API: PATCH /reservations/{id}/items/{item_b}/checkin If-Match: {item_version}
+    API->>API: Check permission reservations:update
     API->>DB: UPDATE item_b SET status=checked_in
     API->>DB: Run rollup — no items booked → reservation=checked_in
     API->>DB: UPDATE reservation SET status=checked_in, version=version+1
     API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
     API-->>Staff: 200 {item, status=checked_in}
+    Note over Staff: Frontend toast "All guests checked in" when reservation rolls up to checked_in
+    Note over Staff: Each NOTIFY triggers SSE — receptionist dashboard updates live as each item checks in
 ```
 
 ---
@@ -690,58 +828,68 @@ sequenceDiagram
 ### 3.3 Whole-reservation check-out
 
 All items transition to `checked_out`. Reservation rolls up to `checked_out`.
+Folio must be settled (zero balance) before checkout is permitted.
 
 ```mermaid
 sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
     participant Worker
+    participant Ext as SMTP
 
     Staff->>API: PATCH /reservations/{id}/checkout If-Match: {version}
-    API->>DB: BEGIN
-    API->>DB: UPDATE reservation_items SET status=checked_out (all checked_in items)
-    API->>DB: DELETE future ledger rows WHERE date > today (early checkout — R-RES-EDGE-035)
-    API->>DB: Run rollup → all items terminal + ≥1 checked_out → reservation=checked_out
-    API->>DB: UPDATE reservation SET status=checked_out, version=version+1
-    API->>DB: INSERT outbox_events (type=checkout_receipt_email)
-    API->>DB: NOTIFY reservation_changes
-    API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
-    API-->>Staff: 200 {reservation, status=checked_out}
+    API->>API: Check permission reservations:update
+    API->>DB: SELECT folios WHERE reservation_id=id — assert balance=0 on all folios
+    alt Outstanding balance
+        API-->>Staff: 409 Conflict {code: OUTSTANDING_FOLIO_BALANCE, balance_pence, folio_id}
+        Note over Staff: Frontend shows balance due. Staff settles or transfers to Admin/Tab Room folio before retrying
+    else Balance clear
+        API->>DB: BEGIN
+        API->>DB: UPDATE reservation_items SET status=checked_out (all checked_in items)
+        API->>DB: DELETE future ledger rows WHERE date > today (early checkout — R-RES-EDGE-035)
+        API->>DB: Run rollup → all items terminal + ≥1 checked_out → reservation=checked_out
+        API->>DB: UPDATE reservation SET status=checked_out, version=version+1
+        API->>DB: INSERT outbox_events (type=checkout_receipt_email)
+        API->>DB: NOTIFY reservation_changes
+        API->>DB: COMMIT
+        API-->>Staff: 200 {reservation, status=checked_out}
 
-    Worker->>Ext: send checkout receipt (SMTP)
-    Worker->>DB: UPDATE outbox_events status=completed
+        Worker->>Ext: send checkout receipt or feedback/review email (property-configured)
+        Worker->>DB: UPDATE outbox_events status=completed
+        Note over Staff: NOTIFY reservation_changes triggers SSE — calendar grid releases room immediately
+    end
 ```
 
 ---
 
 ### 3.4 Early check-out (stay period shortened)
 
-Guest leaves before scheduled departure. Future ledger rows released.
+Guest leaves before scheduled departure. Future ledger rows hard-deleted
+(inventory released). Future `booked_daily_rates` rows soft-deleted (financial
+record preserved).
 
 ```mermaid
 sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Note over Staff: Guest booked Mon-Fri, leaves Wednesday.
 
     Staff->>API: PATCH /reservations/{id}/items/{item_id} {stay_period: Mon-Wed} If-Match: {item_version}
-    API->>DB: Validate shortened stay (upper must not exceed original checkout - post-checkin rule)
+    API->>API: Check permission reservations:post_checkin_mutate
+    API->>DB: Validate shortened stay (upper must not exceed original checkout)
     API->>DB: BEGIN
-    API->>DB: DELETE future ledger rows (calendar_date on or after new_checkout, reservation_id=id)
-    API->>DB: DELETE future booked_daily_rates (calendar_date on or after new_checkout)
+    API->>DB: DELETE ledger rows WHERE reservation_item_id=id AND calendar_date >= new_checkout (hard delete — inventory released)
+    API->>DB: UPDATE booked_daily_rates SET deleted_at=NOW() WHERE reservation_item_id=id AND calendar_date >= new_checkout (soft delete — record preserved)
     API->>DB: UPDATE reservation_item SET stay_period=Mon-Wed, version=version+1
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
     API-->>Staff: 200 {item}
 
     Note over DB: Released Thu/Fri ledger rows immediately available for new bookings
+    Note over Staff: Frontend may prompt for early-departure surcharge — post as manual folio_transaction if applicable (revenue protection)
 ```
 
 ---
@@ -757,11 +905,11 @@ sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Note over Staff: 3-item reservation. Item A: booked+assigned. Item B: no_show. Item C: booked+assigned.
 
     Staff->>API: PATCH /reservations/{id}/checkin If-Match: {version}
+    API->>API: Check permission reservations:update
     API->>DB: SELECT all reservation_items WHERE reservation_id=id
     API->>API: Validate each item — status=booked AND assigned_room_id NOT NULL
 
@@ -774,10 +922,10 @@ sequenceDiagram
     API->>DB: UPDATE reservation SET status=checked_in, version=version+1
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
 
     API-->>Staff: 207 Multi-Status
     Note over API,Staff: {results: [{id: itemA, status: checked_in}, {id: itemB, error: INVALID_TRANSITION, reason: no_show is terminal}, {id: itemC, status: checked_in}]}
+    Note over Staff: Frontend highlights failed items inline — no full page reload needed
 ```
 
 ---
@@ -785,27 +933,26 @@ sequenceDiagram
 ### 3.6 Overstay detection and resolution
 
 Worker flags items still `checked_in` past
-`upper(stay_period) + late_checkout_grace_minutes`. Receptionist resolves
-either by extending the stay (PATCH dates) or forcing a checkout. Mid-stay
-reservation cancel is forbidden (R-RES-VALID-013) — must check out first.
+`upper(stay_period) + late_checkout_grace_minutes`. Receptionist resolves either
+by extending the stay (PATCH dates) or forcing a checkout. Mid-stay reservation
+cancel is forbidden (R-RES-VALID-013) — must check out first.
 
 ```mermaid
 sequenceDiagram
     participant Worker
     participant DB as PostgreSQL
-    participant Redis
     actor Staff
     participant API
 
     loop Every N minutes (R-RES-WORKER-005)
-        Worker->>DB: SELECT reservation_items WHERE status=checked_in AND now() > upper(stay_period) + (property.late_checkout_grace_minutes * interval '1 minute') FOR UPDATE SKIP LOCKED LIMIT 100
+        Worker->>DB: SELECT reservation_items WHERE status=checked_in FOR UPDATE SKIP LOCKED LIMIT 100
+        Note over Worker: Filter: now() > upper(stay_period) + (property.late_checkout_grace_minutes * interval '1 minute'). JOIN property_settings on property_id.
         DB-->>Worker: [overdue items]
         loop For each item
             Worker->>DB: BEGIN
             Worker->>DB: UPDATE reservation_item SET status=overstay, version=version+1
             Worker->>DB: NOTIFY reservation_changes
             Worker->>DB: COMMIT
-            Worker->>Redis: INVALIDATE reservation:{reservation_id}
         end
     end
 
@@ -820,11 +967,10 @@ sequenceDiagram
             API->>DB: INSERT ledger rows for extension nights
             API->>DB: INSERT booked_daily_rates for extension nights
             API->>DB: UPDATE reservation_item SET stay_period=new, status=checked_in, version=version+1
-            Note over DB: status returns from `overstay` to `checked_in` — extension is the actor-side resolution path
+            Note over DB: status returns from overstay to checked_in — extension is the actor-side resolution path
             API->>DB: Recompute reservation envelope
             API->>DB: NOTIFY reservation_changes
             API->>DB: COMMIT
-            API->>Redis: INVALIDATE reservation:{id}
             API-->>Staff: 200 {item, status=checked_in}
         else Unavailable
             API->>DB: ROLLBACK
@@ -833,13 +979,13 @@ sequenceDiagram
         end
     else Force checkout
         Staff->>API: PATCH /reservations/{id}/items/{item_id}/checkout If-Match: {item_version}
+        API->>API: Check permission reservations:update
         API->>DB: BEGIN
         API->>DB: UPDATE reservation_item SET status=checked_out, version=version+1
-        API->>DB: DELETE ledger rows WHERE reservation_item_id=item_id AND calendar_date >= now()::date (defensive — original future is empty post-overstay; covers extension nights if guest was extended then forced out)
+        API->>DB: DELETE ledger rows WHERE reservation_item_id=item_id AND calendar_date >= now()::date
         API->>DB: Run rollup
         API->>DB: NOTIFY reservation_changes
         API->>DB: COMMIT
-        API->>Redis: INVALIDATE reservation:{id}
         API-->>Staff: 200 {item, status=checked_out}
         Note over Staff: Late-checkout fee posted as manual folio_transaction (finance PR)
     end
@@ -853,22 +999,25 @@ sequenceDiagram
 
 ### 4.1 Cancellation with fee
 
-Staff cancels reservation. Cancellation fee posted to Folio A.
+Staff cancels reservation. Cancellation fee obligation posted to Folio A.
+Reservation lands in `pending_cancellation` — not fully terminal until fee is
+collected via payment processor (finance PR). Room is released immediately.
 
 ```mermaid
 sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
     participant Worker
     participant Ext as SMTP
 
     Staff->>API: POST /reservations/{id}/cancel {reason_code, fee_pence=5000, waive_fee=false, fee_override_reason?, refund_action=refund_deposit} If-Match: {version}
-    API->>DB: SELECT reservation + items — validate status not terminal (409 if checked_out/archived/cancelled — R-RES-EDGE-040) AND no item is checked_in (409 R-RES-VALID-013)
+    API->>API: Check permission reservations:cancel
+    API->>DB: SELECT reservation + items — validate status not terminal (409 if checked_out/archived/cancelled/pending_cancellation — R-RES-EDGE-040) AND no item is checked_in (409 R-RES-VALID-013)
     Note over API,Staff: 409 body for R-RES-VALID-013: {code: "RESERVATION_HAS_CHECKED_IN_ITEMS", checked_in_item_ids: [uuid, ...], remediation: "Check-out or shorten the listed items, then retry cancel."}
+    Note over Staff: To shorten rather than cancel, use §3.4 Early check-out (stay period shortened) — releases future nights without full cancellation
     API->>DB: BEGIN
-    API->>DB: UPDATE reservation SET status=cancelled, deleted_at=NOW(), version=version+1
+    API->>DB: UPDATE reservation SET status=pending_cancellation, version=version+1
     API->>DB: UPDATE reservation_items SET status=cancelled (all non-terminal)
     API->>DB: DELETE ledger rows WHERE reservation_id=id AND calendar_date >= today
     API->>DB: INSERT folio_transaction (folio_a, description=cancellation_fee, amount=5000, status=pending)
@@ -876,13 +1025,14 @@ sequenceDiagram
     API->>DB: INSERT outbox_events (type=audit_log)
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
-    API-->>Staff: 200 {reservation, status=cancelled}
+    API-->>Staff: 200 {reservation, status=pending_cancellation}
 
     Worker->>Ext: send cancellation email
     Worker->>DB: UPDATE outbox_events completed
 
-    Note over DB: refund_action=refund_deposit handled by payment provider integration (future)
+    Note over DB: folio_transaction status=pending means OBLIGATION RECORDED — not collected. Finance PR implements collection: captured auth → net refund minus fee, or new charge if no deposit held. Reservation transitions to cancelled only once fee settled.
+    Note over DB: refund_action=refund_deposit handled by payment provider integration (finance PR)
+    Note over Staff: Frontend shows "Pending settlement" banner — not "Cancelled" — until finance PR wires collection
 ```
 
 ---
@@ -890,30 +1040,30 @@ sequenceDiagram
 ### 4.2 Cancellation with waived fee
 
 Manager waives the cancellation fee. Requires `reservations:waive_fee`
-permission.
+permission. Waive amount is gated by `waive_fee_limit_pence` on the role
+(deferred to auth PR — enforced server-side once auth PR lands).
 
 ```mermaid
 sequenceDiagram
     actor Manager
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Manager->>API: POST /reservations/{id}/cancel {reason_code=goodwill, fee_pence=5000, waive_fee=true} If-Match: {version}
     API->>API: Check permission reservations:waive_fee
+    Note over API: Auth PR will enforce: fee_pence <= role.waive_fee_limit_pence. Unlimited = NULL. 403 if fee exceeds limit.
     alt No permission
         API-->>Manager: 403 Forbidden
     else Permitted
         API->>DB: BEGIN
-        API->>DB: UPDATE reservation SET status=cancelled, deleted_at=NOW()
+        API->>DB: UPDATE reservation SET status=pending_cancellation, version=version+1
         API->>DB: UPDATE reservation_items SET status=cancelled
         API->>DB: DELETE ledger rows
-        Note over DB: No folio_transaction — fee waived
+        Note over DB: No folio_transaction — fee waived. Reservation may transition directly to cancelled (no settlement needed). Finance PR confirms flow.
         API->>DB: INSERT outbox_events (type=cancellation_email)
         API->>DB: NOTIFY reservation_changes
         API->>DB: COMMIT
-        API->>Redis: INVALIDATE reservation:{id}
-        API-->>Manager: 200 {reservation, status=cancelled}
+        API-->>Manager: 200 {reservation, status=pending_cancellation}
     end
 ```
 
@@ -921,14 +1071,15 @@ sequenceDiagram
 
 ### 4.3 No-show — manual
 
-Staff marks a guest as no-show after check-in time passes.
+Staff marks a guest as no-show after check-in time passes. Treated as
+cancellation for payment purposes — any outstanding fee obligation must be
+settled before reservation reaches terminal state (finance PR).
 
 ```mermaid
 sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Staff->>API: PATCH /reservations/{id}/items/{item_id}/no-show If-Match: {item_version}
     API->>API: Check permission reservations:mark_no_show
@@ -939,35 +1090,36 @@ sequenceDiagram
     API->>DB: Run rollup — if all items terminal → update reservation status
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
     API-->>Staff: 200 {item, status=no_show}
+
+    Note over Staff: Any no-show fee posted as manual folio_transaction. Settlement via processor required before terminal cancellation (finance PR).
 ```
 
 ---
 
-### 4.4 No-show — sweep worker
+### 4.4 No-show — dashboard reminder
 
-Worker automatically marks unchecked-in items after grace period.
+> **Automated sweep deferred.** Auto-marking of no-shows is not in scope for the
+> current milestone. Staff are reminded via the receptionist dashboard instead;
+> they act manually via §4.3.
+
+Worker surfaces overdue check-ins on the receptionist dashboard. No automatic
+status change.
 
 ```mermaid
 sequenceDiagram
     participant Worker
     participant DB as PostgreSQL
-    participant Redis
+    actor Staff
+    participant API
 
-    loop Daily (R-RES-WORKER-003)
-        Worker->>DB: SELECT reservation_items WHERE status=booked AND lower(stay_period) + no_show_grace_minutes < NOW() FOR UPDATE SKIP LOCKED
-        DB-->>Worker: [overdue booked items]
-        loop For each item
-            Worker->>DB: BEGIN
-            Worker->>DB: UPDATE reservation_item SET status=no_show
-            Worker->>DB: DELETE future ledger rows
-            Worker->>DB: Run rollup
-            Worker->>DB: NOTIFY reservation_changes
-            Worker->>DB: COMMIT
-            Worker->>Redis: INVALIDATE reservation:{reservation_id}
-        end
+    loop Every N minutes
+        Worker->>DB: SELECT reservation_items WHERE status=booked AND lower(stay_period) + no_show_grace_minutes < NOW()
+        DB-->>Worker: [overdue items]
+        Worker->>DB: NOTIFY staff_alerts {type=no_show_overdue, item_ids: [...]}
     end
+
+    Note over Staff: SSE listener forwards NOTIFY payload — receptionist dashboard highlights overdue check-ins without a page reload. Staff investigates and acts via §4.3 No-show — manual.
 ```
 
 ---
@@ -981,9 +1133,9 @@ sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Staff->>API: POST /reservations/{id}/reactivate If-Match: {version}
+    API->>API: Check permission reservations:reactivate
     API->>DB: SELECT reservation — validate status=cancelled
     API->>DB: BEGIN
     API->>DB: SELECT availability for original dates (full re-check)
@@ -993,7 +1145,6 @@ sequenceDiagram
         API->>DB: INSERT ledger rows (re-pin room, one per date)
         API->>DB: NOTIFY reservation_changes
         API->>DB: COMMIT
-        API->>Redis: INVALIDATE reservation:{id}
         API-->>Staff: 200 {reservation, status=confirmed}
     else Dates unavailable
         API->>DB: ROLLBACK
@@ -1007,31 +1158,31 @@ sequenceDiagram
 
 ### 4.6 Item-level cancel (multi-room)
 
-One item in a multi-room reservation cancelled independently. Reservation
-rollup unchanged unless all items reach a terminal state.
+One item in a multi-room reservation cancelled independently. Reservation rollup
+unchanged unless all items reach a terminal state. See §4.2 for waived-fee path.
 
 ```mermaid
 sequenceDiagram
     actor Staff
     participant API
     participant DB as PostgreSQL
-    participant Redis
 
     Note over Staff: 2-room reservation. Cancel item A only (Guest B staying).
 
     Staff->>API: POST /reservations/{id}/items/{item_id}/cancel {reason_code, fee_pence} If-Match: {item_version}
+    API->>API: Check permission reservations:cancel
     API->>DB: SELECT reservation_item — validate status not terminal
     API->>DB: BEGIN
     API->>DB: UPDATE reservation_item SET status=cancelled, deleted_at=NOW(), version=version+1
     API->>DB: DELETE ledger rows WHERE reservation_item_id=item_id AND calendar_date >= today
-    API->>DB: INSERT folio_transaction (cancellation_fee if fee_pence > 0)
+    API->>DB: INSERT folio_transaction (cancellation_fee if fee_pence > 0, status=pending)
     API->>DB: Run rollup — item_b still booked → reservation stays confirmed
     API->>DB: NOTIFY reservation_changes
     API->>DB: COMMIT
-    API->>Redis: INVALIDATE reservation:{id}
     API-->>Staff: 200 {item, status=cancelled}
 
     Note over DB: Reservation status unchanged — rollup only promotes when ALL items reach terminal state
+    Note over DB: folio_transaction status=pending = obligation recorded, not collected. Finance PR implements settlement.
 ```
 
 ---
@@ -1055,14 +1206,14 @@ sequenceDiagram
 
     Note over API: Both read version=5. Cancel commits first.
 
-    API->>DB: Staff1: BEGIN → UPDATE SET status=cancelled, version=6 → COMMIT
-    API-->>Staff1: 200 {status=cancelled}
+    API->>DB: Staff1: BEGIN → UPDATE SET status=pending_cancellation, version=6 → COMMIT
+    API-->>Staff1: 200 {status=pending_cancellation}
 
     API->>DB: Staff2: BEGIN → SELECT version → returns 6 (mismatch)
     API->>DB: Staff2: ROLLBACK
     API-->>Staff2: 412 Precondition Failed {current_version: 6, provided_version: 5}
 
-    Note over Staff2: Reload reservation, observe cancelled status, reconcile accordingly
+    Note over Staff2: Reload reservation, observe pending_cancellation status, reconcile accordingly
 ```
 
 ---
@@ -1077,7 +1228,6 @@ Worker cancels stale holds. Per-source TTL from `operations.property_settings`.
 sequenceDiagram
     participant Worker
     participant DB as PostgreSQL
-    participant Redis
 
     loop Every 30s
         Worker->>DB: SELECT expired holds by source TTL (FOR UPDATE SKIP LOCKED LIMIT 100)
@@ -1088,14 +1238,15 @@ sequenceDiagram
             Worker->>DB: UPDATE reservation SET status=cancelled, deleted_at=NOW()
             Worker->>DB: UPDATE reservation_items SET status=cancelled
             Worker->>DB: DELETE ledger rows WHERE reservation_id=id
-            Worker->>DB: UPDATE checkout_session SET status=expired (if website source)
+            Worker->>DB: UPDATE payment_authorization SET released_at=NOW() (if website source)
+            Worker->>DB: INSERT outbox_events (type=release_auth, payload={auth_id, provider}) (if website source)
             Worker->>DB: NOTIFY reservation_changes
             Worker->>DB: COMMIT
-            Worker->>Redis: INVALIDATE reservation:{id}
         end
     end
 
     Note over Worker: SKIP LOCKED allows multiple worker replicas without contention
+    Note over Worker: No charge was made during hold — release_auth simply lifts the card hold. Outbox dispatcher calls provider release out-of-band, retried with exponential backoff. CRITICAL: dead-letter alert fires if release exhausts retries.
 ```
 
 ---
@@ -1108,11 +1259,10 @@ Worker archives old terminal reservations. Excludes from default list queries.
 sequenceDiagram
     participant Worker
     participant DB as PostgreSQL
-    participant Redis
 
     loop Daily
         Worker->>DB: SELECT terminal reservations past archive threshold (FOR UPDATE SKIP LOCKED LIMIT 500)
-        Note over Worker: JOIN property_settings for archive_after_days, status IN (checked_out and cancelled)
+        Note over Worker: JOIN property_settings for archive_after_days, status IN (checked_out, cancelled)
         DB-->>Worker: [archivable reservations]
         loop For each reservation
             Worker->>DB: BEGIN
@@ -1121,7 +1271,6 @@ sequenceDiagram
             Worker->>DB: UPDATE folios SET deleted_at=NOW() (zero-balance only)
             Worker->>DB: NOTIFY reservation_changes
             Worker->>DB: COMMIT
-            Worker->>Redis: INVALIDATE reservation:{id}
         end
     end
 
