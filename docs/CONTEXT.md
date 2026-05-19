@@ -96,6 +96,12 @@ config/                 generated constraints + runtime config
 3. Run `make audit` before commit
 4. Pre-push hook enforces `make gen`
 
+## Domain Terms
+
+**Admin/Tab Room** — A house reservation kept permanently in `checked_in` used as a holding account for outstanding balances. When a guest's folio cannot be settled at checkout (e.g. corporate billing, disputed charge), staff transfers the balance to the Admin/Tab Room folio before checking the guest out. Folio transfer is a finance PR concern. Checkout hard-blocks on `balance > 0` — this is the standard resolution path.
+
+**Do Not Move (DNM)** — Flag on `reservation_item` set by staff. Indicates guest must not be relocated. Checked before room assignment (§2.2), reassignment, post-checkin room move (§2.3), and mid-stay room type change (§2.5). Override requires `reservations:override_dnm` permission + recorded reason. Frontend shows warning; hard block without the permission.
+
 ## What lives where (LLM cheatsheet)
 
 | Need to | Look at |
