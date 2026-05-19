@@ -32,6 +32,9 @@ All of the following are **TBD** and will be resolved in the auth PR:
 - Permission cache TTL + revocation propagation
 - Audit log for permission changes
 - API-key / partner integration model (OTA webhooks today live outside RBAC)
+- `waive_fee_limit_pence` on role — tiered waive authority for `reservations:waive_fee`. Receptionist waives small amounts; manager waives larger; GM unlimited (`NULL`). API checks `fee_pence <= role.waive_fee_limit_pence` before allowing waive. Finance PR depends on this.
+- `reservations:change_room_type` — required to upgrade or downgrade a reservation item's room type, pre- or mid-stay. Mid-stay also requires `reservations:post_checkin_mutate`. Distinct from room reassignment within the same type (which is `reservations:assign_room`).
+- `reservations:adjust_rate` — required to directly approve a rate adjustment (discount or surcharge) on `booked_daily_rates`. Staff without this permission may submit a pending adjustment; holders of this permission approve it, setting `adjustment_approved=true` and computing `final_price_pence`. Also gates the `retain_price` option on room type and rate plan changes.
 
 ## 3. Until Then
 
