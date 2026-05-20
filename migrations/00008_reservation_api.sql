@@ -109,6 +109,16 @@ ALTER TABLE inventory.room_inventory_ledger
 
 CREATE INDEX IF NOT EXISTS idx_inv_ledger_item ON inventory.room_inventory_ledger (reservation_item_id);
 
+-- Fix audit columns and constraints for existing tables
+ALTER TABLE operations.reservation_sequences ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE operations.property_settings ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+ALTER TABLE operations.reservation_sequences ADD CONSTRAINT chk_reservation_sequences_entity_type CHECK (char_length(entity_type) <= 50);
+ALTER TABLE operations.reservations DROP CONSTRAINT IF EXISTS chk_reservations_code;
+ALTER TABLE operations.reservations ADD CONSTRAINT chk_reservations_code CHECK (code ~ '^RES-[0-9]{6}$');
+ALTER TABLE operations.reservation_groups DROP CONSTRAINT IF EXISTS chk_reservation_groups_code;
+ALTER TABLE operations.reservation_groups ADD CONSTRAINT chk_reservation_groups_code CHECK (code ~ '^GRP-[0-9]{5}$');
+
 -- M17: expires_at on reservations
 ALTER TABLE operations.reservations 
     ADD COLUMN expires_at TIMESTAMPTZ;
@@ -202,6 +212,12 @@ DROP INDEX IF EXISTS inventory.idx_inv_ledger_item;
 
 ALTER TABLE operations.property_settings DROP COLUMN IF EXISTS late_checkout_grace_minutes;
 ALTER TABLE operations.reservation_items DROP COLUMN IF EXISTS do_not_move;
+
+ALTER TABLE operations.property_settings DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE operations.reservation_sequences DROP COLUMN IF EXISTS deleted_at;
+ALTER TABLE operations.reservations DROP CONSTRAINT IF EXISTS chk_reservations_code;
+ALTER TABLE operations.reservation_groups DROP CONSTRAINT IF EXISTS chk_reservation_groups_code;
+ALTER TABLE operations.reservation_sequences DROP CONSTRAINT IF EXISTS chk_reservation_sequences_entity_type;
 
 DROP TRIGGER IF EXISTS trg_compute_final_price ON pricing.booked_daily_rates;
 DROP FUNCTION IF EXISTS pricing.fn_compute_final_price();
