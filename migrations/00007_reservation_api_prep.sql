@@ -180,20 +180,21 @@ CREATE POLICY property_settings_isolation ON operations.property_settings
     USING (property_id = current_setting('app.current_property_id')::uuid);
 
 -- ============================================================
--- M5: OTA inbound dedup table
+-- M5: OTA inbound dedup table 
+-- NOTE: Deferred to future PR
 -- ============================================================
 
-CREATE TABLE operations.ota_inbound_messages (
-    channel_id TEXT NOT NULL CHECK (char_length(channel_id) <= 50),
-    channel_message_id TEXT NOT NULL CHECK (char_length(channel_message_id) <= 255),
-    property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
-    processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    response_jsonb JSONB,
-    PRIMARY KEY (channel_id, channel_message_id)
-);
-
-CREATE INDEX idx_ota_inbound_property ON operations.ota_inbound_messages (property_id);
-CREATE INDEX idx_ota_inbound_processed ON operations.ota_inbound_messages (processed_at);
+-- CREATE TABLE operations.ota_inbound_messages (
+--     channel_id TEXT NOT NULL CHECK (char_length(channel_id) <= 50),
+--     channel_message_id TEXT NOT NULL CHECK (char_length(channel_message_id) <= 255),
+--     property_id UUID REFERENCES operations.properties (id) ON DELETE RESTRICT,
+--     processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+--     response_jsonb JSONB,
+--     PRIMARY KEY (channel_id, channel_message_id)
+-- );
+--
+-- CREATE INDEX idx_ota_inbound_property ON operations.ota_inbound_messages (property_id);
+-- CREATE INDEX idx_ota_inbound_processed ON operations.ota_inbound_messages (processed_at);
 
 -- +goose Down
 -- +goose NO TRANSACTION
