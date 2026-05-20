@@ -32,8 +32,7 @@ func main() {
 	root := repoRoot()
 
 	_ = godotenv.Load(filepath.Join(root, ".env"))
-
-	dbURL := os.Getenv("DB_URL")
+	dbURL := os.ExpandEnv(os.Getenv("DB_URL"))
 	if dbURL == "" {
 		log.Fatal("DB_URL is not set — run 'make docker-up' or set DB_URL in .env")
 	}
