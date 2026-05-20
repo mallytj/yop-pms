@@ -1,4 +1,4 @@
-.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc
+.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc _guard-local-db goose-circle
 
 COVERAGE_FILE = cover.out
 COVERAGE_HTML = cover.html
@@ -61,7 +61,12 @@ lint: ## Lints both front and backend
 	cd web && npm run lint
 
 
-reset-db: ## Run to reset the docker
+_guard-local-db:
+	@echo "$$GOOSE_DBSTRING" | grep -Eq 'host=(localhost|127\.0\.0\.1|postgres)\b' \
+		|| { echo "refusing: GOOSE_DBSTRING host not local (localhost/127.0.0.1/postgres)"; exit 1; }
+	@[ "$$CONFIRM" = "YES" ] || { echo "refusing: set CONFIRM=YES to proceed with destructive DB action"; exit 1; }
+
+reset-db: _guard-local-db ## Run to reset the docker (requires CONFIRM=YES and local GOOSE_DBSTRING)
 	docker-compose down -v
 	docker-compose up -d
 	@echo "Waiting for database to be ready..."
@@ -80,7 +85,7 @@ format: ## Formats all code
 	go fmt ./...
 	cd web && npm run format 
 
-goose-circle: ## Completely reset goose
+goose-circle: _guard-local-db ## Completely reset goose (requires CONFIRM=YES and local GOOSE_DBSTRING)
 	goose reset
 	goose up
 
