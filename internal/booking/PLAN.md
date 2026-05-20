@@ -103,9 +103,10 @@ inheritance or interface-hiding.
 | M13 | `final_price_pence` calculation trigger: `BEFORE INSERT OR UPDATE ON pricing.booked_daily_rates` computes `final_price_pence = base_price_pence + adjustment_value`. Frontend distributes per-night adjustment values before submission. Verify `adjustment JSONB` column exists (00004); add CHECK constraints on JSONB structure if missing.                                                           |
 | M14 | `do_not_move BOOLEAN NOT NULL DEFAULT false` on `operations.reservation_items`.                                                                                                                                                                                                                                                                                                                          |
 | M15 | `late_checkout_grace_minutes INT` on `operations.property_settings`. Per-property overstay tolerance.                                                                                                                                                                                                                                                                                                    |
-| M16 | `reservation_item_id UUID` column on `inventory.room_inventory_ledger` (verify absent first; FK to reservation_items, `ON DELETE RESTRICT`).                                                                                                                                                                                                                                                             |
-| M17 | `expires_at TIMESTAMPTZ` on `operations.reservations`. Populated on INSERT for `hold` status from property_settings TTL. Add CHECK constraint: `(status = 'hold' AND expires_at IS NOT NULL) OR (status <> 'hold')`. Required by HoldExpirySweep worker.                                                                                                                                                 |
+| M16 | `reservation_item_id UUID` column on `inventory.room_inventory_ledger` (verify absent first; FK to reservation_items, `ON DELETE RESTRICT`) + index `idx_inv_ledger_reservation_item ON inventory.room_inventory_ledger (reservation_item_id)`. `checkout_session_id` FK retained (renamed in finance PR per ADR-019).                                                                                  |
+| M17 | `expires_at TIMESTAMPTZ` on `operations.reservations`. Populated on INSERT for `hold` status by service layer: pick `property_settings.{source}_hold_ttl_seconds` and apply ADR-016 guest-presence tier (anonymous vs guest-attached). Worker only compares `expires_at < now()`. NULL'd on Confirm transition. Add CHECK constraint: `(status = 'hold' AND expires_at IS NOT NULL) OR (status <> 'hold')`. |
 | M18 | Audit log trigger: `AFTER INSERT OR UPDATE OR DELETE ON operations.reservations` + `...ON operations.reservation_items` writes to `auth.audit_logs`. Requires `SET LOCAL app.current_user_id` from auth middleware context. ADR-021.                                                                                                                                                                     |
+| M19 | `cancellation_intent JSONB` on `operations.reservations` (NULL default). Written in same tx before status flip on cancel; M18 trigger captures via row delta. Shape: `{ reason_code, fee_pence, waive_fee, fee_override_reason, refund_action, cancelled_by_user_id }`. Finance PR replays from this column for fee reconciliation.                                                                       |
 | M4  | Property settings TTL/grace cols: `website_hold_ttl_seconds`, `internal_hold_ttl_seconds`, `reservation_archive_after_days`, `no_show_grace_minutes` — add only those not already present.                                                                                                                                                                                                               |
 
 **Deferred:**
@@ -121,10 +122,17 @@ After migration: `make sqlc` then `make gen-constraints`.
 
 ## Phase 1: SQLC Queries
 
-**File:** `internal/store/queries/reservations.sql`
-
 SQLC queries split across focused files. `make sqlc` regenerates
 `internal/store/*.sql.go`.
+
+**`internal/store/queries/global.sql`**
+
+```text
+SetCurrentPropertyID   :exec    SELECT set_config('app.current_property_id', $1, true)
+SetCurrentUserID       :exec    SELECT set_config('app.current_user_id', $1, true)
+```
+
+Called inside every `ExecuteTx[T]` before user-supplied `fn`. RLS + M18 audit trigger both depend on these.
 
 **`internal/store/queries/reservation_crud.sql`**
 
@@ -354,6 +362,11 @@ func ExecuteTx[T any](
     if err := qtx.SetCurrentPropertyID(ctx, propertyID.String()); err != nil {
         return zero, fmt.Errorf("set rls: %w", err)
     }
+    if userID := helpers.GetUserIDFromCtx(ctx); userID != uuid.Nil {
+        if err := qtx.SetCurrentUserID(ctx, userID.String()); err != nil {
+            return zero, fmt.Errorf("set user id: %w", err)
+        }
+    }
 
     result, err := fn(qtx)
     if err != nil {
@@ -389,9 +402,13 @@ func NewService(db *pgxpool.Pool, q *store.Queries, rdb *redis.Client, log *slog
 ```text
 if input.Source == SourceWebsite { return nil, ErrSourceDeferred }       // booking-engine PR
 Validate (struct + domain) → Resolve guest → ExecuteTx[Reservation](db, q, ctx, func(qtx) {
-    -- pass user_id: qtx.SetCurrentUserID(ctx, userID) (for audit trigger M18)
+    -- ExecuteTx already called SetCurrentPropertyID + SetCurrentUserID
     Check availability (assigned_room_id path OR auto-pin via SelectRoomForAutoPin)
-    INSERT reservation (status per source rules below) → version=1
+    Resolve expires_at (hold only):
+      ttl_seconds = property_settings.{input.Source}_hold_ttl_seconds
+      if guest unattached → apply ADR-016 anonymous-tier override
+      expires_at = now() + ttl_seconds
+    INSERT reservation (status per source rules below, expires_at if hold) → version=1
     INSERT items + ledger + booked_daily_rates + folio A (stub)
     NotifyChannel('reservation_changes', payload)
     -- audit trail written automatically by M18 trigger (ADR-021)
@@ -410,7 +427,7 @@ Source → status rules:
 
 `ConfirmReservation(ctx, id, version)` — staff confirms a hold:
 
-```
+```text
 ExecuteTx → SELECT res FOR UPDATE → assert status=hold → assert guest_id NOT NULL
 → UPDATE status=confirmed, version++ → NOTIFY → return res
 ```
@@ -433,7 +450,7 @@ func (s *Service) AutoPinRoom(ctx, qtx *store.Queries, roomTypeID, date) (uuid.U
 func (s *Service) ConflictCheck(ctx, qtx *store.Queries, roomID, dates []time.Time, excludeItemID *uuid.UUID) error
 ```
 
-Cache: `cache:availability:{property_id}:{room_type_id}:{date}` TTL 6000s.
+Cache: `cache:availability:{property_id}:{room_type_id}:{date}` TTL 600s (reactive invalidation primary; TTL = safety net).
 Invalidated reactively by `NOTIFY reservation_changes` → events listener
 (ADR-010). **Individual reservations are not cached.**
 
@@ -463,7 +480,19 @@ Walks struct via reflection, matches `json` tags to constraint keys in
 | Layer                             | Examples                                                                                                                                      |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `validation.Struct`               | `notes` ≤ 2500 chars, `adults_count` ≥ 1, `source` not empty, `type`/`value`/`reason` within `adjustment` JSONB                               |
-| Domain check (handler or service) | Walk-in requires `assigned_room_id`, website source → 501, arrival not in past, LOS vs rate plan restrictions, permission-dependent branching |
+| Domain check (handler or service) | Walk-in requires `assigned_room_id`, website source → 501, past-date check (per op — see below), LOS vs rate plan restrictions, permission-dependent branching |
+
+**Past-date check (R-RES-VALID-002) per operation:**
+
+| Operation | Check |
+|---|---|
+| `POST /reservations` (Create) | `lower(envelope) >= today` (single check across all initial items) |
+| `POST /reservations/{id}/items` (AddItem) | check the **new item's** `lower(stay_period)` only (existing items may be live) |
+| `PATCH /reservations/{id}/items/{item_id}` stay-period update | check the **target item's new** `lower` only |
+| Extend (lengthen upper) | skip past-check (upper changes, not lower) |
+| Cancel item | skip past-check |
+
+`reservations:retroactive_create` bypasses all. `is_walkin=true` bypasses Create check only.
 
 `make gen-constraints` reads the live DB and writes both
 `config/constraints.g.yml` and `web/src/lib/types/constraints.g.ts`. Also syncs
@@ -530,7 +559,7 @@ HTTP 200 if all succeed, 207 if any fail.
 
 All endpoint handlers (~25 methods):
 
-```
+```text
 handlers_crud.go       Create, Get, List, UpdateMetadata, AddItem, UpdateItem, AssignRoom
 handlers_lifecycle.go  Confirm, Cancel, Reactivate, CheckinReservation, CheckinItem,
                        CheckoutReservation, CheckoutItem, MarkNoShow, CancelItem
@@ -718,7 +747,7 @@ Wired in `cmd/server/api.go`:
 r.Use(mw.StubAuth)                                  // sets property_id + perms into ctx
 r.Get("/api/v1/sse", sseHub.Subscribe)              // outside /v1 (no idempotency)
 r.Route("/v1", func(r chi.Router) {
-    r.Use(mw.Idempotency(app.rdb))
+    r.Use(mw.Idempotency(app.rdb))              // covers POST + PATCH at /v1; verify allowlist before merge
     r.Route("/reservations", booking.Routes(bookingSvc, mw.RequireIfMatch))
     // r.Route("/channels", ...)            — OTA PR
     // r.Route("/reservation-groups", ...)  — groups PR
@@ -727,7 +756,10 @@ r.Route("/v1", func(r chi.Router) {
 
 ---
 
-## Phase 9: SSE
+## Phase 9: SSE (rough sketch — finalised after research)
+
+User researches SSE before coding. Phase below is a skeleton; bracketed items
+are open. Final implementation may slip to a follow-up PR.
 
 `internal/platform/sse/hub.go` — cross-cutting hub (booking, future folios,
 groups all share).
@@ -815,7 +847,7 @@ Reminder-only (§4.4): worker sends NOTIFY
 
 Cached (Redis):
 
-- `cache:availability:{property_id}:{room_type_id}:{date}` — TTL 6000s,
+- `cache:availability:{property_id}:{room_type_id}:{date}` — TTL 600s,
   invalidated by `NOTIFY reservation_changes` listener.
 
 **Not cached:** individual reservation reads (by id), folio reads, booked-rates
@@ -827,7 +859,7 @@ as "availability queries" — RTM line to be updated.
 ## Implementation order
 
 ```text
-1. migrations/NNN-reservation-update.sql (M9!→M6→M7→M10→M11→M12→M13→M14→M15→M16→M17→M18→M4-ttls)
+1. migrations/NNN-reservation-update.sql (M9!→M6→M7→M10→M11→M12→M13→M14→M15→M16→M17→M18→M19→M4-ttls)
 2. SQLC queries split across 5 focused files (see Phase 1) → make sqlc → make gen-constraints
 3. platform additions:
      db/tx.go (ExecuteTx[T])
@@ -845,7 +877,9 @@ as "availability queries" — RTM line to be updated.
 11. booking/workers.go — register in cmd/server/main.go
 12. SSE hub registered in cmd/server/main.go + frontend smoke test
 13. Full test pass + make audit
-14. Booking integration tests (`internal/booking/*_test.go`) with testcontainers-go:
+14. Booking tests (`internal/booking/*_test.go`):
+      - state_machine_test.go: transition matrix (reservation + item), rollup (ADR-015), invalid transitions
+      - action_idempotency_test.go: §7.4 lookup table coverage
       - setup_test.go: TestMain spins up PostgreSQL 18 + Redis containers,
         runs goose migrations, seeds property/room_type/rate_plan test data
       - integration_test.go: scenario tests
