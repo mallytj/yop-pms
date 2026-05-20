@@ -62,8 +62,9 @@ lint: ## Lints both front and backend
 
 
 _guard-local-db:
-	@echo "$$GOOSE_DBSTRING" | grep -Eq 'host=(localhost|127\.0\.0\.1|postgres)\b' \
-		|| { echo "refusing: GOOSE_DBSTRING host not local (localhost/127.0.0.1/postgres)"; exit 1; }
+	@if [ ! -f .env ]; then echo "refusing: .env file is missing. Run 'make setup'."; exit 1; fi
+	@APP_ENV_VAL=$$(grep -E '^APP_ENV=' .env | cut -d= -f2- | xargs); \
+	[ "$$APP_ENV_VAL" = "dev" ] || { echo "refusing: APP_ENV in .env must be 'dev' (got '$$APP_ENV_VAL')"; exit 1; }
 	@[ "$$CONFIRM" = "YES" ] || { echo "refusing: set CONFIRM=YES to proceed with destructive DB action"; exit 1; }
 
 reset-db: _guard-local-db ## Run to reset the docker (requires CONFIRM=YES and local GOOSE_DBSTRING)
