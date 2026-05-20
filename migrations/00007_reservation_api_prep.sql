@@ -41,9 +41,11 @@ ALTER TABLE operations.reservation_groups DROP COLUMN sequential CASCADE;
 -- Re-add as plain columns; trigger populates BEFORE INSERT
 ALTER TABLE operations.reservations ADD COLUMN sequential BIGINT;
 ALTER TABLE operations.reservations ADD COLUMN code TEXT;
+ALTER TABLE operations.reservations ADD CONSTRAINT chk_reservations_code CHECK (code ~ '^RES-[0-9]{6}$');
 
 ALTER TABLE operations.reservation_groups ADD COLUMN sequential BIGINT;
 ALTER TABLE operations.reservation_groups ADD COLUMN code TEXT;
+ALTER TABLE operations.reservation_groups ADD CONSTRAINT chk_reservation_groups_code CHECK (code ~ '^GRP-[0-9]{5}$');
 
 -- +goose StatementBegin
 CREATE OR REPLACE FUNCTION operations.fn_assign_reservation_code() RETURNS TRIGGER AS $$
