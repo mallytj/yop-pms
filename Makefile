@@ -1,7 +1,8 @@
 .PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc _guard-local-db goose-circle
 
-COVERAGE_FILE = cover.out
-COVERAGE_HTML = cover.html
+COVERAGE_DIR = /tmp/yop-pms-coverage
+COVERAGE_FILE = $(COVERAGE_DIR)/cover.out
+COVERAGE_HTML = $(COVERAGE_DIR)/cover.html
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -95,10 +96,11 @@ gen-constraints: ## Sync constraints.yml and constraints.ts from live DB check c
 
 ## test-cover: Run tests and open coverage report in browser
 test-cover:
+	@mkdir -p $(COVERAGE_DIR)
 	@echo "Running tests and generating coverage..."
 	go test -v -coverprofile=$(COVERAGE_FILE) ./...
 	go tool cover -html=$(COVERAGE_FILE) -o $(COVERAGE_HTML)
-	@echo "Opening coverage report..."
+	@echo "Coverage report: $(COVERAGE_HTML)"
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		open $(COVERAGE_HTML); \
 	elif [ "$$(uname)" = "Linux" ]; then \
@@ -109,4 +111,4 @@ test-cover:
 
 ## clean-cover: Remove coverage files
 clean-cover:
-	rm -f $(COVERAGE_FILE) $(COVERAGE_HTML)
+	rm -rf $(COVERAGE_DIR)

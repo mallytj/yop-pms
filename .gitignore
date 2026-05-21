@@ -4,8 +4,6 @@ tmp/
 .worktrees/
 
 .env
-/cover.out
-/cover.html
 
 .gemini/
 gha-creds-*.json
