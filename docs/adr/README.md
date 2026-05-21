@@ -6,12 +6,23 @@ This directory contains architecture decision records for Yop PMS. Each ADR docu
 
 Each ADR follows this structure:
 
-- **Status** — Accepted, Proposed, Deprecated, Superseded
-- **Context** — Why we needed to make a decision
-- **Decision** — What we decided to do
-- **Consequences** — Positive and negative impacts
-- **Alternatives** — Options we considered
-- **References** — Links to related code, docs, and external resources
+```
+# ADR NNN: Title
+
+## Status
+
+**Accepted** | **Proposed** | **Deprecated** | **Superseded by ADR-NNN**
+
+2-3 sentences on what was decided and why.
+
+Alternatives and why not them.
+
+---
+
+See: references to code, migrations, other ADRs
+```
+
+The format prioritises concision. A decision should fit in a paragraph. Alternatives get one line each. Consequences are implicit in the choice of one alternative over another. Old ADRs may use a more verbose format — new ADRs should use this short form.
 
 ## ADRs
 
@@ -48,6 +59,7 @@ Each ADR follows this structure:
 | [018](018-stay-period-time-semantics.md)    | `stay_period` Time Semantics     | Proposed |
 | [019](019-payment-authorization-model.md)   | Payment Authorization for Holds  | Proposed |
 | [020](020-reservation-envelope.md)          | Reservation Envelope Column      | Proposed |
+| [021](021-audit-logs-via-trigger.md)        | Audit Logs via Database Trigger  | Proposed |
 
 ## How to Create a New ADR
 
@@ -60,50 +72,19 @@ Each ADR follows this structure:
 ### ADR Template
 
 ```markdown
-# ADR NNN: [Short Decision Title]
+# ADR NNN: Title
 
 ## Status
 
-**[Accepted | Proposed | Deprecated | Superseded by ADR-NNN]**
+**Accepted** | **Proposed**
 
-## Context
+2-3 sentences on what was decided and why.
 
-**What is the problem we are solving?**
+Alternatives and why not them.
 
-Describe the forces at play, constraints, and the pain point that triggered this decision.
+---
 
-## Decision
-
-**What are we doing about it?**
-
-State the decision clearly. Use strong language like "We will use..." or "We have chosen to..."
-
-Include implementation details: specific libraries, patterns, or protocols that are vital.
-
-## Consequences
-
-**What is the aftermath of this decision?**
-
-### ✅ Positive (The "Wins")
-
-- **Benefit 1:** How this improves the system (performance, security, developer experience)
-- **Benefit 2:** Next benefit
-
-### ⚠️ Negative (The "Costs")
-
-- **Trade-off 1:** What did we give up?
-- **Trade-off 2:** New complexity being introduced
-
-## Alternatives Considered
-
-- **Alternative A:** Why we rejected this
-- **Alternative B:** Why this wasn't a fit
-
-## References
-
-- [Link to issue/ticket]
-- [Link to related ADR]
-- [Link to external documentation]
+See: references to code, migrations, other ADRs
 ```
 
 ## ADR Workflow
@@ -171,6 +152,7 @@ Find ADRs by topic:
 - [ADR-018](018-stay-period-time-semantics.md) — `stay_period` TSTZRANGE bounds carry property check-in/out times
 - [ADR-019](019-payment-authorization-model.md) — Card auth at hold time for website source
 - [ADR-020](020-reservation-envelope.md) — Materialised `stay_period_envelope` column on reservations
+- [ADR-021](021-audit-logs-via-trigger.md) — Audit logs written by database trigger, not application code
 
 ### Frontend / Transport
 
@@ -178,14 +160,7 @@ Find ADRs by topic:
 
 ## Principles
 
-1. **Decisions are permanent records** — Don't edit ADRs; create new ones if you change your mind
-2. **Include tradeoffs** — Every decision has pros and cons; be explicit
-3. **Link to code** — Show where the decision is implemented
-4. **Be specific** — "We use Redis" vs "We use Redis with 24h TTL for availability cache keys"
-5. **Explain why** — Context is as important as the decision itself
-
-## Further Reading
-
-- [Lightweight ADRs by Michael Nygard](http://thinkrelevant.net/blog/2011/11/15/documenting-architecture-decisions/)
-- [ADRs on GitHub](https://github.com/joelparkerhenderson/architecture_decision_record)
-- [Architectural Thinking](https://www.thoughtworks.com/en-us/insights/article/architectural-thinking)
+1. **Be concise** — Fit the decision in a paragraph. If it needs more, the decision is probably too big or not well understood.
+2. **Cover the alternatives** — The decision itself is obvious; the alternatives are what make it worth recording.
+3. **Link to code** — Show where the decision is implemented.
+4. **Old ADRs stay as-is** — Don't rewrite them. New ADRs use the short form.
