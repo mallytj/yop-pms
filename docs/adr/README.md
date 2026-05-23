@@ -60,6 +60,7 @@ The format prioritises concision. A decision should fit in a paragraph. Alternat
 | [019](019-payment-authorization-model.md)   | Payment Authorization for Holds  | Proposed |
 | [020](020-reservation-envelope.md)          | Reservation Envelope Column      | Proposed |
 | [021](021-audit-logs-via-trigger.md)        | Audit Logs via Database Trigger  | Proposed |
+| [022](022-response-depth-include.md)        | Response Depth via `?include=`   | Accepted |
 
 ## How to Create a New ADR
 
@@ -152,6 +153,7 @@ Find ADRs by topic:
 - [ADR-018](018-stay-period-time-semantics.md) — `stay_period` TSTZRANGE bounds carry property check-in/out times
 - [ADR-019](019-payment-authorization-model.md) — Card auth at hold time for website source
 - [ADR-020](020-reservation-envelope.md) — Materialised `stay_period_envelope` column on reservations
+- [ADR-022](022-response-depth-include.md) — Response depth control via `?include=` query parameter
 - [ADR-021](021-audit-logs-via-trigger.md) — Audit logs written by database trigger, not application code
 
 ### Frontend / Transport

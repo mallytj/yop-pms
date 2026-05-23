@@ -366,6 +366,7 @@ Allotments, cutoff dates, group rates, rooming lists in `/docs/requirements/rese
 - ADR-018 — `stay_period` time semantics
 - ADR-019 — Payment authorization model (deferred impl)
 - ADR-020 — `stay_period_envelope` materialised column
+- ADR-022 — Response depth control via `?include=` query parameter
 
 ## 15. Companion Docs
 
