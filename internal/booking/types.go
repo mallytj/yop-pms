@@ -16,7 +16,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lexxcode1/yop-pms/internal/platform/types"
-	"github.com/lexxcode1/yop-pms/internal/store"
 )
 
 // ReservationSource is the origin of a reservation.
@@ -93,6 +92,7 @@ const (
 
 // SourceToInitialStatus maps reservation source (+walkin flag) to initial
 // reservation and item statuses. See PLAN.md Phase 3 source→status table.
+// In short: if the source is from an OTA - they handle the holds etc. therefore confirmed
 var SourceToInitialStatus = map[ReservationSource]struct {
 	ReservationStatus ReservationStatus
 	ItemStatus        ItemStatus
@@ -174,10 +174,11 @@ type GuestInlinePayload struct {
 // and fees, is deferred to a future PR - this is for future compat.
 type CancelInput struct {
 	ReasonCode        string       `json:"reason_code" example:"guest_request"`
-	FeePence          int          `json:"fee_pence" example:"5000"`
+	FeePence          int32        `json:"fee_pence" example:"5000"`
 	WaiveFee          bool         `json:"waive_fee" example:"false"`
 	FeeOverrideReason string       `json:"fee_override_reason" example:"Loyalty member"`
 	RefundAction      RefundAction `json:"refund_action" example:"original"`
+	ShortenStay       bool         `json:"shorten_stay" example:"false"` // force-cancel checked-in items (requires reservations:post_checkin_mutate)
 }
 
 // RateAdjustment is a single night's rate adjustment.
@@ -257,8 +258,84 @@ func SourceIsWalkin(source ReservationSource, isWalkin bool) bool {
 }
 
 // ReservationResponse is the API response for a reservation.
-// Reuses the SQLC-generated model, re-exported for handler convenience.
-type ReservationResponse = store.OperationsReservation
+// Clean JSON types — no pgtype structs leak into the API contract.
+// TODO: auto-generate from sqlc models via `make gen-api-types` to avoid drift.
+// This current solution means that if we change anything in the DB etc it won't update automatically
+type ReservationResponse struct {
+	ID                 uuid.UUID           `json:"id" example:"00000000-0000-0000-0000-000000000000"`
+	PropertyID         uuid.UUID           `json:"property_id" example:"00000000-0000-0000-0000-000000000000"`
+	PrimaryGuestID     *uuid.UUID          `json:"primary_guest_id,omitempty" example:"00000000-0000-0000-0000-000000000000"`
+	GroupID            *uuid.UUID          `json:"group_id,omitempty" example:"00000000-0000-0000-0000-000000000000"`
+	Source             ReservationSource   `json:"source" example:"internal"`
+	TravelAgentID      *uuid.UUID          `json:"travel_agent_id,omitempty" example:"00000000-0000-0000-0000-000000000000"`
+	Notes              string              `json:"notes" example:"Guest requested top floor"`
+	Status             ReservationStatus   `json:"status" example:"hold"`
+	Version            int32               `json:"version" example:"1"`
+	CreatedAt          time.Time           `json:"created_at"`
+	UpdatedAt          time.Time           `json:"updated_at"`
+	DeletedAt          *time.Time          `json:"deleted_at,omitempty"`
+	Sequential         int64               `json:"sequential" example:"42"`
+	Code               string              `json:"code" example:"RES-111213"`
+	StayPeriodEnvelope string              `json:"stay_period_envelope"`
+	ExpiresAt          *time.Time          `json:"expires_at,omitempty"`
+	CancellationIntent *CancellationIntent `json:"cancellation_intent,omitempty"`
+	Guest              *GuestResponse      `json:"guest,omitempty"`
+	Items              []ItemResponse      `json:"items,omitempty" constraints:"operations.reservation_items"`
+}
 
 // ItemResponse is the API response for a reservation item.
-type ItemResponse = store.OperationsReservationItem
+// TODO: auto-generate from sqlc models via `make gen-api-types` to avoid drift.
+type ItemResponse struct {
+	ID               uuid.UUID  `json:"id" example:"00000000-0000-0000-0000-000000000000"`
+	PropertyID       uuid.UUID  `json:"property_id" example:"00000000-0000-0000-0000-000000000000"`
+	ReservationID    uuid.UUID  `json:"reservation_id" example:"00000000-0000-0000-0000-000000000000"`
+	BookedRoomTypeID uuid.UUID  `json:"booked_room_type_id" example:"00000000-0000-0000-0000-000000000000"`
+	AssignedRoomID   *uuid.UUID `json:"assigned_room_id,omitempty" example:"00000000-0000-0000-0000-000000000000"`
+	GuestID          *uuid.UUID `json:"guest_id,omitempty" example:"00000000-0000-0000-0000-000000000000"`
+	RatePlanID       *uuid.UUID `json:"rate_plan_id,omitempty" example:"00000000-0000-0000-0000-000000000000"`
+	StayPeriod       string     `json:"stay_period"`
+	BaseRatePence    int32      `json:"base_rate_pence" example:"15000"`
+	AdultsCount      int32      `json:"adults_count" example:"2"`
+	ChildrenCount    int32      `json:"children_count" example:"0"`
+	Status           ItemStatus `json:"status" example:"booked"`
+	Version          int32      `json:"version" example:"1"`
+	DoNotMove        bool       `json:"do_not_move" example:"false"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+	DeletedAt        *time.Time `json:"deleted_at,omitempty"`
+}
+
+// CancellationIntent stores the cancellation metadata recorded at cancel time.
+type CancellationIntent struct {
+	ReasonCode        string       `json:"reason_code" example:"guest_request"`
+	FeePence          int32        `json:"fee_pence" example:"5000"`
+	WaiveFee          bool         `json:"waive_fee" example:"false"`
+	FeeOverrideReason string       `json:"fee_override_reason,omitempty" example:"Loyalty member"`
+	RefundAction      RefundAction `json:"refund_action" example:"original"`
+	CancelledByUserID *uuid.UUID   `json:"cancelled_by_user_id,omitempty"`
+}
+
+// IncludeFlags controls which related resources are embedded in API responses.
+// Parsed from the ?include= query parameter with comma-separated values.
+// Default (no param): items included, guest ID only, no folio.
+// ?include=none: lightweight envelope without items.
+type IncludeFlags struct {
+	Items        bool // include items[] array (default true when param absent)
+	Guest        bool // expand primary_guest_id into guest object
+	FolioSummary bool // include folio balance and part info
+	None         bool // explicitly exclude items (forces Items=false)
+}
+
+// IncludeItems returns true when items should be included in the response.
+func (f IncludeFlags) IncludeItems() bool { return f.Items && !f.None }
+
+// GuestResponse is the expanded guest object returned when ?include=guest.
+// TODO: auto-generate from sqlc models via `make gen-api-types` to avoid drift.
+type GuestResponse struct {
+	ID         uuid.UUID `json:"id" example:"00000000-0000-0000-0000-000000000000"`
+	PropertyID uuid.UUID `json:"property_id"`
+	FirstName  string    `json:"first_name" example:"Jane"`
+	LastName   string    `json:"last_name" example:"Doe"`
+	Email      string    `json:"email,omitempty" example:"jane@example.com"`
+	Phone      string    `json:"phone,omitempty" example:"+441234567890"`
+}

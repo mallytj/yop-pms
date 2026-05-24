@@ -1,5 +1,42 @@
 # Booking Implementation Plan
 
+<!--toc:start-->
+
+- [Booking Implementation Plan](#booking-implementation-plan)
+  - [File layout](#file-layout)
+  - [How files connect](#how-files-connect)
+  - [Phase 0: Migrations](#phase-0-migrations)
+  - [Phase 1: SQLC Queries](#phase-1-sqlc-queries)
+  - [Phase 2: Types + State Machine](#phase-2-types-state-machine)
+    - [`types.go` — ~150 LOC](#typesgo-150-loc)
+    - [`errors.go` — domain sentinels (drop DomainError)](#errorsgo-domain-sentinels-drop-domainerror)
+    - [`state_machine.go` — ~100 LOC](#statemachinego-100-loc)
+  - [Phase 3: Service — Transactions + Create + Confirm](#phase-3-service-transactions-create-confirm)
+    - [Transaction pattern: `ExecuteTx[T]` (platform helper)](#transaction-pattern-executetxt-platform-helper)
+    - [`service.go` — ~250 LOC](#servicego-250-loc)
+  - [Phase 4: Availability](#phase-4-availability)
+    - [`availability.go` — ~120 LOC](#availabilitygo-120-loc)
+  - [Phase 5: Validation via constraints](#phase-5-validation-via-constraints)
+  - [Phase 6: Handlers](#phase-6-handlers)
+  - [Phase 7: Remaining business logic](#phase-7-remaining-business-logic)
+    - [`actions.go` — ~280 LOC](#actionsgo-280-loc)
+    - [`mutations.go` — ~240 LOC](#mutationsgo-240-loc)
+    - [`rates.go` — ~180 LOC](#ratesgo-180-loc)
+  - [Phase 8: Router + Middleware](#phase-8-router-middleware)
+    - [Auth (StubAuth) — `internal/platform/middleware/auth.go`](#auth-stubauth-internalplatformmiddlewareauthgo)
+    - [Permissions: route-static vs body-conditional](#permissions-route-static-vs-body-conditional)
+    - [If-Match — `internal/platform/middleware/ifmatch.go`](#if-match-internalplatformmiddlewareifmatchgo)
+    - [`router.go` — ~90 LOC](#routergo-90-loc)
+  - [Phase 9: SSE (rough sketch — finalised after research)](#phase-9-sse-rough-sketch-finalised-after-research)
+  - [Phase 10: Workers](#phase-10-workers)
+    - [Hold expiry](#hold-expiry)
+    - [No-show](#no-show)
+  - [Phase 11: Caching](#phase-11-caching)
+  - [Implementation order](#implementation-order)
+  - [Items intentionally NOT in this PR](#items-intentionally-not-in-this-pr)
+  - [Risks & follow-ups](#risks-follow-ups)
+  <!--toc:end-->
+
 > Sources: `docs/flows/reservations.md` (sequence diagrams),
 > `docs/requirements/reservations.md` (RTM), `docs/adr/*`, `AGENTS.md`.
 
@@ -14,6 +51,7 @@ OTA inbound, reservation groups, real auth are **deferred** to follow-up PRs.
 ```text
 internal/booking/
 ├── types.go                  enums, I/O structs (no DomainError — use apierror)
+├── include.go                IncludeFlags, ParseIncludeFlags (unexported type, no functions in types.go)
 ├── errors.go                 *apierror.APIError sentinels for domain errors
 ├── state_machine.go          transitions, rollup (ADR-015), ActionIdempotency (§7.4)
 ├── availability.go           CheckAvailability, AutoPinRoom, ConflictCheck
@@ -65,6 +103,10 @@ internal/platform/db/
   via `ExecuteTx[T]`. No `Querier` interface field.
 - State machine functions are pure — unit-testable with zero dependencies.
 - File size ceiling: ~300 LOC. `handlers_lifecycle.go` may approach 400.
+- Each implementation phase ships a companion `*_ec_test.go` file covering all
+  applicable edge cases from `docs/requirements/reservations.md §8`.
+  Active tests for implemented methods, `t.Skip()` + blocker note for deferred.
+  See `service_ec_test.go` for the pattern.
 
 ---
 
@@ -578,6 +620,9 @@ registered** this PR. Reservation-groups routes **not registered** this PR (chi
 
 ## Phase 7: Remaining business logic
 
+Test files: `actions_ec_test.go`, `mutations_ec_test.go`, `rates_ec_test.go`,
+edge cases for Cancel, Checkin, Checkout, Reactivate, UpdateItem, AssignRoom.
+
 ### `actions.go` — ~280 LOC
 
 ```go
@@ -795,6 +840,8 @@ Frontend: `EventSource("/api/v1/sse")`, browser auto-reconnects.
 ---
 
 ## Phase 10: Workers
+
+Test file: `workers_ec_test.go` — edge cases for hold expiry, overstay, archival.
 
 `workers.go` — sweep workers run as standalone goroutines started in
 `cmd/server/main.go`:
