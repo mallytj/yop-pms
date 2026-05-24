@@ -32,6 +32,10 @@ type Querier interface {
 	// Returns conflicting dates for precise error messaging
 	// @exclude_item_id is nullable: NULL = check all items
 	ConflictCheckOnLedger(ctx context.Context, arg *ConflictCheckOnLedgerParams) ([]pgtype.Date, error)
+	// Finance folio queries
+	CreateFolio(ctx context.Context, arg *CreateFolioParams) (FinanceFolio, error)
+	// Guest queries for inline guest creation and expansion
+	CreateGuest(ctx context.Context, arg *CreateGuestParams) (IdentityGuest, error)
 	CreateOutboxEvent(ctx context.Context, arg *CreateOutboxEventParams) (uuid.UUID, error)
 	// Reservation CRUD queries
 	// See ADR-015 for state machine, ADR-020 for stay_period_envelope
@@ -47,7 +51,10 @@ type Querier interface {
 	FindOverdueCheckins(ctx context.Context) ([]OperationsReservationItem, error)
 	FindOverstays(ctx context.Context) ([]OperationsReservationItem, error)
 	GetBookedRates(ctx context.Context, arg *GetBookedRatesParams) ([]PricingBookedDailyRate, error)
+	GetGuest(ctx context.Context, id uuid.UUID) (IdentityGuest, error)
+	GetPropertyTimezone(ctx context.Context, id uuid.UUID) (string, error)
 	GetReservation(ctx context.Context, id uuid.UUID) (GetReservationRow, error)
+	GetReservationItems(ctx context.Context, arg *GetReservationItemsParams) ([]OperationsReservationItem, error)
 	// Reservation rate queries
 	// All price changes go through adjustment column + audit log
 	// Base price is immutable after creation
@@ -56,20 +63,23 @@ type Querier interface {
 	InsertLedgerRow(ctx context.Context, arg *InsertLedgerRowParams) error
 	// Cursor pagination per ADR-014
 	ListReservations(ctx context.Context, arg *ListReservationsParams) ([]OperationsReservation, error)
+	NotifyChannel(ctx context.Context, arg *NotifyChannelParams) error
 	// Reservation items queries
 	// See ADR-015 for rollup rule, ADR-013 for locking & availability
 	// ADR-015 rollup: item status changes drive reservation status
 	// Returns new_status TEXT (NULL = unchanged)
 	RollupReservationStatus(ctx context.Context, reservationID uuid.UUID) (string, error)
 	// ADR-013: Auto-pin lowest available room of requested type
+	// Uses LEFT JOIN with FOR UPDATE on the rooms side, not the outer join.
 	SelectRoomForAutoPin(ctx context.Context, arg *SelectRoomForAutoPinParams) (uuid.UUID, error)
+	// Cross-cutting queries used by ExecuteTx and notification infrastructure.
 	SetCurrentPropertyID(ctx context.Context, propertyID string) error
 	SoftDeleteBookedRatesNotInPeriod(ctx context.Context, arg *SoftDeleteBookedRatesNotInPeriodParams) error
 	UpdateLedgerRowRoom(ctx context.Context, arg *UpdateLedgerRowRoomParams) error
 	UpdateReservationItem(ctx context.Context, arg *UpdateReservationItemParams) (OperationsReservationItem, error)
 	UpdateReservationMetadata(ctx context.Context, arg *UpdateReservationMetadataParams) (OperationsReservation, error)
 	// Rollup applies the new status via service layer; version check prevents races
-	UpdateReservationStatus(ctx context.Context, arg *UpdateReservationStatusParams) error
+	UpdateReservationStatus(ctx context.Context, arg *UpdateReservationStatusParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)
