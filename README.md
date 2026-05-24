@@ -1,6 +1,9 @@
-# Yop PMS
+# <img src="./yop-logo.png" style="height: 100px; width: auto; margin: 0 auto" alt="Yop Logo" />
 
-Yop PMS is a modern, high-performance Property Management System built for reliability and low operational cost. The stack is type-safe end-to-end — from the database schema to the frontend — to minimise runtime errors and maximise developer velocity.
+Yop PMS is a modern, high-performance Property Management System built for
+reliability and low operational cost. The stack is type-safe end-to-end — from
+the database schema to the frontend — to minimise runtime errors and maximise
+developer velocity.
 
 ## Tech Stack
 
@@ -21,11 +24,16 @@ Yop PMS is a modern, high-performance Property Management System built for relia
 
 ### Monorepo
 
-All code, documentation, and infrastructure lives in one repository. A single `docker-compose.yml` and `Makefile` orchestrate the entire system. See [ADR-001](./docs/adr/001-monorepo.md).
+All code, documentation, and infrastructure lives in one repository. A single
+`docker-compose.yml` and `Makefile` orchestrate the entire system. See
+[ADR-001](./docs/adr/001-monorepo.md).
 
 ### Schema-First API
 
-Swagger annotations in Go handlers are the single source of truth. `make gen` produces `/api/openapi.json` and generates `/web/src/lib/types/api.d.ts` — the frontend never defines its own API types. See [ADR-003](./docs/adr/003-schema_first_api.md).
+Swagger annotations in Go handlers are the single source of truth. `make gen`
+produces `/api/openapi.json` and generates `/web/src/lib/types/api.d.ts` — the
+frontend never defines its own API types. See
+[ADR-003](./docs/adr/003-schema_first_api.md).
 
 ### Three-Layer Backend
 
@@ -35,11 +43,14 @@ Service  →  business logic, caching, error mapping
 Store    →  SQLC-generated database queries (never edit manually)
 ```
 
-Handlers have no knowledge of the cache or database. Services own data retrieval and map all database errors to typed `APIError` responses before they reach the handler.
+Handlers have no knowledge of the cache or database. Services own data retrieval
+and map all database errors to typed `APIError` responses before they reach the
+handler.
 
 ### Platform Layer
 
-Cross-cutting concerns live in `internal/platform/` and are shared across all domains:
+Cross-cutting concerns live in `internal/platform/` and are shared across all
+domains:
 
 | Package       | Purpose                                                             |
 | ------------- | ------------------------------------------------------------------- |
@@ -55,17 +66,24 @@ See [Platform Layer Guide](./docs/guides/platform-layer.md) for usage patterns.
 
 ### Reactive Cache Invalidation
 
-PostgreSQL triggers fire `NOTIFY` on reservation, guest, and pricing changes. The `events` listener receives these immediately and invalidates only the affected cache keys. TTLs (24h) are a safety net for listener downtime, not the primary freshness mechanism. See [ADR-010](./docs/adr/010-reactive-cache-invalidation.md).
+PostgreSQL triggers fire `NOTIFY` on reservation, guest, and pricing changes.
+The `events` listener receives these immediately and invalidates only the
+affected cache keys. TTLs (24h) are a safety net for listener downtime, not the
+primary freshness mechanism. See
+[ADR-010](./docs/adr/010-reactive-cache-invalidation.md).
 
 ### Database
 
 - **Financials** — `INTEGER` only (smallest currency unit, no floats)
 - **Timestamps** — `TIMESTAMPTZ` exclusively
 - **Primary keys** — UUIDv7 (time-sortable)
-- **Multi-tenancy** — `property_id` on every tenant-isolated table; Row-Level Security enabled
-- **Soft deletes** — `deleted_at TIMESTAMPTZ`; uniqueness indexes use `WHERE (deleted_at IS NULL)`
+- **Multi-tenancy** — `property_id` on every tenant-isolated table; Row-Level
+  Security enabled
+- **Soft deletes** — `deleted_at TIMESTAMPTZ`; uniqueness indexes use
+  `WHERE (deleted_at IS NULL)`
 
-See [ADR-004](./docs/adr/004-core_db_principles.md) and [Database Conventions](./docs/database/conventions.md).
+See [ADR-004](./docs/adr/004-core_db_principles.md) and
+[Database Conventions](./docs/database/conventions.md).
 
 ## Getting Started
 
