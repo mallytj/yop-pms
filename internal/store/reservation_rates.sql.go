@@ -74,7 +74,7 @@ INSERT INTO pricing.booked_daily_rates (
     unnest($1::uuid[]),
     unnest($2::uuid[]),
     unnest($3::date[]),
-    unnest($4::uuid[]),
+    unnest($4::uuid[])::uuid,
     unnest($5::int[])
 `
 

@@ -17,7 +17,7 @@ INSERT INTO pricing.booked_daily_rates (
     unnest(@property_ids::uuid[]),
     unnest(@reservation_item_ids::uuid[]),
     unnest(@calendar_dates::date[]),
-    unnest(@rate_plan_ids::uuid[]),
+    unnest(@rate_plan_ids::uuid[])::uuid,
     unnest(@base_price_pences::int[]);
 
 -- name: SoftDeleteBookedRatesNotInPeriod :exec

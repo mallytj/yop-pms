@@ -27,15 +27,18 @@ GROUP BY ril.calendar_date
 ORDER BY ril.calendar_date;
 
 -- ADR-013: Auto-pin lowest available room of requested type
+-- Uses LEFT JOIN with FOR UPDATE on the rooms side, not the outer join.
 -- name: SelectRoomForAutoPin :one
 SELECT r.id FROM inventory.rooms r
-LEFT JOIN inventory.room_inventory_ledger ril ON r.id = ril.room_id 
+WHERE r.property_id = @property_id
+AND r.room_type_id = @room_type_id
+AND NOT EXISTS (
+    SELECT 1 FROM inventory.room_inventory_ledger ril
+    WHERE ril.room_id = r.id
     AND ril.calendar_date = ANY(@dates::date[])
     AND ril.status IN ('sold', 'on_hold', 'maintenance', 'decommissioned')
     AND ril.deleted_at IS NULL
-WHERE r.property_id = @property_id
-AND r.room_type_id = @room_type_id
-AND ril.id IS NULL
+)
 ORDER BY r.name ASC
 LIMIT 1 FOR UPDATE SKIP LOCKED;
 
@@ -68,7 +71,7 @@ INSERT INTO inventory.room_inventory_ledger (
     unnest(@reservation_ids::uuid[]),
     unnest(@reservation_item_ids::uuid[]),
     unnest(@calendar_dates::date[]),
-    unnest(@statuses::inventory.inventory_status[]);
+    unnest(@statuses::text[])::inventory.inventory_status;
 
 -- name: UpdateLedgerRowRoom :exec
 UPDATE inventory.room_inventory_ledger
@@ -100,3 +103,10 @@ AND version = @version;
 DELETE FROM inventory.room_inventory_ledger
 WHERE reservation_id = @reservation_id
 AND property_id = @property_id;
+
+-- name: GetReservationItems :many
+SELECT * FROM operations.reservation_items
+WHERE reservation_id = @reservation_id
+AND property_id = @property_id
+AND deleted_at IS NULL
+ORDER BY created_at ASC;

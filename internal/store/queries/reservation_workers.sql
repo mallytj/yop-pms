@@ -53,9 +53,9 @@ ORDER BY
 LIMIT 500 FOR UPDATE SKIP LOCKED;
 
 -- Rollup applies the new status via service layer; version check prevents races
--- name: UpdateReservationStatus :exec
+-- name: UpdateReservationStatus :execrows
 UPDATE operations.reservations
 SET status = @status,
-version = version + 1,
-updated_at = NOW()
+  version = version + 1,
+  updated_at = NOW()
 WHERE id = @id AND version = @version;

@@ -221,11 +221,11 @@ func (q *Queries) FindOverstays(ctx context.Context) ([]OperationsReservationIte
 	return items, nil
 }
 
-const updateReservationStatus = `-- name: UpdateReservationStatus :exec
+const updateReservationStatus = `-- name: UpdateReservationStatus :execrows
 UPDATE operations.reservations
 SET status = $1,
-version = version + 1,
-updated_at = NOW()
+  version = version + 1,
+  updated_at = NOW()
 WHERE id = $2 AND version = $3
 `
 
@@ -236,7 +236,10 @@ type UpdateReservationStatusParams struct {
 }
 
 // Rollup applies the new status via service layer; version check prevents races
-func (q *Queries) UpdateReservationStatus(ctx context.Context, arg *UpdateReservationStatusParams) error {
-	_, err := q.db.Exec(ctx, updateReservationStatus, arg.Status, arg.ID, arg.Version)
-	return err
+func (q *Queries) UpdateReservationStatus(ctx context.Context, arg *UpdateReservationStatusParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateReservationStatus, arg.Status, arg.ID, arg.Version)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

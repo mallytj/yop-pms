@@ -71,16 +71,16 @@ INSERT INTO inventory.room_inventory_ledger (
     unnest($3::uuid[]),
     unnest($4::uuid[]),
     unnest($5::date[]),
-    unnest($6::inventory.inventory_status[])
+    unnest($6::text[])::inventory.inventory_status
 `
 
 type BulkInsertLedgerRowsParams struct {
-	PropertyIds        []uuid.UUID                `json:"property_ids"`
-	RoomIds            []uuid.UUID                `json:"room_ids"`
-	ReservationIds     []uuid.UUID                `json:"reservation_ids"`
-	ReservationItemIds []uuid.UUID                `json:"reservation_item_ids"`
-	CalendarDates      []pgtype.Date              `json:"calendar_dates"`
-	Statuses           []InventoryInventoryStatus `json:"statuses"`
+	PropertyIds        []uuid.UUID   `json:"property_ids"`
+	RoomIds            []uuid.UUID   `json:"room_ids"`
+	ReservationIds     []uuid.UUID   `json:"reservation_ids"`
+	ReservationItemIds []uuid.UUID   `json:"reservation_item_ids"`
+	CalendarDates      []pgtype.Date `json:"calendar_dates"`
+	Statuses           []string      `json:"statuses"`
 }
 
 func (q *Queries) BulkInsertLedgerRows(ctx context.Context, arg *BulkInsertLedgerRowsParams) error {
@@ -212,6 +212,57 @@ func (q *Queries) DeleteLedgerRowsByItemFromDate(ctx context.Context, arg *Delet
 	return err
 }
 
+const getReservationItems = `-- name: GetReservationItems :many
+SELECT id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status, created_at, updated_at, deleted_at, version, do_not_move FROM operations.reservation_items
+WHERE reservation_id = $1
+AND property_id = $2
+AND deleted_at IS NULL
+ORDER BY created_at ASC
+`
+
+type GetReservationItemsParams struct {
+	ReservationID uuid.UUID `json:"reservation_id"`
+	PropertyID    uuid.UUID `json:"property_id"`
+}
+
+func (q *Queries) GetReservationItems(ctx context.Context, arg *GetReservationItemsParams) ([]OperationsReservationItem, error) {
+	rows, err := q.db.Query(ctx, getReservationItems, arg.ReservationID, arg.PropertyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OperationsReservationItem
+	for rows.Next() {
+		var i OperationsReservationItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.PropertyID,
+			&i.ReservationID,
+			&i.BookedRoomTypeID,
+			&i.AssignedRoomID,
+			&i.GuestID,
+			&i.RatePlanID,
+			&i.StayPeriod,
+			&i.BaseRatePence,
+			&i.AdultsCount,
+			&i.ChildrenCount,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.Version,
+			&i.DoNotMove,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertLedgerRow = `-- name: InsertLedgerRow :exec
 INSERT INTO inventory.room_inventory_ledger (
     property_id, room_id, reservation_id, reservation_item_id, calendar_date, status
@@ -267,26 +318,29 @@ func (q *Queries) RollupReservationStatus(ctx context.Context, reservationID uui
 
 const selectRoomForAutoPin = `-- name: SelectRoomForAutoPin :one
 SELECT r.id FROM inventory.rooms r
-LEFT JOIN inventory.room_inventory_ledger ril ON r.id = ril.room_id 
-    AND ril.calendar_date = ANY($1::date[])
+WHERE r.property_id = $1
+AND r.room_type_id = $2
+AND NOT EXISTS (
+    SELECT 1 FROM inventory.room_inventory_ledger ril
+    WHERE ril.room_id = r.id
+    AND ril.calendar_date = ANY($3::date[])
     AND ril.status IN ('sold', 'on_hold', 'maintenance', 'decommissioned')
     AND ril.deleted_at IS NULL
-WHERE r.property_id = $2
-AND r.room_type_id = $3
-AND ril.id IS NULL
+)
 ORDER BY r.name ASC
 LIMIT 1 FOR UPDATE SKIP LOCKED
 `
 
 type SelectRoomForAutoPinParams struct {
-	Dates      []pgtype.Date `json:"dates"`
 	PropertyID uuid.UUID     `json:"property_id"`
 	RoomTypeID uuid.NullUUID `json:"room_type_id"`
+	Dates      []pgtype.Date `json:"dates"`
 }
 
 // ADR-013: Auto-pin lowest available room of requested type
+// Uses LEFT JOIN with FOR UPDATE on the rooms side, not the outer join.
 func (q *Queries) SelectRoomForAutoPin(ctx context.Context, arg *SelectRoomForAutoPinParams) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, selectRoomForAutoPin, arg.Dates, arg.PropertyID, arg.RoomTypeID)
+	row := q.db.QueryRow(ctx, selectRoomForAutoPin, arg.PropertyID, arg.RoomTypeID, arg.Dates)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
