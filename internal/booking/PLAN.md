@@ -1,6 +1,5 @@
 # Booking Implementation Plan
 
-<<<<<<< HEAD
 <!--toc:start-->
 
 - [Booking Implementation Plan](#booking-implementation-plan)
@@ -38,8 +37,6 @@
   - [Risks & follow-ups](#risks-follow-ups)
   <!--toc:end-->
 
-=======
->>>>>>> 11ca15c104e4f7c26e84ee85e0108700f5c227d2
 > Sources: `docs/flows/reservations.md` (sequence diagrams),
 > `docs/requirements/reservations.md` (RTM), `docs/adr/*`, `AGENTS.md`.
 
@@ -54,10 +51,7 @@ OTA inbound, reservation groups, real auth are **deferred** to follow-up PRs.
 ```text
 internal/booking/
 ├── types.go                  enums, I/O structs (no DomainError — use apierror)
-<<<<<<< HEAD
 ├── include.go                IncludeFlags, ParseIncludeFlags (unexported type, no functions in types.go)
-=======
->>>>>>> 11ca15c104e4f7c26e84ee85e0108700f5c227d2
 ├── errors.go                 *apierror.APIError sentinels for domain errors
 ├── state_machine.go          transitions, rollup (ADR-015), ActionIdempotency (§7.4)
 ├── availability.go           CheckAvailability, AutoPinRoom, ConflictCheck
@@ -109,13 +103,10 @@ internal/platform/db/
   via `ExecuteTx[T]`. No `Querier` interface field.
 - State machine functions are pure — unit-testable with zero dependencies.
 - File size ceiling: ~300 LOC. `handlers_lifecycle.go` may approach 400.
-<<<<<<< HEAD
 - Each implementation phase ships a companion `*_ec_test.go` file covering all
   applicable edge cases from `docs/requirements/reservations.md §8`.
   Active tests for implemented methods, `t.Skip()` + blocker note for deferred.
   See `service_ec_test.go` for the pattern.
-=======
->>>>>>> 11ca15c104e4f7c26e84ee85e0108700f5c227d2
 
 ---
 
@@ -143,7 +134,6 @@ inheritance or interface-hiding.
 **Prerequisite before any Go code.** Single migration file:
 `migrations/NNN-reservation-update.sql` containing all changes below in order.
 
-<<<<<<< HEAD
 | ID  | Change                                                                                                                                                                                                                                                                                                                                                                                                      |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | M9! | **DESTRUCTIVE — single tx.** Rewrite every `operations.reservations.stay_period` row to property-time bounds (`default_checkin_time`, `default_checkout_time`). ADR-018. Run **first** so envelope backfill below sees correct bounds. Backup checkpoint in `-- +goose Up`. `-- +goose Down` raises exception (irreversible). **Note:** no data in dev; migration kept to prove the pattern before prod.    |
@@ -160,24 +150,6 @@ inheritance or interface-hiding.
 | M18 | Audit log trigger: `AFTER INSERT OR UPDATE OR DELETE ON operations.reservations` + `...ON operations.reservation_items` writes to `auth.audit_logs`. Requires `SET LOCAL app.current_user_id` from auth middleware context. ADR-021.                                                                                                                                                                        |
 | M19 | `cancellation_intent JSONB` on `operations.reservations` (NULL default). Written in same tx before status flip on cancel; M18 trigger captures via row delta. Shape: `{ reason_code, fee_pence, waive_fee, fee_override_reason, refund_action, cancelled_by_user_id }`. Finance PR replays from this column for fee reconciliation.                                                                         |
 | M4  | Property settings TTL/grace cols: `website_hold_ttl_seconds`, `internal_hold_ttl_seconds`, `reservation_archive_after_days`, `no_show_grace_minutes` — add only those not already present.                                                                                                                                                                                                                  |
-=======
-| ID  | Change                                                                                                                                                                                                                                                                                                                                                                                                   |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M9! | **DESTRUCTIVE — single tx.** Rewrite every `operations.reservations.stay_period` row to property-time bounds (`default_checkin_time`, `default_checkout_time`). ADR-018. Run **first** so envelope backfill below sees correct bounds. Backup checkpoint in `-- +goose Up`. `-- +goose Down` raises exception (irreversible). **Note:** no data in dev; migration kept to prove the pattern before prod. |
-| M6  | `stay_period_envelope TSTZRANGE NOT NULL` on `operations.reservations` + GIST index on `(property_id, stay_period_envelope)`. ADR-020. Backfill from items **(n/a — no data yet)**.                                                                                                                                                                                                                      |
-| M7  | Add `'overstay'` value to `operations.reservation_item_status` enum.                                                                                                                                                                                                                                                                                                                                     |
-| M10 | `pricing.booked_daily_rates` — drop existing `UNIQUE (reservation_item_id, calendar_date)`, replace with partial `UNIQUE (...) WHERE deleted_at IS NULL`. Required for soft-delete + re-insert.                                                                                                                                                                                                          |
-| M11 | Add `'pending_cancellation'` value to `operations.reservation_status` enum. **No code path emits it** this PR — forward-compat for finance PR.                                                                                                                                                                                                                                                           |
-| M12 | `daily_room_capacity INT CHECK (daily_room_capacity > 0)` (nullable = unlimited) on `pricing.daily_price_grid`. Capacity consumption checked by counting overlapping `reservation_items` per rate plan per night — item is the unit of consumption.                                                                                                                                                      |
-| M13 | `final_price_pence` calculation trigger: `BEFORE INSERT OR UPDATE ON pricing.booked_daily_rates` computes `final_price_pence = base_price_pence + adjustment_value`. Frontend distributes per-night adjustment values before submission. Verify `adjustment JSONB` column exists (00004); add CHECK constraints on JSONB structure if missing.                                                           |
-| M14 | `do_not_move BOOLEAN NOT NULL DEFAULT false` on `operations.reservation_items`.                                                                                                                                                                                                                                                                                                                          |
-| M15 | `late_checkout_grace_minutes INT` on `operations.property_settings`. Per-property overstay tolerance.                                                                                                                                                                                                                                                                                                    |
-| M16 | `reservation_item_id UUID` column on `inventory.room_inventory_ledger` (verify absent first; FK to reservation_items, `ON DELETE RESTRICT`) + index `idx_inv_ledger_reservation_item ON inventory.room_inventory_ledger (reservation_item_id)`. `checkout_session_id` FK retained (renamed in finance PR per ADR-019).                                                                                  |
-| M17 | `expires_at TIMESTAMPTZ` on `operations.reservations`. Populated on INSERT for `hold` status by service layer: pick `property_settings.{source}_hold_ttl_seconds` and apply ADR-016 guest-presence tier (anonymous vs guest-attached). Worker only compares `expires_at < now()`. NULL'd on Confirm transition. Add CHECK constraint: `(status = 'hold' AND expires_at IS NOT NULL) OR (status <> 'hold')`. |
-| M18 | Audit log trigger: `AFTER INSERT OR UPDATE OR DELETE ON operations.reservations` + `...ON operations.reservation_items` writes to `auth.audit_logs`. Requires `SET LOCAL app.current_user_id` from auth middleware context. ADR-021.                                                                                                                                                                     |
-| M19 | `cancellation_intent JSONB` on `operations.reservations` (NULL default). Written in same tx before status flip on cancel; M18 trigger captures via row delta. Shape: `{ reason_code, fee_pence, waive_fee, fee_override_reason, refund_action, cancelled_by_user_id }`. Finance PR replays from this column for fee reconciliation.                                                                       |
-| M4  | Property settings TTL/grace cols: `website_hold_ttl_seconds`, `internal_hold_ttl_seconds`, `reservation_archive_after_days`, `no_show_grace_minutes` — add only those not already present.                                                                                                                                                                                                               |
->>>>>>> 11ca15c104e4f7c26e84ee85e0108700f5c227d2
 
 **Deferred:**
 
@@ -202,12 +174,8 @@ SetCurrentPropertyID   :exec    SELECT set_config('app.current_property_id', $1,
 SetCurrentUserID       :exec    SELECT set_config('app.current_user_id', $1, true)
 ```
 
-<<<<<<< HEAD
 Called inside every `ExecuteTx[T]` before user-supplied `fn`. RLS + M18 audit
 trigger both depend on these.
-=======
-Called inside every `ExecuteTx[T]` before user-supplied `fn`. RLS + M18 audit trigger both depend on these.
->>>>>>> 11ca15c104e4f7c26e84ee85e0108700f5c227d2
 
 **`internal/store/queries/reservation_crud.sql`**
 
@@ -525,16 +493,10 @@ func (s *Service) AutoPinRoom(ctx, qtx *store.Queries, roomTypeID, date) (uuid.U
 func (s *Service) ConflictCheck(ctx, qtx *store.Queries, roomID, dates []time.Time, excludeItemID *uuid.UUID) error
 ```
 
-<<<<<<< HEAD
 Cache: `cache:availability:{property_id}:{room_type_id}:{date}` TTL 600s
 (reactive invalidation primary; TTL = safety net). Invalidated reactively by
 `NOTIFY reservation_changes` → events listener (ADR-010). **Individual
 reservations are not cached.**
-=======
-Cache: `cache:availability:{property_id}:{room_type_id}:{date}` TTL 600s (reactive invalidation primary; TTL = safety net).
-Invalidated reactively by `NOTIFY reservation_changes` → events listener
-(ADR-010). **Individual reservations are not cached.**
->>>>>>> 11ca15c104e4f7c26e84ee85e0108700f5c227d2
 
 Events listener wiring (in `cmd/server/main.go`):
 
@@ -559,20 +521,13 @@ Walks struct via reflection, matches `json` tags to constraint keys in
 `config/constraints.g.yml`. For nested struct slices, add
 `constraints:"schema.table"` tag on the slice field to recurse.
 
-<<<<<<< HEAD
 | Layer                             | Examples                                                                                                                                                       |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `validation.Struct`               | `notes` ≤ 2500 chars, `adults_count` ≥ 1, `source` not empty, `type`/`value`/`reason` within `adjustment` JSONB                                                |
-=======
-| Layer                             | Examples                                                                                                                                      |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `validation.Struct`               | `notes` ≤ 2500 chars, `adults_count` ≥ 1, `source` not empty, `type`/`value`/`reason` within `adjustment` JSONB                               |
->>>>>>> 11ca15c104e4f7c26e84ee85e0108700f5c227d2
 | Domain check (handler or service) | Walk-in requires `assigned_room_id`, website source → 501, past-date check (per op — see below), LOS vs rate plan restrictions, permission-dependent branching |
 
 **Past-date check (R-RES-VALID-002) per operation:**
 
-<<<<<<< HEAD
 | Operation                                                     | Check                                                                           |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | `POST /reservations` (Create)                                 | `lower(envelope) >= today` (single check across all initial items)              |
@@ -583,17 +538,6 @@ Walks struct via reflection, matches `json` tags to constraint keys in
 
 `reservations:retroactive_create` bypasses all. `is_walkin=true` bypasses Create
 check only.
-=======
-| Operation | Check |
-|---|---|
-| `POST /reservations` (Create) | `lower(envelope) >= today` (single check across all initial items) |
-| `POST /reservations/{id}/items` (AddItem) | check the **new item's** `lower(stay_period)` only (existing items may be live) |
-| `PATCH /reservations/{id}/items/{item_id}` stay-period update | check the **target item's new** `lower` only |
-| Extend (lengthen upper) | skip past-check (upper changes, not lower) |
-| Cancel item | skip past-check |
-
-`reservations:retroactive_create` bypasses all. `is_walkin=true` bypasses Create check only.
->>>>>>> 11ca15c104e4f7c26e84ee85e0108700f5c227d2
 
 `make gen-constraints` reads the live DB and writes both
 `config/constraints.g.yml` and `web/src/lib/types/constraints.g.ts`. Also syncs
@@ -676,12 +620,9 @@ registered** this PR. Reservation-groups routes **not registered** this PR (chi
 
 ## Phase 7: Remaining business logic
 
-<<<<<<< HEAD
 Test files: `actions_ec_test.go`, `mutations_ec_test.go`, `rates_ec_test.go`,
 edge cases for Cancel, Checkin, Checkout, Reactivate, UpdateItem, AssignRoom.
 
-=======
->>>>>>> 11ca15c104e4f7c26e84ee85e0108700f5c227d2
 ### `actions.go` — ~280 LOC
 
 ```go
@@ -900,11 +841,8 @@ Frontend: `EventSource("/api/v1/sse")`, browser auto-reconnects.
 
 ## Phase 10: Workers
 
-<<<<<<< HEAD
 Test file: `workers_ec_test.go` — edge cases for hold expiry, overstay, archival.
 
-=======
->>>>>>> 11ca15c104e4f7c26e84ee85e0108700f5c227d2
 `workers.go` — sweep workers run as standalone goroutines started in
 `cmd/server/main.go`:
 
