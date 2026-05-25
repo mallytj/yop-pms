@@ -97,6 +97,53 @@ Visit `/swagger/index.html` for the API docs.
 
 See [Configuration](./docs/guides/configuration.md) for more in depth building
 
+## Development Flow
+
+Every feature follows a two-phase workflow designed to keep branches small,
+reviews fast, and main always shippable.
+
+### 1. Design Phase
+
+Open a **Technical Design** issue ([template](.github/ISSUE_TEMPLATE/technical_design.md))
+to produce the ADR, RTM, sequence diagrams, schema changes, and API contract.
+Merge docs directly to `main` — zero risk.
+
+### 2. Execution Phase
+
+Break the design into **one Execution Task** ([template](.github/ISSUE_TEMPLATE/execution-task.md))
+per shippable unit. Each task maps to one branch, one PR.
+
+```text
+feat/<domain>/<unit>
+
+e.g.  feat/planner/schema
+      feat/planner/service-core
+      feat/planner/handlers-router
+      feat/seeding/cmd-seed
+```
+
+### Branch Heuristics
+
+A branch is too big if any of these are true — split it:
+
+| Check | Limit |
+| :---- | :---- |
+| Active days before PR | <3 days |
+| Files changed | ≤8 files across ≤2 directories |
+| Lines changed (excl. generated code) | ≤400 |
+| `t.Skip()` in new tests | 0 — must be active |
+| Dependencies | Must not depend on another unmerged branch |
+
+### Pull Request Lifecycle
+
+1. Open PR with `[EXEC]` prefix matching the issue title
+2. Link to the execution issue and design issue
+3. `make audit` must pass (vet, lint, tests, svelte-check)
+4. `make gen` run if schema or Swagger annotations changed
+5. Merge → delete branch → close issue → move to Done
+
+See [Issue Templates](.github/ISSUE_TEMPLATE/) for the full checklist.
+
 ## Common Commands
 
 ```bash
