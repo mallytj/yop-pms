@@ -8,8 +8,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/lexxcode1/yop-pms/internal/booking"
 	platformjson "github.com/lexxcode1/yop-pms/internal/platform/json"
 	yopMw "github.com/lexxcode1/yop-pms/internal/platform/middleware"
+	"github.com/lexxcode1/yop-pms/internal/store"
 	"github.com/riandyrn/otelchi"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -42,19 +44,28 @@ func (app *application) routes() http.Handler {
 		AllowCredentials: true,
 	}))
 
+	r.Use(yopMw.StubAuth)
+
 	r.Get("/healthz", app.HealthHandler)
 
 	// API Docs
-	r.Get("/swagger/*", httpSwagger.WrapHandler)
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/yop_swagger.json"),
+	))
+
+	// Serve swagger JSON spec file
+	r.Get("/swagger/yop_swagger.json", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "api/yop_swagger.json")
+	})
 
 	// V1 API routes with idempotency middleware
 	r.Route("/v1", func(r chi.Router) {
 		// Idempotency enforcement for POST/PATCH requests on v1 API
 		r.Use(yopMw.Idempotency(app.rdb))
 
-		// In future PR (Reservations), we will add domain routers here:
-		// r.Mount("/bookings", booking.NewHandler(app.store).Routes())
-		// r.Mount("/rooms", room.NewHandler(app.store).Routes())
+		q := store.New(app.db)
+		bookingSvc := booking.NewService(app.db, q, app.rdb, app.logger)
+		r.Route("/reservations", booking.Routes(bookingSvc, yopMw.RequireIfMatch))
 	})
 
 	return r
@@ -114,9 +125,7 @@ func (app *application) HealthHandler(w http.ResponseWriter, r *http.Request) {
 		Services: services,
 	}
 
-	if err := platformjson.WriteJSON(w, statusCode, resp); err != nil {
-		app.logger.Error("failed to encode health response", "error", err)
-	}
+	platformjson.WriteJSON(w, statusCode, resp)
 }
 
 // checkPostgres checks if the database is accessible
