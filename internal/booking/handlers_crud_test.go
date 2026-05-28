@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/lexxcode1/yop-pms/internal/platform/types"
 
@@ -352,7 +353,7 @@ func TestHandler_UpdateMetadata_VersionMismatch(t *testing.T) {
 	}
 }
 
-func TestHandler_AddItem_NotImplemented(t *testing.T) {
+func TestHandler_AddItem_OK(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
@@ -376,16 +377,17 @@ func TestHandler_AddItem_NotImplemented(t *testing.T) {
 				},
 			},
 		},
-		IncludeFlags{},
+		IncludeFlags{Items: true},
 	)
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
+	nextArrival, nextDeparture := nextTestDate(t)
 	body := map[string]any{
 		"room_type_id":   getRoomTypeID(t),
-		"arrival_date":   arrival.Format("2006-01-02"),
-		"departure_date": departure.Format("2006-01-02"),
+		"arrival_date":   nextArrival.Format("2006-01-02"),
+		"departure_date": nextDeparture.Format("2006-01-02"),
 		"adults_count":   1,
 	}
 	b, _ := json.Marshal(body)
@@ -399,12 +401,12 @@ func TestHandler_AddItem_NotImplemented(t *testing.T) {
 	rr := httptest.NewRecorder()
 	newTestHandler().ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want 501; body: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusCreated {
+		t.Errorf("status = %d, want 201; body: %s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestHandler_UpdateItem_NotImplemented(t *testing.T) {
+func TestHandler_UpdateItem_OK(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
@@ -435,9 +437,9 @@ func TestHandler_UpdateItem_NotImplemented(t *testing.T) {
 	}
 
 	itemID := res.Items[0].ID
+	newArrival := arrival.Add(24 * time.Hour)
 	body := map[string]any{
-		"room_type_id":   getRoomTypeID(t),
-		"arrival_date":   arrival.Format("2006-01-02"),
+		"arrival_date":   newArrival.Format("2006-01-02"),
 		"departure_date": departure.Format("2006-01-02"),
 		"adults_count":   2,
 	}
@@ -452,12 +454,23 @@ func TestHandler_UpdateItem_NotImplemented(t *testing.T) {
 	rr := httptest.NewRecorder()
 	newTestHandler().ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want 501; body: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", rr.Code, rr.Body.String())
+	}
+
+	var got ReservationResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(got.Items) != 1 {
+		t.Fatalf("got %d items, want 1", len(got.Items))
+	}
+	if got.Items[0].ID != itemID {
+		t.Errorf("item id = %s, want %s", got.Items[0].ID, itemID)
 	}
 }
 
-func TestHandler_AssignRoom_NotImplemented(t *testing.T) {
+func TestHandler_AssignRoom_OK(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
@@ -488,8 +501,9 @@ func TestHandler_AssignRoom_NotImplemented(t *testing.T) {
 	}
 
 	itemID := res.Items[0].ID
+	roomID := getRoomID(t)
 	body := map[string]any{
-		"room_id": getRoomID(t),
+		"room_id": roomID,
 	}
 	b, _ := json.Marshal(body)
 
@@ -502,7 +516,7 @@ func TestHandler_AssignRoom_NotImplemented(t *testing.T) {
 	rr := httptest.NewRecorder()
 	newTestHandler().ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want 501; body: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200; body: %s", rr.Code, rr.Body.String())
 	}
 }

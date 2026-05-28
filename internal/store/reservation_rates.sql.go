@@ -212,6 +212,56 @@ func (q *Queries) GetBookedRates(ctx context.Context, arg *GetBookedRatesParams)
 	return items, nil
 }
 
+const getResolvedNightlyRate = `-- name: GetResolvedNightlyRate :one
+SELECT COALESCE(
+    (SELECT dp.base_price_pence FROM pricing.daily_price_grid dp 
+     WHERE dp.property_id = $1 
+     AND dp.room_type_id = $2 
+     AND dp.rate_plan_id = $3 
+     AND dp.calendar_date = $4
+     AND dp.deleted_at IS NULL),
+    (SELECT sr.base_price_pence FROM pricing.seasonal_rates sr 
+     WHERE sr.property_id = $1 
+     AND sr.room_type_id = $2 
+     AND sr.rate_plan_id = $3 
+     AND $4::timestamptz <@ sr.override_period
+     AND sr.day_of_week = $5
+     AND sr.deleted_at IS NULL
+     LIMIT 1),
+    (SELECT br.base_price_pence FROM pricing.base_rates br 
+     WHERE br.property_id = $1 
+     AND br.room_type_id = $2 
+     AND br.rate_plan_id = $3 
+     AND br.day_of_week = $5
+     AND br.deleted_at IS NULL
+     LIMIT 1),
+    10000
+)::INT AS base_price_pence
+`
+
+type GetResolvedNightlyRateParams struct {
+	PropertyID   uuid.UUID   `json:"property_id"`
+	RoomTypeID   uuid.UUID   `json:"room_type_id"`
+	RatePlanID   uuid.UUID   `json:"rate_plan_id"`
+	CalendarDate pgtype.Date `json:"calendar_date"`
+	DayOfWeek    int32       `json:"day_of_week"`
+}
+
+// 3-tier inheritance: daily_price_grid > seasonal_rates > base_rates.
+// Returns 10000 default if no rate found in any tier.
+func (q *Queries) GetResolvedNightlyRate(ctx context.Context, arg *GetResolvedNightlyRateParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getResolvedNightlyRate,
+		arg.PropertyID,
+		arg.RoomTypeID,
+		arg.RatePlanID,
+		arg.CalendarDate,
+		arg.DayOfWeek,
+	)
+	var base_price_pence int32
+	err := row.Scan(&base_price_pence)
+	return base_price_pence, err
+}
+
 const insertBookedDailyRate = `-- name: InsertBookedDailyRate :exec
 
 INSERT INTO pricing.booked_daily_rates (

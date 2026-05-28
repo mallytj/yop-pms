@@ -101,18 +101,18 @@ SET status = 'cancelled', deleted_at = NOW(), version = version + 1
 WHERE reservation_id = $1
 AND property_id = $2
 AND status NOT IN ('checked_out', 'cancelled', 'archived')
-AND version = $3
 `
 
 type CancelReservationItemsParams struct {
 	ReservationID uuid.UUID `json:"reservation_id"`
 	PropertyID    uuid.UUID `json:"property_id"`
-	Version       int32     `json:"version"`
 }
 
-// Used by both workers and service layer
+// Used by both workers and service layer.
+// No per-item version check — items have independent version counters.
+// The status NOT IN clause prevents re-cancelling already-terminated items.
 func (q *Queries) CancelReservationItems(ctx context.Context, arg *CancelReservationItemsParams) error {
-	_, err := q.db.Exec(ctx, cancelReservationItems, arg.ReservationID, arg.PropertyID, arg.Version)
+	_, err := q.db.Exec(ctx, cancelReservationItems, arg.ReservationID, arg.PropertyID)
 	return err
 }
 
@@ -230,6 +230,36 @@ func (q *Queries) DeleteLedgerRowsByItemFromDate(ctx context.Context, arg *Delet
 	return err
 }
 
+const getReservationItem = `-- name: GetReservationItem :one
+SELECT id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status, created_at, updated_at, deleted_at, version, do_not_move FROM operations.reservation_items
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) GetReservationItem(ctx context.Context, id uuid.UUID) (OperationsReservationItem, error) {
+	row := q.db.QueryRow(ctx, getReservationItem, id)
+	var i OperationsReservationItem
+	err := row.Scan(
+		&i.ID,
+		&i.PropertyID,
+		&i.ReservationID,
+		&i.BookedRoomTypeID,
+		&i.AssignedRoomID,
+		&i.GuestID,
+		&i.RatePlanID,
+		&i.StayPeriod,
+		&i.BaseRatePence,
+		&i.AdultsCount,
+		&i.ChildrenCount,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.Version,
+		&i.DoNotMove,
+	)
+	return i, err
+}
+
 const getReservationItems = `-- name: GetReservationItems :many
 SELECT id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status, created_at, updated_at, deleted_at, version, do_not_move FROM operations.reservation_items
 WHERE reservation_id = $1
@@ -307,6 +337,25 @@ func (q *Queries) InsertLedgerRow(ctx context.Context, arg *InsertLedgerRowParam
 		arg.CalendarDate,
 		arg.Status,
 	)
+	return err
+}
+
+const reactivateReservationItems = `-- name: ReactivateReservationItems :exec
+UPDATE operations.reservation_items
+SET status = 'booked', deleted_at = NULL, version = version + 1
+WHERE reservation_id = $1
+AND property_id = $2
+AND status = 'cancelled'
+AND deleted_at IS NOT NULL
+`
+
+type ReactivateReservationItemsParams struct {
+	ReservationID uuid.UUID `json:"reservation_id"`
+	PropertyID    uuid.UUID `json:"property_id"`
+}
+
+func (q *Queries) ReactivateReservationItems(ctx context.Context, arg *ReactivateReservationItemsParams) error {
+	_, err := q.db.Exec(ctx, reactivateReservationItems, arg.ReservationID, arg.PropertyID)
 	return err
 }
 

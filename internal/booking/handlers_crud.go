@@ -170,7 +170,7 @@ func (h *Handler) UpdateMetadata(w http.ResponseWriter, r *http.Request) {
 // AddItem handles POST /reservations/{id}/items.
 //
 // @Summary      Add item to reservation
-// @Description  Adds a new room item to an existing reservation. Implemented in Phase 7.
+// @Description  Adds a new room item to an existing reservation.
 // @Tags         Reservations
 // @Accept       json
 // @Produce      json
@@ -181,7 +181,6 @@ func (h *Handler) UpdateMetadata(w http.ResponseWriter, r *http.Request) {
 // @Success      201            {object}  ReservationResponse
 // @Failure      400            {object}  apierror.APIError  "Invalid ID or request body"
 // @Failure      422            {object}  apierror.APIError  "Validation failed"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/items [post]
 func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
 	id, err := httputil.ParseUUIDParam(r, "id")
@@ -209,7 +208,7 @@ func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
 // UpdateItem handles PATCH /reservations/{id}/items/{item_id}.
 //
 // @Summary      Update reservation item
-// @Description  Updates an item's stay period or room type. Implemented in Phase 7.
+// @Description  Updates an item's stay period or room type.
 // @Tags         Reservations
 // @Accept       json
 // @Produce      json
@@ -221,7 +220,6 @@ func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
 // @Success      200            {object}  ReservationResponse
 // @Failure      400            {object}  apierror.APIError  "Invalid ID or request body"
 // @Failure      412            {object}  apierror.APIError  "Version mismatch (If-Match)"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/items/{item_id} [patch]
 func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
@@ -249,7 +247,7 @@ func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 // AssignRoom handles PATCH /reservations/{id}/items/{item_id}/assign-room.
 //
 // @Summary      Assign room to item
-// @Description  Assigns a specific room to a reservation item. Implemented in Phase 7.
+// @Description  Assigns a specific room to a reservation item.
 // @Tags         Reservations
 // @Accept       json
 // @Produce      json
@@ -261,7 +259,6 @@ func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 // @Success      200            {object}  ReservationResponse
 // @Failure      400            {object}  apierror.APIError  "Invalid ID or request body"
 // @Failure      412            {object}  apierror.APIError  "Version mismatch (If-Match)"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/items/{item_id}/assign-room [patch]
 func (h *Handler) AssignRoom(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")

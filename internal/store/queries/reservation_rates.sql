@@ -78,6 +78,34 @@ WHERE ld.daily_room_capacity IS NOT NULL
 GROUP BY ld.calendar_date, ld.daily_room_capacity
 HAVING COUNT(bdr.id) >= ld.daily_room_capacity;
 
+-- name: GetResolvedNightlyRate :one
+-- 3-tier inheritance: daily_price_grid > seasonal_rates > base_rates.
+-- Returns 10000 default if no rate found in any tier.
+SELECT COALESCE(
+    (SELECT dp.base_price_pence FROM pricing.daily_price_grid dp 
+     WHERE dp.property_id = @property_id 
+     AND dp.room_type_id = @room_type_id 
+     AND dp.rate_plan_id = @rate_plan_id 
+     AND dp.calendar_date = @calendar_date
+     AND dp.deleted_at IS NULL),
+    (SELECT sr.base_price_pence FROM pricing.seasonal_rates sr 
+     WHERE sr.property_id = @property_id 
+     AND sr.room_type_id = @room_type_id 
+     AND sr.rate_plan_id = @rate_plan_id 
+     AND @calendar_date::timestamptz <@ sr.override_period
+     AND sr.day_of_week = @day_of_week
+     AND sr.deleted_at IS NULL
+     LIMIT 1),
+    (SELECT br.base_price_pence FROM pricing.base_rates br 
+     WHERE br.property_id = @property_id 
+     AND br.room_type_id = @room_type_id 
+     AND br.rate_plan_id = @rate_plan_id 
+     AND br.day_of_week = @day_of_week
+     AND br.deleted_at IS NULL
+     LIMIT 1),
+    10000
+)::INT AS base_price_pence;
+
 -- name: GetBookedRates :many
 SELECT * FROM pricing.booked_daily_rates
 WHERE reservation_item_id = @reservation_item_id

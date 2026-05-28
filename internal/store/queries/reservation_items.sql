@@ -95,14 +95,15 @@ WHERE reservation_item_id = @reservation_item_id
 AND property_id = @property_id
 AND calendar_date >= @from_date::date;
 
--- Used by both workers and service layer
+-- Used by both workers and service layer.
+-- No per-item version check — items have independent version counters.
+-- The status NOT IN clause prevents re-cancelling already-terminated items.
 -- name: CancelReservationItems :exec
 UPDATE operations.reservation_items
 SET status = 'cancelled', deleted_at = NOW(), version = version + 1
 WHERE reservation_id = @reservation_id
 AND property_id = @property_id
-AND status NOT IN ('checked_out', 'cancelled', 'archived')
-AND version = @version;
+AND status NOT IN ('checked_out', 'cancelled', 'archived');
 
 -- name: DeleteLedgerForReservation :exec
 DELETE FROM inventory.room_inventory_ledger
@@ -115,3 +116,16 @@ WHERE reservation_id = @reservation_id
 AND property_id = @property_id
 AND deleted_at IS NULL
 ORDER BY created_at ASC;
+
+-- name: GetReservationItem :one
+SELECT * FROM operations.reservation_items
+WHERE id = @id AND deleted_at IS NULL;
+
+-- name: ReactivateReservationItems :exec
+UPDATE operations.reservation_items
+SET status = 'booked', deleted_at = NULL, version = version + 1
+WHERE reservation_id = @reservation_id
+AND property_id = @property_id
+AND status = 'cancelled'
+AND deleted_at IS NOT NULL;
+

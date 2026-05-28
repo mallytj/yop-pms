@@ -284,31 +284,34 @@ func (q *Queries) ListReservations(ctx context.Context, arg *ListReservationsPar
 const updateReservationItem = `-- name: UpdateReservationItem :one
 UPDATE operations.reservation_items 
 SET 
-    assigned_room_id = COALESCE($1, assigned_room_id),
-    stay_period = COALESCE($2, stay_period),
-    rate_plan_id = COALESCE($3, rate_plan_id),
-    adults_count = COALESCE($4, adults_count),
-    children_count = COALESCE($5, children_count),
-    status = COALESCE($6, status),
+    booked_room_type_id = COALESCE($1, booked_room_type_id),
+    assigned_room_id = COALESCE($2, assigned_room_id),
+    stay_period = COALESCE($3, stay_period),
+    rate_plan_id = COALESCE($4, rate_plan_id),
+    adults_count = COALESCE($5, adults_count),
+    children_count = COALESCE($6, children_count),
+    status = COALESCE($7, status),
     version = version + 1,
     updated_at = NOW()
-WHERE id = $7 AND version = $8
+WHERE id = $8 AND version = $9
 RETURNING id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status, created_at, updated_at, deleted_at, version, do_not_move
 `
 
 type UpdateReservationItemParams struct {
-	AssignedRoomID uuid.NullUUID                    `json:"assigned_room_id"`
-	StayPeriod     pgtype.Range[pgtype.Timestamptz] `json:"stay_period"`
-	RatePlanID     uuid.NullUUID                    `json:"rate_plan_id"`
-	AdultsCount    int32                            `json:"adults_count"`
-	ChildrenCount  int32                            `json:"children_count"`
-	Status         OperationsReservationItemStatus  `json:"status"`
-	ID             uuid.UUID                        `json:"id"`
-	Version        int32                            `json:"version"`
+	BookedRoomTypeID uuid.NullUUID                    `json:"booked_room_type_id"`
+	AssignedRoomID   uuid.NullUUID                    `json:"assigned_room_id"`
+	StayPeriod       pgtype.Range[pgtype.Timestamptz] `json:"stay_period"`
+	RatePlanID       uuid.NullUUID                    `json:"rate_plan_id"`
+	AdultsCount      int32                            `json:"adults_count"`
+	ChildrenCount    int32                            `json:"children_count"`
+	Status           OperationsReservationItemStatus  `json:"status"`
+	ID               uuid.UUID                        `json:"id"`
+	Version          int32                            `json:"version"`
 }
 
 func (q *Queries) UpdateReservationItem(ctx context.Context, arg *UpdateReservationItemParams) (OperationsReservationItem, error) {
 	row := q.db.QueryRow(ctx, updateReservationItem,
+		arg.BookedRoomTypeID,
 		arg.AssignedRoomID,
 		arg.StayPeriod,
 		arg.RatePlanID,
@@ -348,19 +351,21 @@ SET
     travel_agent_id = COALESCE($2, travel_agent_id),
     group_id = COALESCE($3, group_id),
     primary_guest_id = COALESCE($4, primary_guest_id),
+    stay_period_envelope = COALESCE($5, stay_period_envelope),
     version = version + 1,
     updated_at = NOW()
-WHERE id = $5 AND version = $6
+WHERE id = $6 AND version = $7
 RETURNING id, property_id, primary_guest_id, group_id, source, travel_agent_id, notes, status, version, created_at, updated_at, deleted_at, sequential, code, stay_period_envelope, expires_at, cancellation_intent
 `
 
 type UpdateReservationMetadataParams struct {
-	Notes          pgtype.Text   `json:"notes"`
-	TravelAgentID  uuid.NullUUID `json:"travel_agent_id"`
-	GroupID        uuid.NullUUID `json:"group_id"`
-	PrimaryGuestID uuid.UUID     `json:"primary_guest_id"`
-	ID             uuid.UUID     `json:"id"`
-	Version        int32         `json:"version"`
+	Notes              pgtype.Text                      `json:"notes"`
+	TravelAgentID      uuid.NullUUID                    `json:"travel_agent_id"`
+	GroupID            uuid.NullUUID                    `json:"group_id"`
+	PrimaryGuestID     uuid.UUID                        `json:"primary_guest_id"`
+	StayPeriodEnvelope pgtype.Range[pgtype.Timestamptz] `json:"stay_period_envelope"`
+	ID                 uuid.UUID                        `json:"id"`
+	Version            int32                            `json:"version"`
 }
 
 func (q *Queries) UpdateReservationMetadata(ctx context.Context, arg *UpdateReservationMetadataParams) (OperationsReservation, error) {
@@ -369,6 +374,7 @@ func (q *Queries) UpdateReservationMetadata(ctx context.Context, arg *UpdateRese
 		arg.TravelAgentID,
 		arg.GroupID,
 		arg.PrimaryGuestID,
+		arg.StayPeriodEnvelope,
 		arg.ID,
 		arg.Version,
 	)

@@ -63,7 +63,7 @@ func TestHandler_Confirm_OK(t *testing.T) {
 	}
 }
 
-func TestHandler_Cancel_NotImplemented(t *testing.T) {
+func TestHandler_Cancel_NotFound(t *testing.T) {
 	body := bytes.NewReader([]byte(`{}`))
 	req := httptest.NewRequest(http.MethodPost, "/reservations/00000000-0000-0000-0000-000000000001/cancel", body)
 	req.Header.Set("X-Property-ID", testPropertyID.String())
@@ -73,12 +73,12 @@ func TestHandler_Cancel_NotImplemented(t *testing.T) {
 	rr := httptest.NewRecorder()
 	newTestHandler().ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want 501; body: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404; body: %s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestHandler_Reactivate_NotImplemented(t *testing.T) {
+func TestHandler_Reactivate_NotFound(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/reservations/00000000-0000-0000-0000-000000000001/reactivate", nil)
 	req.Header.Set("X-Property-ID", testPropertyID.String())
 	req.Header.Set("X-User-Permissions", "reservations:reactivate")
@@ -87,12 +87,12 @@ func TestHandler_Reactivate_NotImplemented(t *testing.T) {
 	rr := httptest.NewRecorder()
 	newTestHandler().ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want 501; body: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404; body: %s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestHandler_CheckinReservation_NotImplemented(t *testing.T) {
+func TestHandler_CheckinReservation_NotFound(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPatch, "/reservations/00000000-0000-0000-0000-000000000001/checkin", nil)
 	req.Header.Set("X-Property-ID", testPropertyID.String())
 	req.Header.Set("X-User-Permissions", "reservations:checkin")
@@ -101,12 +101,13 @@ func TestHandler_CheckinReservation_NotImplemented(t *testing.T) {
 	rr := httptest.NewRecorder()
 	newTestHandler().ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want 501; body: %s", rr.Code, rr.Body.String())
+	// Returns 200 with empty batch result — no matching items is not an error
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200; body: %s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestHandler_CheckoutReservation_NotImplemented(t *testing.T) {
+func TestHandler_CheckoutReservation_NotFound(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPatch, "/reservations/00000000-0000-0000-0000-000000000001/checkout", nil)
 	req.Header.Set("X-Property-ID", testPropertyID.String())
 	req.Header.Set("X-User-Permissions", "reservations:checkout")
@@ -115,12 +116,13 @@ func TestHandler_CheckoutReservation_NotImplemented(t *testing.T) {
 	rr := httptest.NewRecorder()
 	newTestHandler().ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want 501; body: %s", rr.Code, rr.Body.String())
+	// Returns 200 with empty batch result — no matching items is not an error
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200; body: %s", rr.Code, rr.Body.String())
 	}
 }
 
-func TestHandler_CancelItem_NotImplemented(t *testing.T) {
+func TestHandler_CancelItem_NotFound(t *testing.T) {
 	body := bytes.NewReader([]byte(`{}`))
 	req := httptest.NewRequest(http.MethodPost, "/reservations/00000000-0000-0000-0000-000000000001/items/00000000-0000-0000-0000-000000000001/cancel", body)
 	req.Header.Set("X-Property-ID", testPropertyID.String())
@@ -130,7 +132,7 @@ func TestHandler_CancelItem_NotImplemented(t *testing.T) {
 	rr := httptest.NewRecorder()
 	newTestHandler().ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusNotImplemented {
-		t.Errorf("status = %d, want 501; body: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404; body: %s", rr.Code, rr.Body.String())
 	}
 }

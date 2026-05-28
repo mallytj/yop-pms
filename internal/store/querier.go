@@ -18,7 +18,9 @@ type Querier interface {
 	BlockedCountByType(ctx context.Context, arg *BlockedCountByTypeParams) ([]BlockedCountByTypeRow, error)
 	BulkInsertBookedDailyRates(ctx context.Context, arg *BulkInsertBookedDailyRatesParams) error
 	BulkInsertLedgerRows(ctx context.Context, arg *BulkInsertLedgerRowsParams) error
-	// Used by both workers and service layer
+	// Used by both workers and service layer.
+	// No per-item version check — items have independent version counters.
+	// The status NOT IN clause prevents re-cancelling already-terminated items.
 	CancelReservationItems(ctx context.Context, arg *CancelReservationItemsParams) error
 	// Check if a rate plan has capacity for the requested dates.
 	//
@@ -55,7 +57,11 @@ type Querier interface {
 	GetGuest(ctx context.Context, id uuid.UUID) (IdentityGuest, error)
 	GetPropertyTimezone(ctx context.Context, id uuid.UUID) (string, error)
 	GetReservation(ctx context.Context, id uuid.UUID) (GetReservationRow, error)
+	GetReservationItem(ctx context.Context, id uuid.UUID) (OperationsReservationItem, error)
 	GetReservationItems(ctx context.Context, arg *GetReservationItemsParams) ([]OperationsReservationItem, error)
+	// 3-tier inheritance: daily_price_grid > seasonal_rates > base_rates.
+	// Returns 10000 default if no rate found in any tier.
+	GetResolvedNightlyRate(ctx context.Context, arg *GetResolvedNightlyRateParams) (int32, error)
 	// Reservation rate queries
 	// All price changes go through adjustment column + audit log
 	// Base price is immutable after creation
@@ -65,6 +71,7 @@ type Querier interface {
 	// Cursor pagination per ADR-014
 	ListReservations(ctx context.Context, arg *ListReservationsParams) ([]OperationsReservation, error)
 	NotifyChannel(ctx context.Context, arg *NotifyChannelParams) error
+	ReactivateReservationItems(ctx context.Context, arg *ReactivateReservationItemsParams) error
 	// Reservation items queries
 	// See ADR-015 for rollup rule, ADR-013 for locking & availability
 	// ADR-015 rollup: item status changes drive reservation status

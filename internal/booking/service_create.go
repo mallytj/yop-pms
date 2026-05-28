@@ -62,6 +62,7 @@ func (s *Service) CreateReservation(ctx context.Context, input *CreateReservatio
 				return nil, fmt.Errorf("invalid property timezone %q: %w", tzName, err)
 			}
 			now := time.Now().In(loc)
+			// Ditto across the board for any mutations of stay period
 			midnightToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 			for _, item := range input.Items {
 				if item.ArrivalDate.Before(midnightToday) {

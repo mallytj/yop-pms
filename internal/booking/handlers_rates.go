@@ -16,7 +16,7 @@ import (
 // GetBookedRates handles GET /reservations/{id}/items/{item_id}/booked-rates.
 //
 // @Summary      Get booked daily rates
-// @Description  Returns booked daily rates for a reservation item. Implemented in Phase 7.
+// @Description  Returns booked daily rates for a reservation item.
 // @Tags         Reservations
 // @Produce      json
 // @Param        X-Property-ID  header  string  true  "Property UUID"
@@ -24,7 +24,6 @@ import (
 // @Param        item_id        path    string  true  "Item UUID"
 // @Success      200            {array}   store.PricingBookedDailyRate
 // @Failure      400            {object}  apierror.APIError  "Invalid ID"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/items/{item_id}/booked-rates [get]
 func (h *Handler) GetBookedRates(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
@@ -43,7 +42,7 @@ func (h *Handler) GetBookedRates(w http.ResponseWriter, r *http.Request) {
 // UpdateBookedRates handles PATCH /reservations/{id}/items/{item_id}/booked-rates.
 //
 // @Summary      Update booked daily rates
-// @Description  Overwrites booked daily rates for an item. Implemented in Phase 7.
+// @Description  Overwrites booked daily rates for an item. Not yet implemented — use AdjustRate instead.
 // @Tags         Reservations
 // @Accept       json
 // @Produce      json
@@ -79,7 +78,7 @@ func (h *Handler) UpdateBookedRates(w http.ResponseWriter, r *http.Request) {
 // AdjustRate handles POST /reservations/{id}/items/{item_id}/adjust-rate.
 //
 // @Summary      Adjust daily rates
-// @Description  Applies percentage or fixed adjustments to booked rates. Implemented in Phase 7.
+// @Description  Applies percentage or fixed adjustments to booked rates.
 // @Tags         Reservations
 // @Accept       json
 // @Produce      json
@@ -91,7 +90,6 @@ func (h *Handler) UpdateBookedRates(w http.ResponseWriter, r *http.Request) {
 // @Success      200            {object}  ReservationResponse
 // @Failure      400            {object}  apierror.APIError  "Invalid ID or request body"
 // @Failure      412            {object}  apierror.APIError  "Version mismatch (If-Match)"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/items/{item_id}/adjust-rate [post]
 func (h *Handler) AdjustRate(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
@@ -115,7 +113,7 @@ func (h *Handler) AdjustRate(w http.ResponseWriter, r *http.Request) {
 // ApproveAdjustments handles POST /reservations/{id}/items/{item_id}/booked-rates/approve.
 //
 // @Summary      Approve rate adjustments
-// @Description  Approves pending rate adjustments for a reservation item. Implemented in Phase 7.
+// @Description  Approves pending rate adjustments for a reservation item.
 // @Tags         Reservations
 // @Produce      json
 // @Param        X-Property-ID  header  string  true  "Property UUID"
@@ -125,7 +123,6 @@ func (h *Handler) AdjustRate(w http.ResponseWriter, r *http.Request) {
 // @Success      200            {object}  ReservationResponse
 // @Failure      400            {object}  apierror.APIError  "Invalid ID"
 // @Failure      412            {object}  apierror.APIError  "Version mismatch (If-Match)"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/items/{item_id}/booked-rates/approve [post]
 func (h *Handler) ApproveAdjustments(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")

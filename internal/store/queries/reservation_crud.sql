@@ -67,6 +67,7 @@ SET
     travel_agent_id = COALESCE(@travel_agent_id, travel_agent_id),
     group_id = COALESCE(@group_id, group_id),
     primary_guest_id = COALESCE(@primary_guest_id, primary_guest_id),
+    stay_period_envelope = COALESCE(@stay_period_envelope, stay_period_envelope),
     version = version + 1,
     updated_at = NOW()
 WHERE id = @id AND version = @version
@@ -75,6 +76,7 @@ RETURNING *;
 -- name: UpdateReservationItem :one
 UPDATE operations.reservation_items 
 SET 
+    booked_room_type_id = COALESCE(sqlc.narg('booked_room_type_id'), booked_room_type_id),
     assigned_room_id = COALESCE(@assigned_room_id, assigned_room_id),
     stay_period = COALESCE(@stay_period, stay_period),
     rate_plan_id = COALESCE(@rate_plan_id, rate_plan_id),

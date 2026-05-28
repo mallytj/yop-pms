@@ -43,7 +43,7 @@ func (h *Handler) Confirm(w http.ResponseWriter, r *http.Request) {
 // Cancel handles POST /reservations/{id}/cancel.
 //
 // @Summary      Cancel reservation
-// @Description  Cancels a reservation. Implemented in Phase 7.
+// @Description  Cancels a reservation with reason code and optional fee.
 // @Tags         Reservations
 // @Accept       json
 // @Produce      json
@@ -53,7 +53,6 @@ func (h *Handler) Confirm(w http.ResponseWriter, r *http.Request) {
 // @Param        body           body    CancelInput false "Cancellation options"
 // @Success      200            {object}  ReservationResponse
 // @Failure      400            {object}  apierror.APIError  "Invalid ID or request body"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/cancel [post]
 func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 	id, err := httputil.ParseUUIDParam(r, "id")
@@ -77,7 +76,7 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 // Reactivate handles POST /reservations/{id}/reactivate.
 //
 // @Summary      Reactivate reservation
-// @Description  Reactivates a cancelled reservation. Implemented in Phase 7.
+// @Description  Reactivates a cancelled reservation back to confirmed.
 // @Tags         Reservations
 // @Produce      json
 // @Param        X-Property-ID  header  string  true  "Property UUID"
@@ -85,7 +84,6 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 // @Param        id             path    string  true  "Reservation UUID"
 // @Success      200            {object}  ReservationResponse
 // @Failure      400            {object}  apierror.APIError  "Invalid ID"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/reactivate [post]
 func (h *Handler) Reactivate(w http.ResponseWriter, r *http.Request) {
 	id, err := httputil.ParseUUIDParam(r, "id")
@@ -104,16 +102,14 @@ func (h *Handler) Reactivate(w http.ResponseWriter, r *http.Request) {
 // CheckinReservation handles PATCH /reservations/{id}/checkin.
 //
 // @Summary      Check in all items
-// @Description  Checks in all items on a reservation. Returns 207 if partial. Implemented in Phase 7.
+// @Description  Checks in all items on a reservation. Returns 207 if partial.
 // @Tags         Reservations
 // @Produce      json
 // @Param        X-Property-ID  header  string  true  "Property UUID"
-// @Param        If-Match       header  string  true  "Optimistic lock version"
 // @Param        id             path    string  true  "Reservation UUID"
 // @Success      200            {object}  BatchResult
 // @Success      207            {object}  BatchResult
 // @Failure      400            {object}  apierror.APIError  "Invalid ID"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/checkin [patch]
 func (h *Handler) CheckinReservation(w http.ResponseWriter, r *http.Request) {
 	id, err := httputil.ParseUUIDParam(r, "id")
@@ -132,7 +128,7 @@ func (h *Handler) CheckinReservation(w http.ResponseWriter, r *http.Request) {
 // CheckinItem handles PATCH /reservations/{id}/items/{item_id}/checkin.
 //
 // @Summary      Check in single item
-// @Description  Checks in a single reservation item. Implemented in Phase 7.
+// @Description  Checks in a single reservation item.
 // @Tags         Reservations
 // @Produce      json
 // @Param        X-Property-ID  header  string  true  "Property UUID"
@@ -141,7 +137,6 @@ func (h *Handler) CheckinReservation(w http.ResponseWriter, r *http.Request) {
 // @Param        item_id        path    string  true  "Item UUID"
 // @Success      200            {object}  ItemResponse
 // @Failure      400            {object}  apierror.APIError  "Invalid ID"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/items/{item_id}/checkin [patch]
 func (h *Handler) CheckinItem(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
@@ -160,16 +155,14 @@ func (h *Handler) CheckinItem(w http.ResponseWriter, r *http.Request) {
 // CheckoutReservation handles PATCH /reservations/{id}/checkout.
 //
 // @Summary      Check out all items
-// @Description  Checks out all items on a reservation. Returns 207 if partial. Implemented in Phase 7.
+// @Description  Checks out all items on a reservation. Returns 207 if partial.
 // @Tags         Reservations
 // @Produce      json
 // @Param        X-Property-ID  header  string  true  "Property UUID"
-// @Param        If-Match       header  string  true  "Optimistic lock version"
 // @Param        id             path    string  true  "Reservation UUID"
 // @Success      200            {object}  BatchResult
 // @Success      207            {object}  BatchResult
 // @Failure      400            {object}  apierror.APIError  "Invalid ID"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/checkout [patch]
 func (h *Handler) CheckoutReservation(w http.ResponseWriter, r *http.Request) {
 	id, err := httputil.ParseUUIDParam(r, "id")
@@ -188,7 +181,7 @@ func (h *Handler) CheckoutReservation(w http.ResponseWriter, r *http.Request) {
 // CheckoutItem handles PATCH /reservations/{id}/items/{item_id}/checkout.
 //
 // @Summary      Check out single item
-// @Description  Checks out a single reservation item. Implemented in Phase 7.
+// @Description  Checks out a single reservation item.
 // @Tags         Reservations
 // @Produce      json
 // @Param        X-Property-ID  header  string  true  "Property UUID"
@@ -197,7 +190,6 @@ func (h *Handler) CheckoutReservation(w http.ResponseWriter, r *http.Request) {
 // @Param        item_id        path    string  true  "Item UUID"
 // @Success      200            {object}  ItemResponse
 // @Failure      400            {object}  apierror.APIError  "Invalid ID"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/items/{item_id}/checkout [patch]
 func (h *Handler) CheckoutItem(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
@@ -216,7 +208,7 @@ func (h *Handler) CheckoutItem(w http.ResponseWriter, r *http.Request) {
 // MarkNoShow handles PATCH /reservations/{id}/items/{item_id}/no-show.
 //
 // @Summary      Mark item as no-show
-// @Description  Marks a reservation item as no-show. Implemented in Phase 7.
+// @Description  Marks a reservation item as no-show. Requires stay period to have started.
 // @Tags         Reservations
 // @Produce      json
 // @Param        X-Property-ID  header  string  true  "Property UUID"
@@ -225,7 +217,6 @@ func (h *Handler) CheckoutItem(w http.ResponseWriter, r *http.Request) {
 // @Param        item_id        path    string  true  "Item UUID"
 // @Success      200            {object}  ItemResponse
 // @Failure      400            {object}  apierror.APIError  "Invalid ID"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/items/{item_id}/no-show [patch]
 func (h *Handler) MarkNoShow(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
@@ -244,7 +235,7 @@ func (h *Handler) MarkNoShow(w http.ResponseWriter, r *http.Request) {
 // CancelItem handles POST /reservations/{id}/items/{item_id}/cancel.
 //
 // @Summary      Cancel single item
-// @Description  Cancels a single reservation item. Implemented in Phase 7.
+// @Description  Cancels a single reservation item with reason code and optional fee.
 // @Tags         Reservations
 // @Accept       json
 // @Produce      json
@@ -255,7 +246,6 @@ func (h *Handler) MarkNoShow(w http.ResponseWriter, r *http.Request) {
 // @Param        body           body    CancelInput false "Cancellation options"
 // @Success      200            {object}  ItemResponse
 // @Failure      400            {object}  apierror.APIError  "Invalid ID or request body"
-// @Failure      501            {object}  apierror.APIError  "Feature not implemented"
 // @Router       /v1/reservations/{id}/items/{item_id}/cancel [post]
 func (h *Handler) CancelItem(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")

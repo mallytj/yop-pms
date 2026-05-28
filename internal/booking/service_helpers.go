@@ -180,7 +180,37 @@ func insertSingleItem(
 ) (ItemResponse, error) {
 	arrival := item.ArrivalDate.Time
 	departure := item.DepartureDate.Time
-	baseRatePence := int32(10000) // Placeholder until rate lookup (Phase 4)
+
+	// Pre-compute nights list once
+	dates := util.NightsBetween(arrival, departure)
+	n := len(dates)
+
+	// Rate lookup per night: daily_price_grid > seasonal_rates > base_rates > default
+	var baseRatePences []int32
+	if n == 0 {
+		baseRatePences = []int32{10000}
+		n = 1
+	} else if item.RatePlanID != nil {
+		baseRatePences = make([]int32, n)
+		for j, d := range dates {
+			price, err := qtx.GetResolvedNightlyRate(ctx, &store.GetResolvedNightlyRateParams{
+				PropertyID:   propertyID,
+				RoomTypeID:   item.RoomTypeID,
+				RatePlanID:   *item.RatePlanID,
+				CalendarDate: pgtype.Date{Time: d, Valid: true},
+				DayOfWeek:    int32(d.Weekday()),
+			})
+			if err != nil {
+				return ItemResponse{}, fmt.Errorf("resolve rate for %s: %w", d.Format("2006-01-02"), err)
+			}
+			baseRatePences[j] = price
+		}
+	} else {
+		baseRatePences = make([]int32, n)
+		for j := range baseRatePences {
+			baseRatePences[j] = 10000
+		}
+	}
 
 	ri, err := qtx.CreateReservationItem(ctx, &store.CreateReservationItemParams{
 		PropertyID:       propertyID,
@@ -190,7 +220,7 @@ func insertSingleItem(
 		GuestID:          uuid.NullUUID{UUID: uuid.Nil, Valid: false},
 		RatePlanID:       uuid.NullUUID{UUID: util.PtrUUID(item.RatePlanID), Valid: item.RatePlanID != nil},
 		StayPeriod:       util.ToRange(arrival, departure),
-		BaseRatePence:    baseRatePence,
+		BaseRatePence:    baseRatePences[0],
 		AdultsCount:      int32(item.AdultsCount),
 		ChildrenCount:    int32(item.ChildrenCount),
 		Status:           store.OperationsReservationItemStatus(initial.ItemStatus),
@@ -205,8 +235,7 @@ func insertSingleItem(
 	if item.AssignedRoomID != nil {
 		roomID = *item.AssignedRoomID
 	} else {
-		dates := util.NightsBetween(arrival, departure)
-		pgDates := make([]pgtype.Date, len(dates))
+		pgDates := make([]pgtype.Date, n)
 		for j, d := range dates {
 			pgDates[j] = pgtype.Date{Time: d, Valid: true}
 		}
@@ -222,8 +251,6 @@ func insertSingleItem(
 	}
 
 	// Bulk insert ledger rows
-	dates := util.NightsBetween(arrival, departure)
-	n := len(dates)
 	roomIDs := make([]uuid.UUID, n)
 	resIDs := make([]uuid.UUID, n)
 	itemIDs := make([]uuid.UUID, n)
@@ -263,7 +290,7 @@ func insertSingleItem(
 			ratePropIDs[j] = propertyID
 			rateItemIDs[j] = ri.ID
 			ratePlanIDs[j] = *item.RatePlanID
-			basePrices[j] = baseRatePence
+			basePrices[j] = baseRatePences[j]
 		}
 		if err := qtx.BulkInsertBookedDailyRates(ctx, &store.BulkInsertBookedDailyRatesParams{
 			PropertyIds:        ratePropIDs,
