@@ -40,6 +40,1303 @@ const docTemplateyop = `{
                     }
                 }
             }
+        },
+        "/v1/reservations": {
+            "get": {
+                "description": "Cursor-paginated list of reservations for the property.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "List reservations",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_booking.ReservationResponse"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new reservation with one or more room items.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Create reservation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Reservation payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.CreateReservationInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/availability": {
+            "get": {
+                "description": "Returns per-night availability for a room type. Results cached in Redis (TTL 600s).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Check room type availability",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Room type UUID",
+                        "name": "room_type_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start date (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (YYYY-MM-DD)",
+                        "name": "end_date",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_booking.DateAvailability"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}": {
+            "get": {
+                "description": "Fetch a single reservation by ID.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Get reservation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated: items,guest,none",
+                        "name": "include",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Partial update of reservation-level fields. Requires If-Match version header.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Update reservation metadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.UpdateMetadataInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "412": {
+                        "description": "Precondition Failed",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/cancel": {
+            "post": {
+                "description": "Cancels a reservation. Implemented in Phase 7.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Cancel reservation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cancellation options",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.CancelInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/cancellation-quote": {
+            "get": {
+                "description": "Returns cancellation fee estimate. Stub — finance PR implements this.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Get cancellation quote",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.CancellationQuoteResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/checkin": {
+            "patch": {
+                "description": "Checks in all items on a reservation. Returns 207 if partial. Implemented in Phase 7.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Check in all items",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.BatchResult"
+                        }
+                    },
+                    "207": {
+                        "description": "Multi-Status",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.BatchResult"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/checkout": {
+            "patch": {
+                "description": "Checks out all items on a reservation. Returns 207 if partial. Implemented in Phase 7.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Check out all items",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.BatchResult"
+                        }
+                    },
+                    "207": {
+                        "description": "Multi-Status",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.BatchResult"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/confirm": {
+            "post": {
+                "description": "Transitions a hold reservation to confirmed status.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Confirm reservation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "412": {
+                        "description": "Precondition Failed",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/folios/{folio_id}": {
+            "get": {
+                "description": "Returns folio data. Stub — finance PR implements this.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Get folio",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Folio UUID",
+                        "name": "folio_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/items": {
+            "post": {
+                "description": "Adds a new room item to an existing reservation. Implemented in Phase 7.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Add item to reservation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Item to add",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.AddItemInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/items/{item_id}": {
+            "patch": {
+                "description": "Updates an item's stay period or room type. Implemented in Phase 7.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Update reservation item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item UUID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Item fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.CreateItemInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/items/{item_id}/adjust-rate": {
+            "post": {
+                "description": "Applies percentage or fixed adjustments to booked rates. Implemented in Phase 7.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Adjust daily rates",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item UUID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rate adjustments",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.RateAdjustInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/items/{item_id}/assign-room": {
+            "patch": {
+                "description": "Assigns a specific room to a reservation item. Implemented in Phase 7.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Assign room to item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item UUID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Room assignment",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.AssignRoomInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/items/{item_id}/booked-rates": {
+            "get": {
+                "description": "Returns booked daily rates for a reservation item. Implemented in Phase 7.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Get booked daily rates",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item UUID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate"
+                            }
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "Overwrites booked daily rates for an item. Implemented in Phase 7.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Update booked daily rates",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item UUID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rate adjustments",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.RateAdjustInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/items/{item_id}/booked-rates/approve": {
+            "post": {
+                "description": "Approves pending rate adjustments for a reservation item. Implemented in Phase 7.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Approve rate adjustments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item UUID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/items/{item_id}/cancel": {
+            "post": {
+                "description": "Cancels a single reservation item. Implemented in Phase 7.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Cancel single item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item UUID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cancellation options",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.CancelInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ItemResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/items/{item_id}/checkin": {
+            "patch": {
+                "description": "Checks in a single reservation item. Implemented in Phase 7.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Check in single item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item UUID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ItemResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/items/{item_id}/checkout": {
+            "patch": {
+                "description": "Checks out a single reservation item. Implemented in Phase 7.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Check out single item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item UUID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ItemResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/items/{item_id}/no-show": {
+            "patch": {
+                "description": "Marks a reservation item as no-show. Implemented in Phase 7.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Mark item as no-show",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item UUID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ItemResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/reservations/{id}/reactivate": {
+            "post": {
+                "description": "Reactivates a cancelled reservation. Implemented in Phase 7.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reservations"
+                ],
+                "summary": "Reactivate reservation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optimistic lock version",
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Reservation UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_booking.ReservationResponse"
+                        }
+                    },
+                    "501": {
+                        "description": "Not Implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -79,6 +1376,642 @@ const docTemplateyop = `{
                 "status": {
                     "type": "string",
                     "example": "ok"
+                }
+            }
+        },
+        "github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "enum": [
+                        "NOT_FOUND",
+                        "BAD_REQUEST",
+                        "CONFLICT",
+                        "INTERNAL_ERROR",
+                        "UNPROCESSABLE_ENTITY"
+                    ]
+                },
+                "message": {
+                    "type": "string"
+                },
+                "suggestions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date": {
+            "type": "object",
+            "properties": {
+                "time.Time": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate": {
+            "type": "object",
+            "properties": {
+                "adjustment": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "adjustment_approved": {
+                    "type": "boolean"
+                },
+                "adjustment_approved_by_user_id": {
+                    "$ref": "#/definitions/uuid.NullUUID"
+                },
+                "base_price_pence": {
+                    "type": "integer"
+                },
+                "calendar_date": {
+                    "$ref": "#/definitions/pgtype.Date"
+                },
+                "created_at": {
+                    "$ref": "#/definitions/pgtype.Timestamptz"
+                },
+                "deleted_at": {
+                    "$ref": "#/definitions/pgtype.Timestamptz"
+                },
+                "final_price_pence": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "property_id": {
+                    "type": "string"
+                },
+                "rate_plan_id": {
+                    "$ref": "#/definitions/uuid.NullUUID"
+                },
+                "reservation_item_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "$ref": "#/definitions/pgtype.Timestamptz"
+                }
+            }
+        },
+        "internal_booking.AddItemInput": {
+            "type": "object"
+        },
+        "internal_booking.AdjustmentType": {
+            "type": "string",
+            "enum": [
+                "percentage",
+                "fixed"
+            ],
+            "x-enum-varnames": [
+                "AdjustmentPercent",
+                "AdjustmentFixed"
+            ]
+        },
+        "internal_booking.AssignRoomInput": {
+            "type": "object",
+            "properties": {
+                "room_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                }
+            }
+        },
+        "internal_booking.BatchError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_booking.BatchResult": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_booking.BatchResultItem"
+                    }
+                }
+            }
+        },
+        "internal_booking.BatchResultItem": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/internal_booking.BatchError"
+                },
+                "item_id": {
+                    "type": "string"
+                },
+                "reservation_item": {
+                    "$ref": "#/definitions/internal_booking.ItemResponse"
+                },
+                "status": {
+                    "description": "\"ok\" | \"failed\"",
+                    "type": "string"
+                }
+            }
+        },
+        "internal_booking.CancelInput": {
+            "type": "object",
+            "properties": {
+                "fee_override_reason": {
+                    "type": "string",
+                    "example": "Loyalty member"
+                },
+                "fee_pence": {
+                    "type": "integer",
+                    "example": 5000
+                },
+                "reason_code": {
+                    "type": "string",
+                    "example": "guest_request"
+                },
+                "refund_action": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/internal_booking.RefundAction"
+                        }
+                    ],
+                    "example": "original"
+                },
+                "shorten_stay": {
+                    "description": "force-cancel checked-in items (requires reservations:post_checkin_mutate)",
+                    "type": "boolean",
+                    "example": false
+                },
+                "waive_fee": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "internal_booking.CancellationIntent": {
+            "type": "object",
+            "properties": {
+                "cancelled_by_user_id": {
+                    "type": "string"
+                },
+                "fee_override_reason": {
+                    "type": "string",
+                    "example": "Loyalty member"
+                },
+                "fee_pence": {
+                    "type": "integer",
+                    "example": 5000
+                },
+                "reason_code": {
+                    "type": "string",
+                    "example": "guest_request"
+                },
+                "refund_action": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/internal_booking.RefundAction"
+                        }
+                    ],
+                    "example": "original"
+                },
+                "waive_fee": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "internal_booking.CancellationQuoteResponse": {
+            "type": "object",
+            "properties": {
+                "fee_pence": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_booking.CreateItemInput": {
+            "type": "object"
+        },
+        "internal_booking.CreateReservationInput": {
+            "type": "object"
+        },
+        "internal_booking.DateAvailability": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "date": {
+                    "type": "string",
+                    "example": "2026-06-01"
+                },
+                "reason": {
+                    "description": "Reason explains why unavailable (e.g. \"no_rate_configured\"). Empty when available.",
+                    "type": "string",
+                    "example": "no_rate_configured"
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 4
+                }
+            }
+        },
+        "internal_booking.GuestInlinePayload": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "jane.doe@example.com"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "Jane"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "Doe"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+441234567890"
+                }
+            }
+        },
+        "internal_booking.GuestResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "jane@example.com"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "Jane"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "Doe"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+441234567890"
+                },
+                "property_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_booking.ItemResponse": {
+            "type": "object",
+            "properties": {
+                "adults_count": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "assigned_room_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "base_rate_pence": {
+                    "type": "integer",
+                    "example": 15000
+                },
+                "booked_room_type_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "children_count": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "do_not_move": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "guest_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "property_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "rate_plan_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "reservation_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/internal_booking.ItemStatus"
+                        }
+                    ],
+                    "example": "booked"
+                },
+                "stay_period": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "internal_booking.ItemStatus": {
+            "type": "string",
+            "enum": [
+                "booked",
+                "checked_in",
+                "checked_out",
+                "no_show",
+                "overstay",
+                "cancelled",
+                "archived"
+            ],
+            "x-enum-varnames": [
+                "ItemStatusBooked",
+                "ItemStatusCheckedIn",
+                "ItemStatusCheckedOut",
+                "ItemStatusNoShow",
+                "ItemStatusOverstay",
+                "ItemStatusCancelled",
+                "ItemStatusArchived"
+            ]
+        },
+        "internal_booking.RateAdjustInput": {
+            "type": "object",
+            "properties": {
+                "adjustments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_booking.RateAdjustment"
+                    }
+                }
+            }
+        },
+        "internal_booking.RateAdjustment": {
+            "type": "object",
+            "properties": {
+                "calendar_date": {
+                    "type": "string",
+                    "example": "2026-06-01"
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "Corp Rate"
+                },
+                "type": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/internal_booking.AdjustmentType"
+                        }
+                    ],
+                    "example": "percentage"
+                },
+                "value": {
+                    "type": "integer",
+                    "example": 10000
+                }
+            }
+        },
+        "internal_booking.RefundAction": {
+            "type": "string",
+            "enum": [
+                "none",
+                "original",
+                "credit"
+            ],
+            "x-enum-varnames": [
+                "RefundNone",
+                "RefundOriginal",
+                "RefundCredit"
+            ]
+        },
+        "internal_booking.ReservationResponse": {
+            "type": "object",
+            "properties": {
+                "cancellation_intent": {
+                    "$ref": "#/definitions/internal_booking.CancellationIntent"
+                },
+                "code": {
+                    "type": "string",
+                    "example": "RES-111213"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "group_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "guest": {
+                    "$ref": "#/definitions/internal_booking.GuestResponse"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_booking.ItemResponse"
+                    }
+                },
+                "notes": {
+                    "type": "string",
+                    "example": "Guest requested top floor"
+                },
+                "primary_guest_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "property_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "sequential": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "source": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/internal_booking.ReservationSource"
+                        }
+                    ],
+                    "example": "internal"
+                },
+                "status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/internal_booking.ReservationStatus"
+                        }
+                    ],
+                    "example": "hold"
+                },
+                "stay_period_envelope": {
+                    "type": "string"
+                },
+                "travel_agent_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "internal_booking.ReservationSource": {
+            "type": "string",
+            "enum": [
+                "website",
+                "internal",
+                "ota"
+            ],
+            "x-enum-varnames": [
+                "SourceWebsite",
+                "SourceInternal",
+                "SourceOTA"
+            ]
+        },
+        "internal_booking.ReservationStatus": {
+            "type": "string",
+            "enum": [
+                "hold",
+                "confirmed",
+                "checked_in",
+                "checked_out",
+                "pending_cancellation",
+                "cancelled",
+                "archived"
+            ],
+            "x-enum-varnames": [
+                "StatusHold",
+                "StatusConfirmed",
+                "StatusCheckedIn",
+                "StatusCheckedOut",
+                "StatusPendingCancellation",
+                "StatusCancelled",
+                "StatusArchived"
+            ]
+        },
+        "internal_booking.UpdateMetadataInput": {
+            "type": "object",
+            "properties": {
+                "group_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "notes": {
+                    "type": "string",
+                    "example": "Updated contact info"
+                },
+                "primary_guest_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                },
+                "travel_agent_id": {
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
+                }
+            }
+        },
+        "pgtype.Date": {
+            "type": "object",
+            "properties": {
+                "infinityModifier": {
+                    "$ref": "#/definitions/pgtype.InfinityModifier"
+                },
+                "time": {
+                    "type": "string"
+                },
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "pgtype.InfinityModifier": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                1,
+                0,
+                -1
+            ],
+            "x-enum-varnames": [
+                "Infinity",
+                "Finite",
+                "NegativeInfinity"
+            ]
+        },
+        "pgtype.Timestamptz": {
+            "type": "object",
+            "properties": {
+                "infinityModifier": {
+                    "$ref": "#/definitions/pgtype.InfinityModifier"
+                },
+                "time": {
+                    "type": "string"
+                },
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "uuid.NullUUID": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "valid": {
+                    "description": "Valid is true if UUID is not NULL",
+                    "type": "boolean"
                 }
             }
         }

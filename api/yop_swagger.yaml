@@ -27,6 +27,449 @@ definitions:
         example: ok
         type: string
     type: object
+  github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError:
+    properties:
+      code:
+        enum:
+        - NOT_FOUND
+        - BAD_REQUEST
+        - CONFLICT
+        - INTERNAL_ERROR
+        - UNPROCESSABLE_ENTITY
+        type: string
+      message:
+        type: string
+      suggestions:
+        items:
+          type: string
+        type: array
+    type: object
+  github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date:
+    properties:
+      time.Time:
+        type: string
+    type: object
+  github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate:
+    properties:
+      adjustment:
+        items:
+          type: integer
+        type: array
+      adjustment_approved:
+        type: boolean
+      adjustment_approved_by_user_id:
+        $ref: '#/definitions/uuid.NullUUID'
+      base_price_pence:
+        type: integer
+      calendar_date:
+        $ref: '#/definitions/pgtype.Date'
+      created_at:
+        $ref: '#/definitions/pgtype.Timestamptz'
+      deleted_at:
+        $ref: '#/definitions/pgtype.Timestamptz'
+      final_price_pence:
+        type: integer
+      id:
+        type: string
+      property_id:
+        type: string
+      rate_plan_id:
+        $ref: '#/definitions/uuid.NullUUID'
+      reservation_item_id:
+        type: string
+      updated_at:
+        $ref: '#/definitions/pgtype.Timestamptz'
+    type: object
+  internal_booking.AddItemInput:
+    type: object
+  internal_booking.AdjustmentType:
+    enum:
+    - percentage
+    - fixed
+    type: string
+    x-enum-varnames:
+    - AdjustmentPercent
+    - AdjustmentFixed
+  internal_booking.AssignRoomInput:
+    properties:
+      room_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+    type: object
+  internal_booking.BatchError:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+    type: object
+  internal_booking.BatchResult:
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/internal_booking.BatchResultItem'
+        type: array
+    type: object
+  internal_booking.BatchResultItem:
+    properties:
+      error:
+        $ref: '#/definitions/internal_booking.BatchError'
+      item_id:
+        type: string
+      reservation_item:
+        $ref: '#/definitions/internal_booking.ItemResponse'
+      status:
+        description: '"ok" | "failed"'
+        type: string
+    type: object
+  internal_booking.CancelInput:
+    properties:
+      fee_override_reason:
+        example: Loyalty member
+        type: string
+      fee_pence:
+        example: 5000
+        type: integer
+      reason_code:
+        example: guest_request
+        type: string
+      refund_action:
+        allOf:
+        - $ref: '#/definitions/internal_booking.RefundAction'
+        example: original
+      shorten_stay:
+        description: force-cancel checked-in items (requires reservations:post_checkin_mutate)
+        example: false
+        type: boolean
+      waive_fee:
+        example: false
+        type: boolean
+    type: object
+  internal_booking.CancellationIntent:
+    properties:
+      cancelled_by_user_id:
+        type: string
+      fee_override_reason:
+        example: Loyalty member
+        type: string
+      fee_pence:
+        example: 5000
+        type: integer
+      reason_code:
+        example: guest_request
+        type: string
+      refund_action:
+        allOf:
+        - $ref: '#/definitions/internal_booking.RefundAction'
+        example: original
+      waive_fee:
+        example: false
+        type: boolean
+    type: object
+  internal_booking.CancellationQuoteResponse:
+    properties:
+      fee_pence:
+        type: integer
+      status:
+        type: string
+    type: object
+  internal_booking.CreateItemInput:
+    type: object
+  internal_booking.CreateReservationInput:
+    type: object
+  internal_booking.DateAvailability:
+    properties:
+      available:
+        example: 1
+        type: integer
+      date:
+        example: "2026-06-01"
+        type: string
+      reason:
+        description: Reason explains why unavailable (e.g. "no_rate_configured").
+          Empty when available.
+        example: no_rate_configured
+        type: string
+      total:
+        example: 4
+        type: integer
+    type: object
+  internal_booking.GuestInlinePayload:
+    properties:
+      email:
+        example: jane.doe@example.com
+        type: string
+      first_name:
+        example: Jane
+        type: string
+      id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      last_name:
+        example: Doe
+        type: string
+      phone:
+        example: "+441234567890"
+        type: string
+    type: object
+  internal_booking.GuestResponse:
+    properties:
+      email:
+        example: jane@example.com
+        type: string
+      first_name:
+        example: Jane
+        type: string
+      id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      last_name:
+        example: Doe
+        type: string
+      phone:
+        example: "+441234567890"
+        type: string
+      property_id:
+        type: string
+    type: object
+  internal_booking.ItemResponse:
+    properties:
+      adults_count:
+        example: 2
+        type: integer
+      assigned_room_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      base_rate_pence:
+        example: 15000
+        type: integer
+      booked_room_type_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      children_count:
+        example: 0
+        type: integer
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      do_not_move:
+        example: false
+        type: boolean
+      guest_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      property_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      rate_plan_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      reservation_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/internal_booking.ItemStatus'
+        example: booked
+      stay_period:
+        type: string
+      updated_at:
+        type: string
+      version:
+        example: 1
+        type: integer
+    type: object
+  internal_booking.ItemStatus:
+    enum:
+    - booked
+    - checked_in
+    - checked_out
+    - no_show
+    - overstay
+    - cancelled
+    - archived
+    type: string
+    x-enum-varnames:
+    - ItemStatusBooked
+    - ItemStatusCheckedIn
+    - ItemStatusCheckedOut
+    - ItemStatusNoShow
+    - ItemStatusOverstay
+    - ItemStatusCancelled
+    - ItemStatusArchived
+  internal_booking.RateAdjustInput:
+    properties:
+      adjustments:
+        items:
+          $ref: '#/definitions/internal_booking.RateAdjustment'
+        type: array
+    type: object
+  internal_booking.RateAdjustment:
+    properties:
+      calendar_date:
+        example: "2026-06-01"
+        type: string
+      reason:
+        example: Corp Rate
+        type: string
+      type:
+        allOf:
+        - $ref: '#/definitions/internal_booking.AdjustmentType'
+        example: percentage
+      value:
+        example: 10000
+        type: integer
+    type: object
+  internal_booking.RefundAction:
+    enum:
+    - none
+    - original
+    - credit
+    type: string
+    x-enum-varnames:
+    - RefundNone
+    - RefundOriginal
+    - RefundCredit
+  internal_booking.ReservationResponse:
+    properties:
+      cancellation_intent:
+        $ref: '#/definitions/internal_booking.CancellationIntent'
+      code:
+        example: RES-111213
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      expires_at:
+        type: string
+      group_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      guest:
+        $ref: '#/definitions/internal_booking.GuestResponse'
+      id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/internal_booking.ItemResponse'
+        type: array
+      notes:
+        example: Guest requested top floor
+        type: string
+      primary_guest_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      property_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      sequential:
+        example: 42
+        type: integer
+      source:
+        allOf:
+        - $ref: '#/definitions/internal_booking.ReservationSource'
+        example: internal
+      status:
+        allOf:
+        - $ref: '#/definitions/internal_booking.ReservationStatus'
+        example: hold
+      stay_period_envelope:
+        type: string
+      travel_agent_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      updated_at:
+        type: string
+      version:
+        example: 1
+        type: integer
+    type: object
+  internal_booking.ReservationSource:
+    enum:
+    - website
+    - internal
+    - ota
+    type: string
+    x-enum-varnames:
+    - SourceWebsite
+    - SourceInternal
+    - SourceOTA
+  internal_booking.ReservationStatus:
+    enum:
+    - hold
+    - confirmed
+    - checked_in
+    - checked_out
+    - pending_cancellation
+    - cancelled
+    - archived
+    type: string
+    x-enum-varnames:
+    - StatusHold
+    - StatusConfirmed
+    - StatusCheckedIn
+    - StatusCheckedOut
+    - StatusPendingCancellation
+    - StatusCancelled
+    - StatusArchived
+  internal_booking.UpdateMetadataInput:
+    properties:
+      group_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      notes:
+        example: Updated contact info
+        type: string
+      primary_guest_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+      travel_agent_id:
+        example: 00000000-0000-0000-0000-000000000000
+        type: string
+    type: object
+  pgtype.Date:
+    properties:
+      infinityModifier:
+        $ref: '#/definitions/pgtype.InfinityModifier'
+      time:
+        type: string
+      valid:
+        type: boolean
+    type: object
+  pgtype.InfinityModifier:
+    enum:
+    - 1
+    - 0
+    - -1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - Infinity
+    - Finite
+    - NegativeInfinity
+  pgtype.Timestamptz:
+    properties:
+      infinityModifier:
+        $ref: '#/definitions/pgtype.InfinityModifier'
+      time:
+        type: string
+      valid:
+        type: boolean
+    type: object
+  uuid.NullUUID:
+    properties:
+      uuid:
+        type: string
+      valid:
+        description: Valid is true if UUID is not NULL
+        type: boolean
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -51,4 +494,890 @@ paths:
       summary: Get Server Health
       tags:
       - System
+  /v1/reservations:
+    get:
+      description: Cursor-paginated list of reservations for the property.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Page size (default 50)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_booking.ReservationResponse'
+            type: array
+      summary: List reservations
+      tags:
+      - Reservations
+    post:
+      consumes:
+      - application/json
+      description: Create a new reservation with one or more room items.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Reservation payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_booking.CreateReservationInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Create reservation
+      tags:
+      - Reservations
+  /v1/reservations/{id}:
+    get:
+      description: Fetch a single reservation by ID.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'Comma-separated: items,guest,none'
+        in: query
+        name: include
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Get reservation
+      tags:
+      - Reservations
+    patch:
+      consumes:
+      - application/json
+      description: Partial update of reservation-level fields. Requires If-Match version
+        header.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_booking.UpdateMetadataInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "412":
+          description: Precondition Failed
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Update reservation metadata
+      tags:
+      - Reservations
+  /v1/reservations/{id}/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancels a reservation. Implemented in Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Cancellation options
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/internal_booking.CancelInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Cancel reservation
+      tags:
+      - Reservations
+  /v1/reservations/{id}/cancellation-quote:
+    get:
+      description: Returns cancellation fee estimate. Stub — finance PR implements
+        this.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.CancellationQuoteResponse'
+      summary: Get cancellation quote
+      tags:
+      - Reservations
+  /v1/reservations/{id}/checkin:
+    patch:
+      description: Checks in all items on a reservation. Returns 207 if partial. Implemented
+        in Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.BatchResult'
+        "207":
+          description: Multi-Status
+          schema:
+            $ref: '#/definitions/internal_booking.BatchResult'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Check in all items
+      tags:
+      - Reservations
+  /v1/reservations/{id}/checkout:
+    patch:
+      description: Checks out all items on a reservation. Returns 207 if partial.
+        Implemented in Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.BatchResult'
+        "207":
+          description: Multi-Status
+          schema:
+            $ref: '#/definitions/internal_booking.BatchResult'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Check out all items
+      tags:
+      - Reservations
+  /v1/reservations/{id}/confirm:
+    post:
+      description: Transitions a hold reservation to confirmed status.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "412":
+          description: Precondition Failed
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Confirm reservation
+      tags:
+      - Reservations
+  /v1/reservations/{id}/folios/{folio_id}:
+    get:
+      description: Returns folio data. Stub — finance PR implements this.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Folio UUID
+        in: path
+        name: folio_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get folio
+      tags:
+      - Reservations
+  /v1/reservations/{id}/items:
+    post:
+      consumes:
+      - application/json
+      description: Adds a new room item to an existing reservation. Implemented in
+        Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item to add
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_booking.AddItemInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Add item to reservation
+      tags:
+      - Reservations
+  /v1/reservations/{id}/items/{item_id}:
+    patch:
+      consumes:
+      - application/json
+      description: Updates an item's stay period or room type. Implemented in Phase
+        7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item UUID
+        in: path
+        name: item_id
+        required: true
+        type: string
+      - description: Item fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_booking.CreateItemInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Update reservation item
+      tags:
+      - Reservations
+  /v1/reservations/{id}/items/{item_id}/adjust-rate:
+    post:
+      consumes:
+      - application/json
+      description: Applies percentage or fixed adjustments to booked rates. Implemented
+        in Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item UUID
+        in: path
+        name: item_id
+        required: true
+        type: string
+      - description: Rate adjustments
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_booking.RateAdjustInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Adjust daily rates
+      tags:
+      - Reservations
+  /v1/reservations/{id}/items/{item_id}/assign-room:
+    patch:
+      consumes:
+      - application/json
+      description: Assigns a specific room to a reservation item. Implemented in Phase
+        7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item UUID
+        in: path
+        name: item_id
+        required: true
+        type: string
+      - description: Room assignment
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_booking.AssignRoomInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Assign room to item
+      tags:
+      - Reservations
+  /v1/reservations/{id}/items/{item_id}/booked-rates:
+    get:
+      description: Returns booked daily rates for a reservation item. Implemented
+        in Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item UUID
+        in: path
+        name: item_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate'
+            type: array
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Get booked daily rates
+      tags:
+      - Reservations
+    patch:
+      consumes:
+      - application/json
+      description: Overwrites booked daily rates for an item. Implemented in Phase
+        7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item UUID
+        in: path
+        name: item_id
+        required: true
+        type: string
+      - description: Rate adjustments
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_booking.RateAdjustInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Update booked daily rates
+      tags:
+      - Reservations
+  /v1/reservations/{id}/items/{item_id}/booked-rates/approve:
+    post:
+      description: Approves pending rate adjustments for a reservation item. Implemented
+        in Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item UUID
+        in: path
+        name: item_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Approve rate adjustments
+      tags:
+      - Reservations
+  /v1/reservations/{id}/items/{item_id}/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancels a single reservation item. Implemented in Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item UUID
+        in: path
+        name: item_id
+        required: true
+        type: string
+      - description: Cancellation options
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/internal_booking.CancelInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ItemResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Cancel single item
+      tags:
+      - Reservations
+  /v1/reservations/{id}/items/{item_id}/checkin:
+    patch:
+      description: Checks in a single reservation item. Implemented in Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item UUID
+        in: path
+        name: item_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ItemResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Check in single item
+      tags:
+      - Reservations
+  /v1/reservations/{id}/items/{item_id}/checkout:
+    patch:
+      description: Checks out a single reservation item. Implemented in Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item UUID
+        in: path
+        name: item_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ItemResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Check out single item
+      tags:
+      - Reservations
+  /v1/reservations/{id}/items/{item_id}/no-show:
+    patch:
+      description: Marks a reservation item as no-show. Implemented in Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item UUID
+        in: path
+        name: item_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ItemResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Mark item as no-show
+      tags:
+      - Reservations
+  /v1/reservations/{id}/reactivate:
+    post:
+      description: Reactivates a cancelled reservation. Implemented in Phase 7.
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Optimistic lock version
+        in: header
+        name: If-Match
+        required: true
+        type: string
+      - description: Reservation UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_booking.ReservationResponse'
+        "501":
+          description: Not Implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Reactivate reservation
+      tags:
+      - Reservations
+  /v1/reservations/availability:
+    get:
+      description: Returns per-night availability for a room type. Results cached
+        in Redis (TTL 600s).
+      parameters:
+      - description: Property UUID
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Room type UUID
+        in: query
+        name: room_type_id
+        required: true
+        type: string
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_booking.DateAvailability'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Check room type availability
+      tags:
+      - Reservations
 swagger: "2.0"
