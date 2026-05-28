@@ -43,7 +43,7 @@ audit: ## Run quality checks
 	go mod tidy
 	go vet ./...
 
-	go test -v -race -buildvcs ./...
+	gotestsum -- -v -race -buildvcs ./...
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 	@echo "🔍 Auditing Frontend..."
@@ -75,7 +75,7 @@ reset-db: _guard-local-db ## Run to reset the docker (requires CONFIRM=YES and l
 	@sleep 3
 
 test-backend: ## Run all tests in the backend
-	go test -buildvcs -race ./...
+	gotestsum -- -buildvcs -race ./...
 
 test-frontend: ## Run all tests in the frontend
 	cd web && npm run test
@@ -98,7 +98,7 @@ gen-constraints: ## Sync constraints.yml and constraints.ts from live DB check c
 test-cover:
 	@mkdir -p $(COVERAGE_DIR)
 	@echo "Running tests and generating coverage..."
-	go test -v -coverprofile=$(COVERAGE_FILE) ./...
+	gotestsum -- -v -coverprofile=$(COVERAGE_FILE) ./...
 	go tool cover -html=$(COVERAGE_FILE) -o $(COVERAGE_HTML)
 	@echo "Coverage report: $(COVERAGE_HTML)"
 	@if [ "$$(uname)" = "Darwin" ]; then \
