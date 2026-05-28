@@ -15,7 +15,7 @@ import (
 type Querier interface {
 	ApplyRateAdjustment(ctx context.Context, arg *ApplyRateAdjustmentParams) (pgconn.CommandTag, error)
 	ApproveRateAdjustments(ctx context.Context, arg *ApproveRateAdjustmentsParams) error
-	AvailabilityByType(ctx context.Context, arg *AvailabilityByTypeParams) ([]AvailabilityByTypeRow, error)
+	BlockedCountByType(ctx context.Context, arg *BlockedCountByTypeParams) ([]BlockedCountByTypeRow, error)
 	BulkInsertBookedDailyRates(ctx context.Context, arg *BulkInsertBookedDailyRatesParams) error
 	BulkInsertLedgerRows(ctx context.Context, arg *BulkInsertLedgerRowsParams) error
 	// Used by both workers and service layer
@@ -32,6 +32,7 @@ type Querier interface {
 	// Returns conflicting dates for precise error messaging
 	// @exclude_item_id is nullable: NULL = check all items
 	ConflictCheckOnLedger(ctx context.Context, arg *ConflictCheckOnLedgerParams) ([]pgtype.Date, error)
+	CountRoomsByType(ctx context.Context, arg *CountRoomsByTypeParams) (int32, error)
 	// Finance folio queries
 	CreateFolio(ctx context.Context, arg *CreateFolioParams) (FinanceFolio, error)
 	// Guest queries for inline guest creation and expansion

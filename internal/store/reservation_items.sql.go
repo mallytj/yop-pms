@@ -12,33 +12,33 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const availabilityByType = `-- name: AvailabilityByType :many
-SELECT 
-    ril.calendar_date,
-    COUNT(*) FILTER (WHERE ril.status = 'available')::INT AS available_count
+const blockedCountByType = `-- name: BlockedCountByType :many
+SELECT ril.calendar_date, COUNT(DISTINCT ril.room_id)::INT AS blocked_count
 FROM inventory.room_inventory_ledger ril
-JOIN inventory.rooms r ON ril.room_id = r.id
+INNER JOIN inventory.rooms r ON r.id = ril.room_id
 WHERE r.property_id = $1
-AND r.room_type_id = $2
-AND ril.calendar_date BETWEEN $3::date AND $4::date
+  AND r.room_type_id = $2
+  AND ril.status IN ('sold', 'on_hold', 'maintenance', 'decommissioned')
+  AND ril.deleted_at IS NULL
+  AND ril.calendar_date BETWEEN $3::date AND $4::date
 GROUP BY ril.calendar_date
 ORDER BY ril.calendar_date
 `
 
-type AvailabilityByTypeParams struct {
+type BlockedCountByTypeParams struct {
 	PropertyID uuid.UUID     `json:"property_id"`
 	RoomTypeID uuid.NullUUID `json:"room_type_id"`
 	StartDate  pgtype.Date   `json:"start_date"`
 	EndDate    pgtype.Date   `json:"end_date"`
 }
 
-type AvailabilityByTypeRow struct {
-	CalendarDate   pgtype.Date `json:"calendar_date"`
-	AvailableCount int32       `json:"available_count"`
+type BlockedCountByTypeRow struct {
+	CalendarDate pgtype.Date `json:"calendar_date"`
+	BlockedCount int32       `json:"blocked_count"`
 }
 
-func (q *Queries) AvailabilityByType(ctx context.Context, arg *AvailabilityByTypeParams) ([]AvailabilityByTypeRow, error) {
-	rows, err := q.db.Query(ctx, availabilityByType,
+func (q *Queries) BlockedCountByType(ctx context.Context, arg *BlockedCountByTypeParams) ([]BlockedCountByTypeRow, error) {
+	rows, err := q.db.Query(ctx, blockedCountByType,
 		arg.PropertyID,
 		arg.RoomTypeID,
 		arg.StartDate,
@@ -48,10 +48,10 @@ func (q *Queries) AvailabilityByType(ctx context.Context, arg *AvailabilityByTyp
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AvailabilityByTypeRow
+	var items []BlockedCountByTypeRow
 	for rows.Next() {
-		var i AvailabilityByTypeRow
-		if err := rows.Scan(&i.CalendarDate, &i.AvailableCount); err != nil {
+		var i BlockedCountByTypeRow
+		if err := rows.Scan(&i.CalendarDate, &i.BlockedCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -160,6 +160,24 @@ func (q *Queries) ConflictCheckOnLedger(ctx context.Context, arg *ConflictCheckO
 		return nil, err
 	}
 	return items, nil
+}
+
+const countRoomsByType = `-- name: CountRoomsByType :one
+SELECT COUNT(*)::INT AS cnt
+FROM inventory.rooms
+WHERE property_id = $1 AND room_type_id = $2
+`
+
+type CountRoomsByTypeParams struct {
+	PropertyID uuid.UUID     `json:"property_id"`
+	RoomTypeID uuid.NullUUID `json:"room_type_id"`
+}
+
+func (q *Queries) CountRoomsByType(ctx context.Context, arg *CountRoomsByTypeParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countRoomsByType, arg.PropertyID, arg.RoomTypeID)
+	var cnt int32
+	err := row.Scan(&cnt)
+	return cnt, err
 }
 
 const deleteLedgerForReservation = `-- name: DeleteLedgerForReservation :exec

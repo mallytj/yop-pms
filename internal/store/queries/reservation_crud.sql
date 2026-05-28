@@ -52,7 +52,7 @@ SELECT r.*
 FROM operations.reservations r
 WHERE r.property_id = @property_id 
 AND r.deleted_at IS NULL
-AND (@status::operations.reservation_status IS NULL OR r.status = @status)
+AND (@status::text = '' OR r.status::text = @status::text)
 AND (@cursor_date::timestamptz IS NULL OR lower(r.stay_period_envelope) < @cursor_date
     OR (lower(r.stay_period_envelope) = @cursor_date AND r.id < @cursor_id))
 AND (@start_date::date IS NULL OR lower(r.stay_period_envelope) >= @start_date::date)

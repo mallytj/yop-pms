@@ -215,7 +215,7 @@ SELECT r.id, r.property_id, r.primary_guest_id, r.group_id, r.source, r.travel_a
 FROM operations.reservations r
 WHERE r.property_id = $1 
 AND r.deleted_at IS NULL
-AND ($2::operations.reservation_status IS NULL OR r.status = $2)
+AND ($2::text = '' OR r.status::text = $2::text)
 AND ($3::timestamptz IS NULL OR lower(r.stay_period_envelope) < $3
     OR (lower(r.stay_period_envelope) = $3 AND r.id < $4))
 AND ($5::date IS NULL OR lower(r.stay_period_envelope) >= $5::date)
@@ -225,13 +225,13 @@ LIMIT $7
 `
 
 type ListReservationsParams struct {
-	PropertyID uuid.UUID                   `json:"property_id"`
-	Status     OperationsReservationStatus `json:"status"`
-	CursorDate pgtype.Timestamptz          `json:"cursor_date"`
-	CursorID   uuid.UUID                   `json:"cursor_id"`
-	StartDate  pgtype.Date                 `json:"start_date"`
-	EndDate    pgtype.Date                 `json:"end_date"`
-	Limit      int32                       `json:"limit"`
+	PropertyID uuid.UUID          `json:"property_id"`
+	Status     string             `json:"status"`
+	CursorDate pgtype.Timestamptz `json:"cursor_date"`
+	CursorID   uuid.UUID          `json:"cursor_id"`
+	StartDate  pgtype.Date        `json:"start_date"`
+	EndDate    pgtype.Date        `json:"end_date"`
+	Limit      int32              `json:"limit"`
 }
 
 // Cursor pagination per ADR-014

@@ -14,15 +14,20 @@ SELECT
 FROM operations.reservation_items
 WHERE reservation_id = @reservation_id AND deleted_at IS NULL;
 
--- name: AvailabilityByType :many
-SELECT 
-    ril.calendar_date,
-    COUNT(*) FILTER (WHERE ril.status = 'available')::INT AS available_count
+-- name: CountRoomsByType :one
+SELECT COUNT(*)::INT AS cnt
+FROM inventory.rooms
+WHERE property_id = @property_id AND room_type_id = @room_type_id;
+
+-- name: BlockedCountByType :many
+SELECT ril.calendar_date, COUNT(DISTINCT ril.room_id)::INT AS blocked_count
 FROM inventory.room_inventory_ledger ril
-JOIN inventory.rooms r ON ril.room_id = r.id
+INNER JOIN inventory.rooms r ON r.id = ril.room_id
 WHERE r.property_id = @property_id
-AND r.room_type_id = @room_type_id
-AND ril.calendar_date BETWEEN @start_date::date AND @end_date::date
+  AND r.room_type_id = @room_type_id
+  AND ril.status IN ('sold', 'on_hold', 'maintenance', 'decommissioned')
+  AND ril.deleted_at IS NULL
+  AND ril.calendar_date BETWEEN @start_date::date AND @end_date::date
 GROUP BY ril.calendar_date
 ORDER BY ril.calendar_date;
 
