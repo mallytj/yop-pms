@@ -7,7 +7,6 @@ import (
 	"log"
 	"log/slog"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -25,16 +24,6 @@ import (
 	"github.com/lexxcode1/yop-pms/internal/store"
 )
 
-var (
-	testPool       *pgxpool.Pool
-	testQueries    *store.Queries
-	testRedis      *redis.Client
-	testSvc        *Service
-	testPropertyID uuid.UUID
-	testMu         sync.Mutex
-	testDateBase   int32 = 7
-)
-
 func TestMain(m *testing.M) {
 	code := runTests(m)
 	os.Exit(code)
@@ -44,7 +33,8 @@ func runTests(m *testing.M) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
-	pgContainer, err := postgres.Run(ctx,
+	pgContainer, err := postgres.Run(
+		ctx,
 		"postgres:18-alpine",
 		postgres.WithDatabase("pms_test"),
 		postgres.WithUsername("admin"),
@@ -192,71 +182,6 @@ func seedTestData(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func ctxWithProperty(ctx context.Context) context.Context {
-	return helpers.SetPropertyIDInCtx(ctx, testPropertyID)
-}
-
-func getGuestID(t *testing.T) uuid.UUID {
-	t.Helper()
-	var id uuid.UUID
-	err := testPool.QueryRow(context.Background(),
-		`SELECT id FROM identity.guests WHERE email = 'jane@example.com'`).Scan(&id)
-	if err != nil {
-		t.Fatal("get guest id:", err)
-	}
-	return id
-}
-
-func getRoomTypeID(t *testing.T) uuid.UUID {
-	t.Helper()
-	var id uuid.UUID
-	err := testPool.QueryRow(context.Background(),
-		`SELECT id FROM inventory.room_types LIMIT 1`).Scan(&id)
-	if err != nil {
-		t.Fatal("get room type id:", err)
-	}
-	return id
-}
-
-func getRoomID(t *testing.T) uuid.UUID {
-	t.Helper()
-	var id uuid.UUID
-	err := testPool.QueryRow(context.Background(),
-		`SELECT id FROM inventory.rooms ORDER BY name ASC LIMIT 1`).Scan(&id)
-	if err != nil {
-		t.Fatal("get room id:", err)
-	}
-	return id
-}
-
-// roomIDPtr returns a pointer to the first room. Used in struct
-// literals where AssignedRoomID is *uuid.UUID.
-func roomIDPtr(t *testing.T) *uuid.UUID {
-	id := getRoomID(t)
-	return &id
-}
-
-func getRatePlanID(t *testing.T) *uuid.UUID {
-	t.Helper()
-	var id uuid.UUID
-	err := testPool.QueryRow(context.Background(),
-		`SELECT id FROM pricing.rate_plans LIMIT 1`).Scan(&id)
-	if err != nil {
-		t.Fatal("get rate plan id:", err)
-	}
-	return &id
-}
-
-func nextTestDate(t *testing.T) (time.Time, time.Time) {
-	t.Helper()
-	testMu.Lock()
-	days := testDateBase
-	testDateBase += 7
-	testMu.Unlock()
-	arrival := time.Now().Truncate(24 * time.Hour).Add(time.Duration(days) * 24 * time.Hour)
-	return arrival, arrival.Add(3 * 24 * time.Hour)
 }
 
 // --- Tests ---
@@ -532,24 +457,5 @@ func TestConfirm_HoldToConfirmed(t *testing.T) {
 	}
 	if len(confirmed.Items) != 1 {
 		t.Errorf("got %d items, want 1", len(confirmed.Items))
-	}
-}
-
-// cleanupTestReservations deletes reservation data in FK-safe order.
-// Called via t.Cleanup in each test to prevent data leaking between tests.
-func cleanupTestReservations() {
-	ctx := context.Background()
-	order := []string{
-		"finance.folio_transactions",
-		"inventory.ledger",
-		"operations.booked_daily_rates",
-		"finance.folios",
-		"operations.reservation_items",
-		"operations.reservations",
-	}
-	for _, t := range order {
-		if _, err := testPool.Exec(ctx, "DELETE FROM "+t); err != nil {
-			log.Printf("cleanup %s: %v", t, err)
-		}
 	}
 }

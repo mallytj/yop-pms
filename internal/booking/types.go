@@ -144,8 +144,8 @@ type CreateReservationInput struct {
 }
 
 // CreateItemInput is a single room-night line within a reservation.
-// It is also the request body for adding an item to an existing reservation via
-// `POST /reservations/{id}/items`.
+// It is also the request body for adding or updating an item via
+// `POST /reservations/{id}/items` and `PATCH /reservations/{id}/items/{item_id}`.
 type CreateItemInput struct {
 	RoomTypeID     uuid.UUID           `json:"room_type_id" example:"00000000-0000-0000-0000-000000000000"`
 	AssignedRoomID *uuid.UUID          `json:"assigned_room_id,omitempty" example:"00000000-0000-0000-0000-000000000000"`
@@ -231,6 +231,37 @@ type AddItemInput struct {
 	CreateItemInput
 }
 
+// ListParams controls pagination and filtering for GET /reservations.
+// Cursor pagination per ADR-014: clients pass cursor_date + cursor_id from the last result.
+type ListParams struct {
+	PropertyID uuid.UUID  `json:"property_id" example:"00000000-0000-0000-0000-000000000000"`
+	Status     *string    `json:"status,omitempty" example:"confirmed"`
+	CursorDate *time.Time `json:"cursor_date,omitempty" example:"2026-06-01T00:00:00Z"`
+	CursorID   *uuid.UUID `json:"cursor_id,omitempty" example:"00000000-0000-0000-0000-000000000000"`
+	StartDate  *time.Time `json:"start_date,omitempty" example:"2026-06-01T00:00:00Z"`
+	EndDate    *time.Time `json:"end_date,omitempty" example:"2026-06-05T00:00:00Z"`
+	Limit      int32      `json:"limit" example:"50"`
+}
+
+// BatchResultItem is one entry in a 207 Multi-Status batch response.
+type BatchResultItem struct {
+	ItemID string        `json:"item_id" example:"00000000-0000-0000-0000-000000000000"`
+	Status string        `json:"status" example:"ok"` // "ok" | "failed"
+	Item   *ItemResponse `json:"reservation_item,omitempty"`
+	Error  *BatchError   `json:"error,omitempty"`
+}
+
+// BatchError is the error payload inside a BatchResultItem.
+type BatchError struct {
+	Code    string `json:"code" example:"ROOM_UNAVAILABLE"`
+	Message string `json:"message" example:"Room not available on selected dates"`
+}
+
+// BatchResult is the response for batch checkin/checkout endpoints (207 Multi-Status).
+type BatchResult struct {
+	Results []BatchResultItem `json:"results"`
+}
+
 // RollupResult is the result of the ADR-015 rollup computation.
 type RollupResult struct {
 	Status  ReservationStatus
@@ -239,9 +270,9 @@ type RollupResult struct {
 
 // DateAvailability represents availability for a single date.
 type DateAvailability struct {
-	Date      time.Time `json:"date" example:"2026-06-01"`
-	Total     int       `json:"total" example:"4"`
-	Available int       `json:"available" example:"1"`
+	Date      types.ISO8601Date `json:"date" example:"2026-06-01"`
+	Total     int               `json:"total" example:"4"`
+	Available int               `json:"available" example:"1"`
 	// Reason explains why unavailable (e.g. "no_rate_configured"). Empty when available.
 	Reason string `json:"reason,omitempty" example:"no_rate_configured"`
 }
@@ -338,4 +369,11 @@ type GuestResponse struct {
 	LastName   string    `json:"last_name" example:"Doe"`
 	Email      string    `json:"email,omitempty" example:"jane@example.com"`
 	Phone      string    `json:"phone,omitempty" example:"+441234567890"`
+}
+
+// CancellationQuoteResponse is the stub response for GET /reservations/{id}/cancellation-quote.
+// Finance PR replaces this with a real fee calculation.
+type CancellationQuoteResponse struct {
+	FeePence *int32 `json:"fee_pence"`
+	Status   string `json:"status"`
 }
