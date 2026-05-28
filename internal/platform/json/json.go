@@ -2,6 +2,7 @@ package json
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/lexxcode1/yop-pms/internal/platform/apierror"
@@ -9,19 +10,25 @@ import (
 )
 
 // WriteJSON writes a JSON response with the given status code.
-func WriteJSON(w http.ResponseWriter, status int, v any) error {
+// Encoding errors are logged internally via slog.Default(); the function
+// does not return an error because there is no meaningful recovery at the
+// call site (the connection is likely broken).
+func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	return json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		slog.Default().Error("platformjson: encoding JSON response", "error", err)
+	}
 }
 
 // WriteError writes an error response in JSON format.
 // It maps PostgreSQL errors through MapPostgresError, logs unexpected errors,
 // and returns a structured error response to the client.
-func WriteError(w http.ResponseWriter, r *http.Request, err error) error {
+// Encoding errors are logged internally; the function does not return an
+// error because there is no meaningful recovery at the call site.
+func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 	if err == nil {
-		// No error to write
-		return nil
+		return
 	}
 
 	logger := logging.FromContext(r.Context())
@@ -48,7 +55,9 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) error {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(apiErr.Status)
-	return json.NewEncoder(w).Encode(apiErr)
+	if err := json.NewEncoder(w).Encode(apiErr); err != nil {
+		logger.Error("platformjson: encoding error response", "error", err)
+	}
 }
 
 // ReadJSON parses a JSON request body into the destination struct.

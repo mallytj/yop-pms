@@ -90,8 +90,10 @@ func NewReservationChangeHandler(c reservationCacheInvalidator, logger *slog.Log
 
 func invalidateAvailability(ctx context.Context, c reservationCacheInvalidator, logger *slog.Logger, change parsedChange) {
 	// One key per night — checkOut is exclusive so iterate d < checkOut.
+	// Pattern uses * wildcard for room_type_id to invalidate all room types
+	// for this property+date (the cache key format is yop:availability:{prop}:{rt}:{date}).
 	for d := change.CheckIn; d.Before(change.CheckOut); d = d.AddDate(0, 0, 1) {
-		pattern := fmt.Sprintf("yop:availability:%s:%s", change.PropertyID, d.Format(dateLayout))
+		pattern := fmt.Sprintf("yop:availability:%s:*:%s", change.PropertyID, d.Format(dateLayout))
 		if err := c.Invalidate(ctx, pattern); err != nil {
 			logger.Warn("failed to invalidate availability cache", "pattern", pattern, "error", err)
 		}

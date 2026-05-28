@@ -16,11 +16,7 @@ func TestWriteJSON(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	data := map[string]string{"message": "hello"}
-	err := WriteJSON(w, http.StatusOK, data)
-
-	if err != nil {
-		t.Errorf("WriteJSON returned error: %v", err)
-	}
+	WriteJSON(w, http.StatusOK, data)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Status: got %d, want %d", w.Code, http.StatusOK)
@@ -48,7 +44,7 @@ func TestWriteError_APIError(t *testing.T) {
 
 	r := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
 
-	_ = WriteError(w, r, apierror.ErrNotFound)
+	WriteError(w, r, apierror.ErrNotFound)
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("Status: got %d, want %d", w.Code, http.StatusNotFound)
@@ -73,7 +69,7 @@ func TestWriteError_UnexpectedError(t *testing.T) {
 
 	r := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
 
-	_ = WriteError(w, r, apierror.MapPostgresError(nil))
+	WriteError(w, r, apierror.MapPostgresError(nil))
 
 	// WriteError should handle nil from MapPostgresError gracefully
 	// This case returns OK status since we passed nil and MapPostgresError returns nil
@@ -167,11 +163,7 @@ func TestWriteError_CustomErrorMessage(t *testing.T) {
 	r := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
 
 	customErr := apierror.ErrConflict.WithMessage("custom conflict message")
-	err := WriteError(w, r, customErr)
-
-	if err != nil {
-		t.Errorf("WriteError returned error: %v", err)
-	}
+	WriteError(w, r, customErr)
 
 	if w.Code != http.StatusConflict {
 		t.Errorf("Status: got %d, want %d", w.Code, http.StatusConflict)
@@ -205,11 +197,7 @@ func TestWriteJSON_ComplexStructure(t *testing.T) {
 		Items:  []string{"a", "b", "c"},
 	}
 
-	err := WriteJSON(w, http.StatusOK, data)
-
-	if err != nil {
-		t.Errorf("WriteJSON returned error: %v", err)
-	}
+	WriteJSON(w, http.StatusOK, data)
 
 	// Verify the response can be decoded
 	var result struct {
