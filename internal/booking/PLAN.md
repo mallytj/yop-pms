@@ -804,38 +804,185 @@ r.Route("/v1", func(r chi.Router) {
 
 ---
 
-## Phase 9: SSE (rough sketch — finalised after research)
+## Phase 9: SSE — Real-Time Frontend Updates
 
-User researches SSE before coding. Phase below is a skeleton; bracketed items
-are open. Final implementation may slip to a follow-up PR.
+Uses PostgreSQL triggers + Go Hub + SvelteKit EventSource (ADR-017).
 
-`internal/platform/sse/hub.go` — cross-cutting hub (booking, future folios,
-groups all share).
+### Architecture overview
 
-```go
-type SSEHub struct {
-    clients map[chan SSEMessage]struct{}
-    mu      sync.RWMutex
-}
-type SSEMessage struct { Event string; Data string }
-
-func (h *SSEHub) Subscribe(w http.ResponseWriter, r *http.Request)  // registers client, removes on r.Context().Done()
-func (h *SSEHub) Broadcast(msg SSEMessage)              // non-blocking; drops slow clients, skips closed channels
-func (h *SSEHub) OnReservationChange(ctx, event) error  // events.Handler for reservation_changes channel
-func (h *SSEHub) OnStaffAlert(ctx, event) error         // events.Handler for staff_alerts channel
+```
+PostgreSQL ──pg_notify (trigger)──▶ events.Listener ──▶ realtime.Hub (pub/sub)
+                                                          │
+                                                          ├─▶ SSE conn (user A)
+                                                          ├─▶ SSE conn (user B)
+                                                          └─▶ SSE conn (user C)
 ```
 
-Mounted at top-level `GET /api/v1/sse` (no idempotency, no auth this PR — public
-dev endpoint; auth PR locks it down). Heartbeat every 30s.
+Postgres triggers fire `pg_notify` on every mutation — no manual `NotifyChannel`
+calls needed (triggers cannot be bypassed by workers, admin tools, or direct SQL).
 
-**SSE research needed before finalizing (deferred):**
+The events listener dispatches to the `realtime.Hub` handler. The Hub fans out
+to per-connection SSE streams, filtered by the user's permitted `property_id` set.
 
-- Go stdlib `http.Flusher` + `r.Context().Done()` for disconnect detection
-- Buffered vs unbuffered client channels (backpressure strategy)
-- Browser `EventSource` reconnect backoff and `Last-Event-ID`
-- Reverse-proxy config (nginx `proxy_buffering off`)
+### New files
 
-Frontend: `EventSource("/api/v1/sse")`, browser auto-reconnects.
+```text
+internal/platform/realtime/
+├── hub.go                  Subscribe, OnEvent, Resync
+└── hub_test.go
+
+migrations/
+└── NNN-sse-notify-triggers.sql    One migration: trigger functions + constraints
+```
+
+### Migration: `NNN-sse-notify-triggers.sql`
+
+Single migration file, fully reversible. One trigger function for all
+reservation tables, one dedicated for `staff_alerts`.
+
+```sql
+-- +goose Up
+
+CREATE OR REPLACE FUNCTION notify_reservation_changes()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM pg_notify('reservation_changes',
+        json_build_object(
+            'table', TG_TABLE_NAME,
+            'op', TG_OP,
+            'id', COALESCE(NEW.id, OLD.id),
+            'property_id', COALESCE(NEW.property_id, OLD.property_id)
+        )::text
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE CONSTRAINT TRIGGER trg_reservations_notify
+AFTER INSERT OR UPDATE OR DELETE ON operations.reservations
+DEFERRABLE INITIALLY IMMEDIATE
+FOR EACH ROW EXECUTE FUNCTION notify_reservation_changes();
+
+CREATE CONSTRAINT TRIGGER trg_reservation_items_notify
+AFTER INSERT OR UPDATE OR DELETE ON operations.reservation_items
+DEFERRABLE INITIALLY IMMEDIATE
+FOR EACH ROW EXECUTE FUNCTION notify_reservation_changes();
+
+CREATE CONSTRAINT TRIGGER trg_ledger_notify
+AFTER INSERT OR UPDATE OR DELETE ON inventory.room_inventory_ledger
+DEFERRABLE INITIALLY IMMEDIATE
+FOR EACH ROW EXECUTE FUNCTION notify_reservation_changes();
+
+CREATE CONSTRAINT TRIGGER trg_booked_rates_notify
+AFTER INSERT OR UPDATE OR DELETE ON pricing.booked_daily_rates
+DEFERRABLE INITIALLY IMMEDIATE
+FOR EACH ROW EXECUTE FUNCTION notify_reservation_changes();
+
+-- +goose Down
+DROP TRIGGER IF EXISTS trg_reservations_notify ON operations.reservations;
+DROP TRIGGER IF EXISTS trg_reservation_items_notify ON operations.reservation_items;
+DROP TRIGGER IF EXISTS trg_ledger_notify ON inventory.room_inventory_ledger;
+DROP TRIGGER IF EXISTS trg_booked_rates_notify ON pricing.booked_daily_rates;
+DROP FUNCTION IF EXISTS notify_reservation_changes();
+```
+
+### `internal/platform/realtime/hub.go` — Broker + SSE handler
+
+```go
+type Hub struct {
+    mu      sync.Mutex
+    clients map[chan SSEMessage]struct{}
+    logger  *slog.Logger
+}
+
+type SSEMessage struct {
+    Event string // "reservation.changed", "staff.alert", "resync"
+    Data  string // compact JSON: {"property_id":"…","record_id":"…","op":"UPDATE","at":"…"}
+}
+
+// Subscribe upgrades HTTP to SSE. Creates 64-buffered channel, registers client,
+// streams events with 25s heartbeat. On r.Context().Done() deregisters and closes.
+func (h *Hub) Subscribe(w http.ResponseWriter, r *http.Request)
+
+// OnEvent is an events.Handler — registered via listener.On().
+// Fans out to all clients filtered by property_id. Non-blocking;
+// drops slow consumers (channel full) — never blocks the Hub.
+func (h *Hub) OnEvent(ctx context.Context, event events.Event) error
+
+// Resync sends event: resync to all connected clients.
+// Called from events.Listener's onReconnect callback after every reconnect.
+func (h *Hub) Resync(ctx context.Context)
+```
+
+### Payload policy — change notification, not entity snapshot
+
+SSE events carry only `{property_id, record_id, op, at}` — enough to identify
+what changed. Clients refetch full state via REST (keeps payload tiny, avoids
+schema drift between SSE and OpenAPI).
+
+### Topics / channels
+
+| Topic | Source channel | Triggered by |
+|-------|---------------|-------------|
+| `reservation.changed` | `reservation_changes` | reservation/item/ledger/rates mutations |
+| `staff.alert` | `staff_alerts` | no-show reminders, custom alerts |
+
+### Wiring
+
+Hub registers as a handler on the existing events.Listener — no own pgx
+connection. Listener's `onReconnect` calls `hub.Resync()` to cover the
+disconnect gap.
+
+```go
+// cmd/server/main.go
+hub := realtime.NewHub(logger)
+eventListener := events.New(cfg.DatabaseURL, logger, func() {
+    cache.FlushAll(ctx)
+    hub.Resync(ctx)  // send event: resync to all SSE clients
+})
+eventListener.On("reservation_changes", hub.OnEvent)
+eventListener.Start()
+
+// cmd/server/api.go — inside /v1
+r.Route("/v1", func(r chi.Router) {
+    r.Use(mw.Idempotency(app.rdb))  // skips GET, no overhead for SSE
+    r.Get("/sse", hub.Subscribe)
+    r.Route("/reservations", booking.Routes(bookingSvc, mw.RequireIfMatch))
+})
+```
+
+### Auth for SSE
+
+Native `EventSource` cannot set custom HTTP headers. StubAuth reads
+`X-Property-ID` from headers — not available on SSE connect.
+
+**Workaround**: StubAuth falls back to query param when header is absent:
+`EventSource('/v1/sse?property_id=...')`. The middleware validates that the
+query param resolves to a property the logged-in user has access to — never
+accepts an arbitrary UUID without an active session.
+
+```go
+// StubAuth reads X-Property-ID header, falls back to ?property_id= query param
+// Must be a valid UUID + session must be authenticated (no guest access).
+```
+
+When real auth lands (cookie/JWT), EventSource sends cookies automatically
+with `{ withCredentials: true }` — no query param needed.
+
+### Frontend
+
+Root layout opens a single `EventSource('/v1/sse')`. Per-resource
+subscriptions in components refetch on change. Browser-native `Last-Event-ID`
+reconnect. On `event: resync` the component refetches full state via REST.
+
+See `web/src/lib/realtime/stream.svelte.ts` — Rune-based store with
+`RealtimeStream.on(topic, handler)` API.
+
+### Multi-instance scaling (deferred)
+
+When scaling out, replace in-memory Hub with Redis Streams (`XADD`/`XREAD`)
+per topic. Events listener already handles per-instance NOTIFY fan-out. Swap
+local to `realtime` package — no API change.
 
 ---
 
@@ -915,7 +1062,7 @@ as "availability queries" — RTM line to be updated.
      db/tx.go (ExecuteTx[T])
      helpers/context.go, helpers/psql_errors.go
      middleware/auth.go (StubAuth), middleware/permission.go, middleware/ifmatch.go
-     sse/hub.go
+     realtime/hub.go
 4. booking/types.go, errors.go, state_machine.go (pure, unit-test first)
 5. booking/availability.go
 6. booking/service.go (Create + Confirm)
@@ -925,8 +1072,11 @@ as "availability queries" — RTM line to be updated.
 9. booking/mutations.go + remaining CRUD handlers (UpdateItem, AssignRoom, AddItem)
 10. booking/rates.go + handlers_rates.go
 11. booking/workers.go — register in cmd/server/main.go
-12. SSE hub registered in cmd/server/main.go + frontend smoke test
-13. Full test pass + make audit
+12. Migration: NNN-sse-notify-triggers.sql (run after reservation schema is live)
+13. realtime/hub.go + realtime/hub_test.go + frontend stream.svelte.ts
+14. Wiring: SSE hub in cmd/server/main.go + GET /v1/sse in cmd/server/api.go + frontend smoke test
+15. Full test pass + make audit
+     - NotifyChannel query retained but deprecated — triggers cover all paths
 14. Booking tests (`internal/booking/*_test.go`):
       - state_machine_test.go: transition matrix (reservation + item), rollup (ADR-015), invalid transitions
       - action_idempotency_test.go: §7.4 lookup table coverage

@@ -10,6 +10,7 @@ when building domain handlers.
 - [JSON Response Encoding](#json-response-encoding)
 - [Caching](#caching)
 - [Event Listening](#event-listening)
+- [SSE Hub (Real-Time Frontend Updates)](#sse-hub-real-time-frontend-updates)
 - [Outbox Worker](#outbox-worker)
 - [Full Example Handler](#full-example-handler)
 
@@ -388,6 +389,113 @@ func NewReservationChangeHandler(c *Client, logger *slog.Logger) events.Handler 
     }
 }
 ```
+
+---
+
+## SSE Hub (Real-Time Frontend Updates)
+
+The SSE hub (`internal/platform/realtime/hub.go`) pushes change events to open
+browser tabs via Server-Sent Events. It connects to the events listener as a
+handler and fans out to per-connection SSE streams.
+
+### How change events reach the browser
+
+```
+PostgreSQL ──pg_notify (trigger)──▶ events.Listener ──▶ realtime.Hub ──▶ SSE conns
+```
+
+1. **PostgreSQL triggers** fire `pg_notify` on every `INSERT`/`UPDATE`/`DELETE`
+   to reservation tables (reservations, reservation_items, inventory ledger,
+   booked daily rates). Payload: `{table, op, id, property_id}`.
+2. **events.Listener** receives the notification and dispatches to registered
+   handlers — including the SSE hub handler.
+3. **realtime.Hub** fans out to every connected SSE stream, filtered by
+   `property_id` (users only see events for properties they can access).
+4. **SvelteKit EventSource** receives the event and component subscriptions
+   refetch via REST.
+
+### Payload policy
+
+SSE events carry **only** `{property_id, record_id, op, at}` — enough to
+identify what changed. Clients refetch full state via the existing REST
+endpoints (keeps payload tiny, avoids schema drift).
+
+### Hub implementation pattern
+
+The Hub uses a simple mutex to guard its client map — no select loop or
+dedicated event goroutine. `Subscribe` (HTTP goroutine) and `OnEvent`
+(events.Listener dispatch goroutine) operate independently.
+
+```go
+type Hub struct {
+    mu      sync.Mutex
+    clients map[chan SSEMessage]struct{}
+    logger  *slog.Logger
+}
+```
+
+`OnEvent` fans out to all clients non-blocking (64-event buffer, drops slow
+consumers). `Subscribe` creates a per-client channel with 25s heartbeat ticker.
+
+### Wiring
+
+Hub registers as a handler on the existing `events.Listener`. Listener's
+`onReconnect` calls `hub.Resync()` to cover the disconnect gap:
+
+```go
+// cmd/server/main.go
+hub := realtime.NewHub(logger)
+eventListener := events.New(cfg.DatabaseURL, logger, func() {
+    cache.FlushAll(ctx)
+    hub.Resync(ctx)  // send event: resync to all SSE clients
+})
+eventListener.On("reservation_changes", hub.OnEvent)
+eventListener.Start()
+
+// cmd/server/api.go — inside /v1
+r.Route("/v1", func(r chi.Router) {
+    r.Use(mw.Idempotency(app.rdb))  // skips GET, no overhead for SSE
+    r.Get("/sse", hub.Subscribe)
+    r.Route("/reservations", booking.Routes(bookingSvc, mw.RequireIfMatch))
+})
+```
+
+### Auth for SSE
+
+Native `EventSource` cannot set custom HTTP headers. StubAuth reads
+`X-Property-ID` from headers — not available on SSE connect.
+
+**Workaround**: StubAuth falls back to `?property_id=` query param when the
+header is absent. The middleware validates that the resolved property belongs
+to the authenticated session — guest UUIDs rejected.
+
+When real auth lands (cookie/JWT), EventSource sends cookies automatically
+with `{ withCredentials: true }` — no query param needed.
+
+### Frontend consumption
+
+See `web/src/lib/realtime/stream.svelte.ts` — a Rune-based store with a
+`RealtimeStream.on(topic, handler)` API.
+
+Single `EventSource('/v1/sse?property_id=...')` per tab. Browser-native
+auto-reconnect. On `event: resync` all active subscriptions refetch via REST.
+
+### Heartbeat
+
+`: ping\n\n` every 25s via `time.Ticker` inside `Subscribe()`. Prevents
+reverse proxies from closing idle connections.
+
+### Slow consumer protection
+
+64-event buffered channel per client. Overflow sends `event: resync` so the
+client refetches via REST — never blocks the Hub or other clients.
+
+### Resync on reconnect
+
+When the events Listener's pgx connection drops and reconnects, all mutations
+in the gap are lost. The `onReconnect` callback calls `hub.Resync()` which
+sends `event: resync` to every connected client. Components then refetch full
+state via REST. This ensures no stale state survives a reconnect.
 
 ---
 
