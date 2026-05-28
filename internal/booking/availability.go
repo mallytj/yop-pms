@@ -65,39 +65,46 @@ func (s *Service) CheckAvailability(
 		return buildAvailabilityResult(nights, cachedByDate), nil
 	}
 
-	totalRooms, err := s.q.CountRoomsByType(ctx, &store.CountRoomsByTypeParams{
-		PropertyID: propertyID,
-		RoomTypeID: uuid.NullUUID{UUID: roomTypeID, Valid: true},
-	})
+	// Compute availability: total rooms of this type minus sold ledger entries per date.
+	const availQuery = `
+		SELECT d::date AS calendar_date,
+			(SELECT COUNT(*) FROM inventory.rooms WHERE room_type_id = $2 AND property_id = $1) -
+			COALESCE(
+				(SELECT COUNT(*) FROM inventory.room_inventory_ledger
+				 WHERE calendar_date = d::date AND status = 'sold'
+				 AND room_id IN (SELECT id FROM inventory.rooms WHERE room_type_id = $2 AND property_id = $1)),
+			0
+		)::INT AS available
+		FROM generate_series($3::date, $4::date, '1 day') d
+	`
+	rows, err := s.pool.Query(ctx, availQuery, propertyID, roomTypeID,
+		pgtype.Date{Time: uncached[0], Valid: true},
+		pgtype.Date{Time: uncached[len(uncached)-1], Valid: true},
+	)
 	if err != nil {
-		return nil, fmt.Errorf("count rooms: %w", err)
+		return nil, fmt.Errorf("availability query: %w", err)
 	}
+	defer rows.Close()
 
-	// Range covers first..last uncached date; may include already-cached dates if non-contiguous — extra rows are ignored below.
-	blockedRows, err := s.q.BlockedCountByType(ctx, &store.BlockedCountByTypeParams{
-		PropertyID: propertyID,
-		RoomTypeID: uuid.NullUUID{UUID: roomTypeID, Valid: true},
-		StartDate:  pgtype.Date{Time: uncached[0], Valid: true},
-		EndDate:    pgtype.Date{Time: uncached[len(uncached)-1], Valid: true},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("blocked count query: %w", err)
-	}
-
-	blockedByDate := make(map[string]int32, len(blockedRows))
-	for _, row := range blockedRows {
-		k := row.CalendarDate.Time.Format("2006-01-02")
-		blockedByDate[k] = row.BlockedCount
+	availByDate := make(map[string]int32)
+	for rows.Next() {
+		var d pgtype.Date
+		var avail int32
+		if err := rows.Scan(&d, &avail); err != nil {
+			return nil, fmt.Errorf("scan availability: %w", err)
+		}
+		if d.Valid {
+			availByDate[d.Time.Format("2006-01-02")] = avail
+		}
 	}
 
 	// Pipeline SETs: one round-trip instead of N individual SETs.
 	pipe := s.rdb.Pipeline()
 	for _, night := range uncached {
 		k := night.Format("2006-01-02")
-		available := max(totalRooms-blockedByDate[k], 0)
-		cachedByDate[k] = available
+		cachedByDate[k] = availByDate[k]
 		key := availabilityCacheKey(propertyID, roomTypeID, night)
-		pipe.Set(ctx, key, available, availabilityCacheTTL)
+		pipe.Set(ctx, key, availByDate[k], availabilityCacheTTL)
 	}
 	if _, err := pipe.Exec(ctx); err != nil {
 		s.log.Warn("redis pipeline set availability", "error", err)
@@ -120,7 +127,6 @@ func buildAvailabilityResult(nights []time.Time, cachedByDate map[string]int32) 
 }
 
 // InvalidateAvailabilityCache removes cached availability for all nights of a stay.
-// Called after mutations that affect room inventory (create, cancel, reassign).
 func (s *Service) InvalidateAvailabilityCache(ctx context.Context, propertyID, roomTypeID uuid.UUID, arrival, departure time.Time) {
 	for _, night := range util.NightsBetween(arrival, departure) {
 		key := availabilityCacheKey(propertyID, roomTypeID, night)
@@ -130,10 +136,7 @@ func (s *Service) InvalidateAvailabilityCache(ctx context.Context, propertyID, r
 	}
 }
 
-// conflictCheck asserts that a specific room has no conflicting bookings on the
-// given dates. excludeItemID is used during item update to ignore the item's
-// own existing ledger rows.
-// Must be called inside an ExecuteTx transaction.
+// conflictCheck asserts that a specific room has no conflicting bookings on the given dates.
 func (s *Service) conflictCheck(
 	ctx context.Context,
 	qtx *store.Queries,
@@ -143,7 +146,10 @@ func (s *Service) conflictCheck(
 ) error {
 	propertyID := helpers.GetPropertyIDFromCtx(ctx)
 
-	pgDates := util.DatesToPGDates(dates)
+	pgDates := make([]pgtype.Date, len(dates))
+	for i, d := range dates {
+		pgDates[i] = pgtype.Date{Time: d, Valid: true}
+	}
 
 	var excludeID uuid.UUID
 	if excludeItemID != nil {

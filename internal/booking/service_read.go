@@ -53,33 +53,69 @@ func (s *Service) ListReservations(ctx context.Context, params ListParams) ([]Re
 		params.Limit = 50
 	}
 
-	pgParams := &store.ListReservationsParams{
-		PropertyID: propertyID,
-		Limit:      params.Limit,
-	}
+	// SQLC-generated ListReservations expects Status to be NULL (not empty string)
+	// when no filter is applied. Use a raw query to avoid the type constraint.
+	const listSQL = `
+		SELECT r.*
+		FROM operations.reservations r
+		WHERE r.property_id = $1
+		AND r.deleted_at IS NULL
+		AND ($2::operations.reservation_status IS NULL OR r.status = $2)
+		AND ($3::timestamptz IS NULL OR lower(r.stay_period_envelope) < $3
+		    OR (lower(r.stay_period_envelope) = $3 AND r.id < $4))
+		AND ($5::date IS NULL OR lower(r.stay_period_envelope) >= $5)
+		AND ($6::date IS NULL OR upper(r.stay_period_envelope) <= $6)
+		ORDER BY lower(r.stay_period_envelope) DESC, r.id DESC
+		LIMIT $7
+	`
+
+	rawStatus := pgtype.Text{Valid: params.Status != nil}
 	if params.Status != nil {
-		pgParams.Status = *params.Status
+		rawStatus.String = *params.Status
 	}
+	rawCursorDate := pgtype.Timestamptz{Valid: params.CursorDate != nil}
 	if params.CursorDate != nil {
-		pgParams.CursorDate = pgtype.Timestamptz{Time: *params.CursorDate, Valid: true}
+		rawCursorDate.Time = *params.CursorDate
 	}
+	rawCursorID := pgtype.UUID{Valid: params.CursorID != nil}
 	if params.CursorID != nil {
-		pgParams.CursorID = *params.CursorID
+		rawCursorID.Bytes = *params.CursorID
 	}
+	rawStartDate := pgtype.Date{Valid: params.StartDate != nil}
 	if params.StartDate != nil {
-		pgParams.StartDate = pgtype.Date{Time: *params.StartDate, Valid: true}
+		rawStartDate.Time = *params.StartDate
 	}
+	rawEndDate := pgtype.Date{Valid: params.EndDate != nil}
 	if params.EndDate != nil {
-		pgParams.EndDate = pgtype.Date{Time: *params.EndDate, Valid: true}
+		rawEndDate.Time = *params.EndDate
 	}
 
-	rows, err := s.q.ListReservations(ctx, pgParams)
+	rows, err := s.pool.Query(ctx, listSQL,
+		propertyID,
+		rawStatus,
+		rawCursorDate,
+		rawCursorID,
+		rawStartDate,
+		rawEndDate,
+		params.Limit,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("list reservations: %w", err)
 	}
+	defer rows.Close()
 
-	result := make([]ReservationResponse, 0, len(rows))
-	for _, r := range rows {
+	result := make([]ReservationResponse, 0)
+	for rows.Next() {
+		var r store.OperationsReservation
+		if err := rows.Scan(
+			&r.ID, &r.PropertyID, &r.PrimaryGuestID, &r.GroupID,
+			&r.Source, &r.TravelAgentID, &r.Notes, &r.Status,
+			&r.Version, &r.CreatedAt, &r.UpdatedAt, &r.DeletedAt,
+			&r.Sequential, &r.Code, &r.StayPeriodEnvelope, &r.ExpiresAt,
+			&r.CancellationIntent,
+		); err != nil {
+			return nil, fmt.Errorf("scan reservation: %w", err)
+		}
 		result = append(result, *reservationToResponse(&r))
 	}
 	return result, nil
