@@ -35,3 +35,13 @@ func NightsBetween(arrival, departure time.Time) []time.Time {
 	}
 	return dates
 }
+
+// DatesToPGDates converts a slice of time.Time to a slice of pgtype.Date.
+// All dates are marked Valid. The output slice is a copy.
+func DatesToPGDates(dates []time.Time) []pgtype.Date {
+	pgDates := make([]pgtype.Date, len(dates))
+	for i, d := range dates {
+		pgDates[i] = pgtype.Date{Time: d, Valid: true}
+	}
+	return pgDates
+}
