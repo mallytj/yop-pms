@@ -3,8 +3,14 @@ package booking
 // Satisfies ADR-022
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/google/uuid"
+
+	"github.com/lexxcode1/yop-pms/internal/store"
 )
 
 // ParseIncludeFlags parses the ?include query parameter from the request.
@@ -32,4 +38,40 @@ func ParseIncludeFlags(r *http.Request) IncludeFlags {
 		}
 	}
 	return flags
+}
+
+// expandInclude fetches related resources (items, guest) for a reservation response.
+// If response.Items is nil and IncludeItems is true, items are fetched from the DB.
+// If IncludeGuest is true and primaryGuestID is non-nil, the guest is expanded.
+func expandInclude(
+	ctx context.Context,
+	q *store.Queries,
+	resp *ReservationResponse,
+	flags IncludeFlags,
+	propertyID, reservationID, primaryGuestID uuid.UUID,
+	log *slog.Logger,
+) {
+	if flags.IncludeItems() && len(resp.Items) == 0 {
+		items, err := q.GetReservationItems(ctx, &store.GetReservationItemsParams{
+			ReservationID: reservationID,
+			PropertyID:    propertyID,
+		})
+		if err != nil {
+			log.Warn("failed to fetch items for expansion", "error", err, "reservation_id", reservationID)
+		} else {
+			for _, item := range items {
+				it := itemToResponse(&item)
+				resp.Items = append(resp.Items, *it)
+			}
+		}
+	}
+
+	if flags.Guest && primaryGuestID != uuid.Nil {
+		guest, err := q.GetGuest(ctx, primaryGuestID)
+		if err != nil {
+			log.Warn("failed to expand guest", "error", err, "guest_id", primaryGuestID)
+		} else {
+			resp.Guest = guestToResponse(&guest)
+		}
+	}
 }

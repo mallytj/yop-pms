@@ -92,4 +92,8 @@ var (
 	// ErrForbiddenSource - source is not allowed for this operation (e.g. OTA via API).
 	ErrForbiddenSource = apierror.New("FORBIDDEN_SOURCE",
 		"this operation is not allowed for the reservation's source", http.StatusForbidden)
+
+	// ErrNotImplemented - service method is a stub, will be implemented in a later phase.
+	ErrNotImplemented = apierror.New("NOT_IMPLEMENTED",
+		"this operation is not yet implemented", http.StatusNotImplemented)
 )
