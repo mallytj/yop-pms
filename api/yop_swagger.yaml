@@ -99,8 +99,10 @@ definitions:
   internal_booking.BatchError:
     properties:
       code:
+        example: ROOM_UNAVAILABLE
         type: string
       message:
+        example: Room not available on selected dates
         type: string
     type: object
   internal_booking.BatchResult:
@@ -115,11 +117,13 @@ definitions:
       error:
         $ref: '#/definitions/internal_booking.BatchError'
       item_id:
+        example: 00000000-0000-0000-0000-000000000000
         type: string
       reservation_item:
         $ref: '#/definitions/internal_booking.ItemResponse'
       status:
         description: '"ok" | "failed"'
+        example: ok
         type: string
     type: object
   internal_booking.CancelInput:
@@ -520,6 +524,10 @@ paths:
             items:
               $ref: '#/definitions/internal_booking.ReservationResponse'
             type: array
+        "400":
+          description: Invalid X-Property-ID or query params
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: List reservations
       tags:
       - Reservations
@@ -547,15 +555,19 @@ paths:
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
         "400":
-          description: Bad Request
+          description: Invalid request body or X-Property-ID
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
         "409":
-          description: Conflict
+          description: Resource conflict (e.g. duplicate, version mismatch)
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
         "422":
-          description: Unprocessable Entity
+          description: Validation failed
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "501":
+          description: Feature not implemented
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Create reservation
@@ -586,8 +598,12 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
+        "400":
+          description: Invalid ID or X-Property-ID
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
         "404":
-          description: Not Found
+          description: Reservation not found
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Get reservation
@@ -627,8 +643,12 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
+        "400":
+          description: Invalid ID or request body
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
         "412":
-          description: Precondition Failed
+          description: Version mismatch (If-Match)
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Update reservation metadata
@@ -638,7 +658,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Cancels a reservation. Implemented in Phase 7.
+      description: Cancels a reservation with reason code and optional fee.
       parameters:
       - description: Property UUID
         in: header
@@ -667,8 +687,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID or request body
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Cancel reservation
@@ -696,22 +716,24 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.CancellationQuoteResponse'
+        "400":
+          description: Invalid ID
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "501":
+          description: Feature not implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Get cancellation quote
       tags:
       - Reservations
   /v1/reservations/{id}/checkin:
     patch:
-      description: Checks in all items on a reservation. Returns 207 if partial. Implemented
-        in Phase 7.
+      description: Checks in all items on a reservation. Returns 207 if partial.
       parameters:
       - description: Property UUID
         in: header
         name: X-Property-ID
-        required: true
-        type: string
-      - description: Optimistic lock version
-        in: header
-        name: If-Match
         required: true
         type: string
       - description: Reservation UUID
@@ -730,8 +752,8 @@ paths:
           description: Multi-Status
           schema:
             $ref: '#/definitions/internal_booking.BatchResult'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Check in all items
@@ -740,16 +762,10 @@ paths:
   /v1/reservations/{id}/checkout:
     patch:
       description: Checks out all items on a reservation. Returns 207 if partial.
-        Implemented in Phase 7.
       parameters:
       - description: Property UUID
         in: header
         name: X-Property-ID
-        required: true
-        type: string
-      - description: Optimistic lock version
-        in: header
-        name: If-Match
         required: true
         type: string
       - description: Reservation UUID
@@ -768,8 +784,8 @@ paths:
           description: Multi-Status
           schema:
             $ref: '#/definitions/internal_booking.BatchResult'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Check out all items
@@ -801,12 +817,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
+        "400":
+          description: Invalid ID or X-Property-ID
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
         "409":
-          description: Conflict
+          description: Invalid state transition
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
         "412":
-          description: Precondition Failed
+          description: Version mismatch (If-Match)
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Confirm reservation
@@ -840,6 +860,14 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "400":
+          description: Invalid ID
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "501":
+          description: Feature not implemented
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Get folio
       tags:
       - Reservations
@@ -847,8 +875,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Adds a new room item to an existing reservation. Implemented in
-        Phase 7.
+      description: Adds a new room item to an existing reservation.
       parameters:
       - description: Property UUID
         in: header
@@ -878,8 +905,12 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID or request body
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "422":
+          description: Validation failed
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Add item to reservation
@@ -889,8 +920,7 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Updates an item's stay period or room type. Implemented in Phase
-        7.
+      description: Updates an item's stay period or room type.
       parameters:
       - description: Property UUID
         in: header
@@ -925,8 +955,12 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID or request body
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "412":
+          description: Version mismatch (If-Match)
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Update reservation item
@@ -936,8 +970,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Applies percentage or fixed adjustments to booked rates. Implemented
-        in Phase 7.
+      description: Applies percentage or fixed adjustments to booked rates.
       parameters:
       - description: Property UUID
         in: header
@@ -972,8 +1005,12 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID or request body
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "412":
+          description: Version mismatch (If-Match)
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Adjust daily rates
@@ -983,8 +1020,7 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Assigns a specific room to a reservation item. Implemented in Phase
-        7.
+      description: Assigns a specific room to a reservation item.
       parameters:
       - description: Property UUID
         in: header
@@ -1019,8 +1055,12 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID or request body
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "412":
+          description: Version mismatch (If-Match)
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Assign room to item
@@ -1028,8 +1068,7 @@ paths:
       - Reservations
   /v1/reservations/{id}/items/{item_id}/booked-rates:
     get:
-      description: Returns booked daily rates for a reservation item. Implemented
-        in Phase 7.
+      description: Returns booked daily rates for a reservation item.
       parameters:
       - description: Property UUID
         in: header
@@ -1055,8 +1094,8 @@ paths:
             items:
               $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate'
             type: array
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Get booked daily rates
@@ -1065,8 +1104,8 @@ paths:
     patch:
       consumes:
       - application/json
-      description: Overwrites booked daily rates for an item. Implemented in Phase
-        7.
+      description: Overwrites booked daily rates for an item. Not yet implemented
+        — use AdjustRate instead.
       parameters:
       - description: Property UUID
         in: header
@@ -1101,8 +1140,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
+        "400":
+          description: Invalid ID or request body
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "412":
+          description: Version mismatch (If-Match)
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
         "501":
-          description: Not Implemented
+          description: Feature not implemented
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Update booked daily rates
@@ -1110,8 +1157,7 @@ paths:
       - Reservations
   /v1/reservations/{id}/items/{item_id}/booked-rates/approve:
     post:
-      description: Approves pending rate adjustments for a reservation item. Implemented
-        in Phase 7.
+      description: Approves pending rate adjustments for a reservation item.
       parameters:
       - description: Property UUID
         in: header
@@ -1140,8 +1186,12 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "412":
+          description: Version mismatch (If-Match)
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Approve rate adjustments
@@ -1151,7 +1201,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Cancels a single reservation item. Implemented in Phase 7.
+      description: Cancels a single reservation item with reason code and optional
+        fee.
       parameters:
       - description: Property UUID
         in: header
@@ -1185,8 +1236,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ItemResponse'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID or request body
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Cancel single item
@@ -1194,7 +1245,7 @@ paths:
       - Reservations
   /v1/reservations/{id}/items/{item_id}/checkin:
     patch:
-      description: Checks in a single reservation item. Implemented in Phase 7.
+      description: Checks in a single reservation item.
       parameters:
       - description: Property UUID
         in: header
@@ -1223,8 +1274,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ItemResponse'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Check in single item
@@ -1232,7 +1283,7 @@ paths:
       - Reservations
   /v1/reservations/{id}/items/{item_id}/checkout:
     patch:
-      description: Checks out a single reservation item. Implemented in Phase 7.
+      description: Checks out a single reservation item.
       parameters:
       - description: Property UUID
         in: header
@@ -1261,8 +1312,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ItemResponse'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Check out single item
@@ -1270,7 +1321,8 @@ paths:
       - Reservations
   /v1/reservations/{id}/items/{item_id}/no-show:
     patch:
-      description: Marks a reservation item as no-show. Implemented in Phase 7.
+      description: Marks a reservation item as no-show. Requires stay period to have
+        started.
       parameters:
       - description: Property UUID
         in: header
@@ -1299,8 +1351,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ItemResponse'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Mark item as no-show
@@ -1308,7 +1360,7 @@ paths:
       - Reservations
   /v1/reservations/{id}/reactivate:
     post:
-      description: Reactivates a cancelled reservation. Implemented in Phase 7.
+      description: Reactivates a cancelled reservation back to confirmed.
       parameters:
       - description: Property UUID
         in: header
@@ -1332,8 +1384,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/internal_booking.ReservationResponse'
-        "501":
-          description: Not Implemented
+        "400":
+          description: Invalid ID
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Reactivate reservation
@@ -1342,7 +1394,7 @@ paths:
   /v1/reservations/availability:
     get:
       description: Returns per-night availability for a room type. Results cached
-        in Redis (TTL 600s).
+        in Redis (TTL 60s).
       parameters:
       - description: Property UUID
         in: header
@@ -1374,10 +1426,48 @@ paths:
               $ref: '#/definitions/internal_booking.DateAvailability'
             type: array
         "400":
-          description: Bad Request
+          description: Invalid query params
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Check room type availability
       tags:
       - Reservations
+  /v1/sse:
+    get:
+      description: Opens a Server-Sent Events stream for real-time updates
+      parameters:
+      - description: Property UUID from authenticated session
+        in: header
+        name: X-Property-ID
+        required: true
+        type: string
+      - description: Property UUID (must match authenticated session)
+        in: query
+        name: property_id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE event stream — one ChangeEvent per line
+        "400":
+          description: property_id query parameter is required or invalid UUID
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "401":
+          description: No authenticated session
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "403":
+          description: Property access denied
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "503":
+          description: SSE at capacity
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Subscribe to real-time SSE events
+      tags:
+      - Realtime
 swagger: "2.0"

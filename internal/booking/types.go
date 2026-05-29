@@ -270,7 +270,7 @@ type RollupResult struct {
 
 // DateAvailability represents availability for a single date.
 type DateAvailability struct {
-	Date      types.ISO8601Date `json:"date" example:"2026-06-01"`
+	Date      types.ISO8601Date `json:"date" swaggertype:"string" example:"2026-06-01"`
 	Total     int               `json:"total" example:"4"`
 	Available int               `json:"available" example:"1"`
 	// Reason explains why unavailable (e.g. "no_rate_configured"). Empty when available.

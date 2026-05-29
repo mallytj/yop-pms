@@ -81,6 +81,12 @@ const docTemplateyop = `{
                                 "$ref": "#/definitions/internal_booking.ReservationResponse"
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid X-Property-ID or query params",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
                     }
                 }
             },
@@ -122,19 +128,25 @@ const docTemplateyop = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request body or X-Property-ID",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Resource conflict (e.g. duplicate, version mismatch)",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "501": {
+                        "description": "Feature not implemented",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -144,7 +156,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/availability": {
             "get": {
-                "description": "Returns per-night availability for a room type. Results cached in Redis (TTL 600s).",
+                "description": "Returns per-night availability for a room type. Results cached in Redis (TTL 60s).",
                 "produces": [
                     "application/json"
                 ],
@@ -193,7 +205,7 @@ const docTemplateyop = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid query params",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -240,8 +252,14 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ReservationResponse"
                         }
                     },
+                    "400": {
+                        "description": "Invalid ID or X-Property-ID",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Reservation not found",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -299,8 +317,14 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ReservationResponse"
                         }
                     },
+                    "400": {
+                        "description": "Invalid ID or request body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
                     "412": {
-                        "description": "Precondition Failed",
+                        "description": "Version mismatch (If-Match)",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -310,7 +334,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/cancel": {
             "post": {
-                "description": "Cancels a reservation. Implemented in Phase 7.",
+                "description": "Cancels a reservation with reason code and optional fee.",
                 "consumes": [
                     "application/json"
                 ],
@@ -359,8 +383,8 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ReservationResponse"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID or request body",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -400,13 +424,25 @@ const docTemplateyop = `{
                         "schema": {
                             "$ref": "#/definitions/internal_booking.CancellationQuoteResponse"
                         }
+                    },
+                    "400": {
+                        "description": "Invalid ID",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "501": {
+                        "description": "Feature not implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
                     }
                 }
             }
         },
         "/v1/reservations/{id}/checkin": {
             "patch": {
-                "description": "Checks in all items on a reservation. Returns 207 if partial. Implemented in Phase 7.",
+                "description": "Checks in all items on a reservation. Returns 207 if partial.",
                 "produces": [
                     "application/json"
                 ],
@@ -424,13 +460,6 @@ const docTemplateyop = `{
                     },
                     {
                         "type": "string",
-                        "description": "Optimistic lock version",
-                        "name": "If-Match",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "Reservation UUID",
                         "name": "id",
                         "in": "path",
@@ -450,8 +479,8 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.BatchResult"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -461,7 +490,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/checkout": {
             "patch": {
-                "description": "Checks out all items on a reservation. Returns 207 if partial. Implemented in Phase 7.",
+                "description": "Checks out all items on a reservation. Returns 207 if partial.",
                 "produces": [
                     "application/json"
                 ],
@@ -479,13 +508,6 @@ const docTemplateyop = `{
                     },
                     {
                         "type": "string",
-                        "description": "Optimistic lock version",
-                        "name": "If-Match",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
                         "description": "Reservation UUID",
                         "name": "id",
                         "in": "path",
@@ -505,8 +527,8 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.BatchResult"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -554,14 +576,20 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ReservationResponse"
                         }
                     },
+                    "400": {
+                        "description": "Invalid ID or X-Property-ID",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Invalid state transition",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
                     },
                     "412": {
-                        "description": "Precondition Failed",
+                        "description": "Version mismatch (If-Match)",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -611,13 +639,25 @@ const docTemplateyop = `{
                                 "type": "string"
                             }
                         }
+                    },
+                    "400": {
+                        "description": "Invalid ID",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "501": {
+                        "description": "Feature not implemented",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
                     }
                 }
             }
         },
         "/v1/reservations/{id}/items": {
             "post": {
-                "description": "Adds a new room item to an existing reservation. Implemented in Phase 7.",
+                "description": "Adds a new room item to an existing reservation.",
                 "consumes": [
                     "application/json"
                 ],
@@ -667,8 +707,14 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ReservationResponse"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID or request body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -678,7 +724,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/items/{item_id}": {
             "patch": {
-                "description": "Updates an item's stay period or room type. Implemented in Phase 7.",
+                "description": "Updates an item's stay period or room type.",
                 "consumes": [
                     "application/json"
                 ],
@@ -735,8 +781,14 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ReservationResponse"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID or request body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "412": {
+                        "description": "Version mismatch (If-Match)",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -746,7 +798,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/items/{item_id}/adjust-rate": {
             "post": {
-                "description": "Applies percentage or fixed adjustments to booked rates. Implemented in Phase 7.",
+                "description": "Applies percentage or fixed adjustments to booked rates.",
                 "consumes": [
                     "application/json"
                 ],
@@ -803,8 +855,14 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ReservationResponse"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID or request body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "412": {
+                        "description": "Version mismatch (If-Match)",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -814,7 +872,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/items/{item_id}/assign-room": {
             "patch": {
-                "description": "Assigns a specific room to a reservation item. Implemented in Phase 7.",
+                "description": "Assigns a specific room to a reservation item.",
                 "consumes": [
                     "application/json"
                 ],
@@ -871,8 +929,14 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ReservationResponse"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID or request body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "412": {
+                        "description": "Version mismatch (If-Match)",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -882,7 +946,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/items/{item_id}/booked-rates": {
             "get": {
-                "description": "Returns booked daily rates for a reservation item. Implemented in Phase 7.",
+                "description": "Returns booked daily rates for a reservation item.",
                 "produces": [
                     "application/json"
                 ],
@@ -923,8 +987,8 @@ const docTemplateyop = `{
                             }
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -932,7 +996,7 @@ const docTemplateyop = `{
                 }
             },
             "patch": {
-                "description": "Overwrites booked daily rates for an item. Implemented in Phase 7.",
+                "description": "Overwrites booked daily rates for an item. Not yet implemented — use AdjustRate instead.",
                 "consumes": [
                     "application/json"
                 ],
@@ -989,8 +1053,20 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ReservationResponse"
                         }
                     },
+                    "400": {
+                        "description": "Invalid ID or request body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "412": {
+                        "description": "Version mismatch (If-Match)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
                     "501": {
-                        "description": "Not Implemented",
+                        "description": "Feature not implemented",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -1000,7 +1076,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/items/{item_id}/booked-rates/approve": {
             "post": {
-                "description": "Approves pending rate adjustments for a reservation item. Implemented in Phase 7.",
+                "description": "Approves pending rate adjustments for a reservation item.",
                 "produces": [
                     "application/json"
                 ],
@@ -1045,8 +1121,14 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ReservationResponse"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "412": {
+                        "description": "Version mismatch (If-Match)",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -1056,7 +1138,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/items/{item_id}/cancel": {
             "post": {
-                "description": "Cancels a single reservation item. Implemented in Phase 7.",
+                "description": "Cancels a single reservation item with reason code and optional fee.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1112,8 +1194,8 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ItemResponse"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID or request body",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -1123,7 +1205,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/items/{item_id}/checkin": {
             "patch": {
-                "description": "Checks in a single reservation item. Implemented in Phase 7.",
+                "description": "Checks in a single reservation item.",
                 "produces": [
                     "application/json"
                 ],
@@ -1168,8 +1250,8 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ItemResponse"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -1179,7 +1261,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/items/{item_id}/checkout": {
             "patch": {
-                "description": "Checks out a single reservation item. Implemented in Phase 7.",
+                "description": "Checks out a single reservation item.",
                 "produces": [
                     "application/json"
                 ],
@@ -1224,8 +1306,8 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ItemResponse"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -1235,7 +1317,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/items/{item_id}/no-show": {
             "patch": {
-                "description": "Marks a reservation item as no-show. Implemented in Phase 7.",
+                "description": "Marks a reservation item as no-show. Requires stay period to have started.",
                 "produces": [
                     "application/json"
                 ],
@@ -1280,8 +1362,8 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ItemResponse"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -1291,7 +1373,7 @@ const docTemplateyop = `{
         },
         "/v1/reservations/{id}/reactivate": {
             "post": {
-                "description": "Reactivates a cancelled reservation. Implemented in Phase 7.",
+                "description": "Reactivates a cancelled reservation back to confirmed.",
                 "produces": [
                     "application/json"
                 ],
@@ -1329,8 +1411,65 @@ const docTemplateyop = `{
                             "$ref": "#/definitions/internal_booking.ReservationResponse"
                         }
                     },
-                    "501": {
-                        "description": "Not Implemented",
+                    "400": {
+                        "description": "Invalid ID",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/sse": {
+            "get": {
+                "description": "Opens a Server-Sent Events stream for real-time updates",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "Realtime"
+                ],
+                "summary": "Subscribe to real-time SSE events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Property UUID from authenticated session",
+                        "name": "X-Property-ID",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Property UUID (must match authenticated session)",
+                        "name": "property_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE event stream — one ChangeEvent per line"
+                    },
+                    "400": {
+                        "description": "property_id query parameter is required or invalid UUID",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "No authenticated session",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Property access denied",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "503": {
+                        "description": "SSE at capacity",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -1485,10 +1624,12 @@ const docTemplateyop = `{
             "type": "object",
             "properties": {
                 "code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "ROOM_UNAVAILABLE"
                 },
                 "message": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Room not available on selected dates"
                 }
             }
         },
@@ -1510,14 +1651,16 @@ const docTemplateyop = `{
                     "$ref": "#/definitions/internal_booking.BatchError"
                 },
                 "item_id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "00000000-0000-0000-0000-000000000000"
                 },
                 "reservation_item": {
                     "$ref": "#/definitions/internal_booking.ItemResponse"
                 },
                 "status": {
                     "description": "\"ok\" | \"failed\"",
-                    "type": "string"
+                    "type": "string",
+                    "example": "ok"
                 }
             }
         },

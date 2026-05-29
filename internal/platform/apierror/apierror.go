@@ -57,6 +57,8 @@ func (e *APIError) WithSuggestions(suggestions Suggestions) *APIError {
 var (
 	ErrNotFound      = New("NOT_FOUND", "resource not found", http.StatusNotFound)
 	ErrBadRequest    = New("BAD_REQUEST", "invalid request", http.StatusBadRequest)
+	ErrUnauthorized  = New("UNAUTHORIZED", "authentication required", http.StatusUnauthorized)
+	ErrForbidden     = New("FORBIDDEN", "insufficient permissions", http.StatusForbidden)
 	ErrConflict      = New("CONFLICT", "resource already exists", http.StatusConflict)
 	ErrInternal      = New("INTERNAL_ERROR", "internal server error", http.StatusInternalServerError)
 	ErrUnprocessable = New("UNPROCESSABLE_ENTITY", "the request contains invalid data", http.StatusUnprocessableEntity)
