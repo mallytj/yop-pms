@@ -12,13 +12,17 @@ import (
 
 	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+
+	"github.com/lexxcode1/yop-pms/internal/booking"
 	"github.com/lexxcode1/yop-pms/internal/platform/cache"
 	"github.com/lexxcode1/yop-pms/internal/platform/config"
 	"github.com/lexxcode1/yop-pms/internal/platform/events"
 	"github.com/lexxcode1/yop-pms/internal/platform/logging"
 	yopOtel "github.com/lexxcode1/yop-pms/internal/platform/otel"
+	"github.com/lexxcode1/yop-pms/internal/platform/realtime"
 	"github.com/lexxcode1/yop-pms/internal/platform/worker"
-	"github.com/redis/go-redis/v9"
+	"github.com/lexxcode1/yop-pms/internal/store"
 )
 
 type application struct {
@@ -27,6 +31,7 @@ type application struct {
 	rdb    *redis.Client
 	logger *slog.Logger
 	cache  *cache.Client
+	hub    *realtime.Hub
 }
 
 // @title			Yop PMS Backend API
@@ -113,15 +118,20 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 
 	appCache := cache.New(rdb, "yop:", logger)
 
+	// Realtime SSE Hub — fans out PostgreSQL LISTEN/NOTIFY events to browser clients.
+	hub := realtime.NewHub(logger)
+
 	// Events listener — dedicated connection outside the pool (LISTEN blocks the connection).
-	// On reconnect, flush the entire cache to avoid serving stale data from the disconnect window.
+	// On reconnect, flush the entire cache and broadcast resync to SSE clients.
 	eventListener := events.New(cfg.DatabaseURL, logger, func() {
 		if err := appCache.Invalidate(context.Background(), "yop:*"); err != nil {
 			logger.Error("failed to flush cache on event listener reconnect", "error", err)
 		}
+		hub.Resync(context.Background())
 	})
 
 	eventListener.On("reservation_changes", cache.NewReservationChangeHandler(appCache, logger))
+	eventListener.On("reservation_changes", hub.OnEvent)
 	eventListener.Start()
 	defer eventListener.Stop()
 
@@ -137,12 +147,20 @@ func run(cfg *config.Config, logger *slog.Logger) error {
 	outboxWorker.Start()
 	defer outboxWorker.Stop()
 
+	// Booking workers — background sweeps for hold expiry, overstays, no-show reminders, archival.
+	bookingWorkers := booking.NewWorkers(dbPool, store.New(dbPool), logger)
+	go bookingWorkers.HoldExpirySweep(ctx)
+	go bookingWorkers.NoShowReminder(ctx)
+	go bookingWorkers.OverstaySweep(ctx)
+	go bookingWorkers.ArchivalSweep(ctx)
+
 	app := &application{
 		config: cfg,
 		db:     dbPool,
 		rdb:    rdb,
 		logger: logger,
 		cache:  appCache,
+		hub:    hub,
 	}
 
 	srv := &http.Server{
