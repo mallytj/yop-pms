@@ -1,59 +1,35 @@
 ---
-name: "\U0001F4A1 Execution Task"
-about: Single shippable unit of work. One branch, one concern, merge <3 days.
+name: "Execution Task"
+about: Single shippable unit. One branch, one concern, merge <3 days.
 title: "[EXEC]: "
 labels: execution
 assignees: ""
 ---
 
-## Linked Design / Epic
+## Scope
 
-_Reference the design issue or ADR this task implements._
-
-- Design issue: #
-- ADR(s):
-- Roadmap item:
-
-## Scope (ONE thing)
-
-_What exactly does this branch deliver? If you need "and" — split._
-
-- [ ]
+One thing. If you need "and" — split.
 
 ## Branch
 
 `<prefix>/<domain>/<unit>`
 
-_Examples:_
-- `feat/planner/schema`
-- `feat/planner/service-core`
-- `feat/seeding/cmd-seed`
-- `feat/planner-ui/design-system-routes`
+## Why no design doc?
 
-```
+Not every task needs a PLAN.md, ADR, or RTM. If the scope is well-understood, extracts existing patterns, or has no external dependencies — state why full ceremony would be overhead.
 
-```
+## Deliverables
 
-## Files Changed
-
-_List files this branch will create/modify. If >8 files across >2 dirs, consider splitting._
-
-| File | Action (create/modify/delete) |
-| :--- | :---------------------------- |
-|      |                               |
-|      |                               |
-|      |                               |
+- [ ]
 
 ## Dependencies
 
-**Blocked by:** # (merge this first)
-**Blocks:** #
+Blocked by: #
+Blocks: #
 
-## Definition of Done
+## Done when
 
-- [ ] `make audit` clean (vet, lint, tests, svelte-check)
-- [ ] Tests pass (unit + integration for new code)
-- [ ] No `t.Skip()` in new tests — all edge cases active
-- [ ] Swagger/OpenAPI contracts generated (`make gen`)
-- [ ] Branch lives <3 days before opening PR
-- [ ] PR ≤400 lines changed (exclude generated code, migrations)
+- [ ] make audit clean
+- [ ] Tests pass
+- [ ] Branch lives <3 days before PR
+- [ ] PR <=400 lines changed (exclude generated code, migrations)

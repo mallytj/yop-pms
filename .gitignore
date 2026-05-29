@@ -7,7 +7,6 @@ tmp/
 
 .gemini/
 gha-creds-*.json
-/.github
 
 # Binaries
 /server

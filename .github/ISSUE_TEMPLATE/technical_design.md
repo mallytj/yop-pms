@@ -1,118 +1,32 @@
 ---
-name: 🏗 Technical Design / Feature Plan
-about: Plan out the schema, logic, and API contract before coding.
+name: "Design"
+about: Schema, logic, or API contract that needs sign-off before coding.
 title: "[DESIGN]: "
 labels: enhancement, design-phase
 assignees: ""
 ---
 
-## 🎯 Objective
+## Problem
 
-_Briefly describe the business goal. What problem are we solving for the hotel?_
+Business goal, one paragraph.
 
-## 📝 RTM (Requirements Traceability Matrix)
+## Proposal
 
-_Link to the business requirement_
+What changes — tables, endpoints, logic. Code snippets ok.
 
-- [ ] REQ-0001:
+### Options considered
 
-## 📈 Relevant Diagram
+Rejected alternatives and why.
 
-_Provide a diagram_
+## Edge cases
 
-## 💾 Proposed Schema Changes
+Things that break if we're not careful.
 
-_Describe new tables, columns, or modified relationships._
+## Open questions
 
-```sql
--- Paste SQL or describe changes here
-```
+Things to resolve before execution.
 
-## 🔌 API Contract
+## Depends on
 
-| Method | Endpoint      | Description          |
-| :----- | :------------ | :------------------- |
-| GET    | `/v1/example` | Example API contract |
-
-### Expected Payload / Result
-
-#### 📥 Payload
-
-```json
-{
-  "example": "data"
-}
-```
-
-#### ✅ Success
-
-```json
-{
-  "example": "data"
-}
-```
-
-#### 🚫 Error Responses
-
-| Status | Message     | Reason |
-| :----- | :---------- | :----- |
-| 400    | Bad Request |        |
-
-### 🔒 Handler Level Validation
-
-#### Validation Matricies
-
-#### 🔍 **Required Fields:**
-
--
-
-#### 🔍 Data Types
-
--
-
-#### 🤖 Logic
-
--
-
-### 🔒 Service Level Validation
-
-#### 🚫 Permissions
-
--
-
-#### 💍 Relationship
-
--
-
-#### 💼 Business Logic
-
--
-
-### 📏 Potential Edge Cases
-
--
-
-### 🧪 Testing Plan
-
-| Test | Description | Expected Result |
-| :--- | :---------- | :-------------- |
-|      |             |                 |
-
-## 📄 Docs
-
-- [ ] Swagger comments added to `...`
-- [ ] Readme updated for
-
-### Swagger snippet
-
-```go
-// ExampleHandler godoc
-// @Summary      Example API
-// @Description  Returns a response
-// @Tags
-// @Param        example   query     string  true
-// @Param        check_out  query     string  true
-// @Success      200        {array}   models.ExampleResponse
-// @Router       /availability [get]
-func (h *AvailabilityHandler) GetAvailability(c *gin.Context) { ... }
-```
+ADR(s):
+RTM(s):
