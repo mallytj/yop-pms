@@ -40,7 +40,8 @@ func (app *application) routes() http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   app.config.AllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "Idempotency-Key"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "Idempotency-Key", "If-Match", "X-User-Permissions", "X-Property-ID"},
+		ExposedHeaders:   []string{"If-Match"},
 		AllowCredentials: true,
 	}))
 
@@ -61,7 +62,11 @@ func (app *application) routes() http.Handler {
 	// V1 API routes with idempotency middleware
 	r.Route("/v1", func(r chi.Router) {
 		// Idempotency enforcement for POST/PATCH requests on v1 API
+		// (GET /sse is skipped by Idempotency middleware — safe to include here)
 		r.Use(yopMw.Idempotency(app.rdb))
+
+		// SSE real-time updates — EventSource on browser side
+		r.Get("/sse", app.hub.Subscribe)
 
 		q := store.New(app.db)
 		bookingSvc := booking.NewService(app.db, q, app.rdb, app.logger)
