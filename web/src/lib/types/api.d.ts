@@ -89,6 +89,15 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"][];
                     };
                 };
+                /** @description Invalid X-Property-ID or query params */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -122,7 +131,7 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Bad Request */
+                /** @description Invalid request body or X-Property-ID */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -131,7 +140,7 @@ export interface paths {
                         "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
                     };
                 };
-                /** @description Conflict */
+                /** @description Resource conflict (e.g. duplicate, version mismatch) */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -140,8 +149,17 @@ export interface paths {
                         "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
                     };
                 };
-                /** @description Unprocessable Entity */
+                /** @description Validation failed */
                 422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Feature not implemented */
+                501: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -166,7 +184,7 @@ export interface paths {
         };
         /**
          * Check room type availability
-         * @description Returns per-night availability for a room type. Results cached in Redis (TTL 600s).
+         * @description Returns per-night availability for a room type. Results cached in Redis (TTL 60s).
          */
         get: {
             parameters: {
@@ -196,7 +214,7 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.DateAvailability"][];
                     };
                 };
-                /** @description Bad Request */
+                /** @description Invalid query params */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -253,7 +271,16 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Not Found */
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Reservation not found */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -304,7 +331,16 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Precondition Failed */
+                /** @description Invalid ID or request body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch (If-Match) */
                 412: {
                     headers: {
                         [name: string]: unknown;
@@ -328,7 +364,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel reservation
-         * @description Cancels a reservation. Implemented in Phase 7.
+         * @description Cancels a reservation with reason code and optional fee.
          */
         post: {
             parameters: {
@@ -356,8 +392,8 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID or request body */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -408,6 +444,24 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.CancellationQuoteResponse"];
                     };
                 };
+                /** @description Invalid ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Feature not implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -433,7 +487,7 @@ export interface paths {
         head?: never;
         /**
          * Check in all items
-         * @description Checks in all items on a reservation. Returns 207 if partial. Implemented in Phase 7.
+         * @description Checks in all items on a reservation. Returns 207 if partial.
          */
         patch: {
             parameters: {
@@ -441,8 +495,6 @@ export interface paths {
                 header: {
                     /** @description Property UUID */
                     "X-Property-ID": string;
-                    /** @description Optimistic lock version */
-                    "If-Match": string;
                 };
                 path: {
                     /** @description Reservation UUID */
@@ -470,8 +522,8 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.BatchResult"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -498,7 +550,7 @@ export interface paths {
         head?: never;
         /**
          * Check out all items
-         * @description Checks out all items on a reservation. Returns 207 if partial. Implemented in Phase 7.
+         * @description Checks out all items on a reservation. Returns 207 if partial.
          */
         patch: {
             parameters: {
@@ -506,8 +558,6 @@ export interface paths {
                 header: {
                     /** @description Property UUID */
                     "X-Property-ID": string;
-                    /** @description Optimistic lock version */
-                    "If-Match": string;
                 };
                 path: {
                     /** @description Reservation UUID */
@@ -535,8 +585,8 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.BatchResult"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -587,7 +637,16 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Conflict */
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Invalid state transition */
                 409: {
                     headers: {
                         [name: string]: unknown;
@@ -596,7 +655,7 @@ export interface paths {
                         "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
                     };
                 };
-                /** @description Precondition Failed */
+                /** @description Version mismatch (If-Match) */
                 412: {
                     headers: {
                         [name: string]: unknown;
@@ -652,6 +711,24 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Invalid ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Feature not implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -673,7 +750,7 @@ export interface paths {
         put?: never;
         /**
          * Add item to reservation
-         * @description Adds a new room item to an existing reservation. Implemented in Phase 7.
+         * @description Adds a new room item to an existing reservation.
          */
         post: {
             parameters: {
@@ -706,8 +783,17 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID or request body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Validation failed */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -738,7 +824,7 @@ export interface paths {
         head?: never;
         /**
          * Update reservation item
-         * @description Updates an item's stay period or room type. Implemented in Phase 7.
+         * @description Updates an item's stay period or room type.
          */
         patch: {
             parameters: {
@@ -773,8 +859,17 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID or request body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch (If-Match) */
+                412: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -797,7 +892,7 @@ export interface paths {
         put?: never;
         /**
          * Adjust daily rates
-         * @description Applies percentage or fixed adjustments to booked rates. Implemented in Phase 7.
+         * @description Applies percentage or fixed adjustments to booked rates.
          */
         post: {
             parameters: {
@@ -827,8 +922,17 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID or request body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch (If-Match) */
+                412: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -859,7 +963,7 @@ export interface paths {
         head?: never;
         /**
          * Assign room to item
-         * @description Assigns a specific room to a reservation item. Implemented in Phase 7.
+         * @description Assigns a specific room to a reservation item.
          */
         patch: {
             parameters: {
@@ -894,8 +998,17 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID or request body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch (If-Match) */
+                412: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -916,7 +1029,7 @@ export interface paths {
         };
         /**
          * Get booked daily rates
-         * @description Returns booked daily rates for a reservation item. Implemented in Phase 7.
+         * @description Returns booked daily rates for a reservation item.
          */
         get: {
             parameters: {
@@ -944,8 +1057,8 @@ export interface paths {
                         "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate"][];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -962,7 +1075,7 @@ export interface paths {
         head?: never;
         /**
          * Update booked daily rates
-         * @description Overwrites booked daily rates for an item. Implemented in Phase 7.
+         * @description Overwrites booked daily rates for an item. Not yet implemented — use AdjustRate instead.
          */
         patch: {
             parameters: {
@@ -992,7 +1105,25 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Not Implemented */
+                /** @description Invalid ID or request body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch (If-Match) */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Feature not implemented */
                 501: {
                     headers: {
                         [name: string]: unknown;
@@ -1016,7 +1147,7 @@ export interface paths {
         put?: never;
         /**
          * Approve rate adjustments
-         * @description Approves pending rate adjustments for a reservation item. Implemented in Phase 7.
+         * @description Approves pending rate adjustments for a reservation item.
          */
         post: {
             parameters: {
@@ -1046,8 +1177,17 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch (If-Match) */
+                412: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1074,7 +1214,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel single item
-         * @description Cancels a single reservation item. Implemented in Phase 7.
+         * @description Cancels a single reservation item with reason code and optional fee.
          */
         post: {
             parameters: {
@@ -1104,8 +1244,8 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ItemResponse"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID or request body */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1136,7 +1276,7 @@ export interface paths {
         head?: never;
         /**
          * Check in single item
-         * @description Checks in a single reservation item. Implemented in Phase 7.
+         * @description Checks in a single reservation item.
          */
         patch: {
             parameters: {
@@ -1166,8 +1306,8 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ItemResponse"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1194,7 +1334,7 @@ export interface paths {
         head?: never;
         /**
          * Check out single item
-         * @description Checks out a single reservation item. Implemented in Phase 7.
+         * @description Checks out a single reservation item.
          */
         patch: {
             parameters: {
@@ -1224,8 +1364,8 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ItemResponse"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1252,7 +1392,7 @@ export interface paths {
         head?: never;
         /**
          * Mark item as no-show
-         * @description Marks a reservation item as no-show. Implemented in Phase 7.
+         * @description Marks a reservation item as no-show. Requires stay period to have started.
          */
         patch: {
             parameters: {
@@ -1282,8 +1422,8 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ItemResponse"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1306,7 +1446,7 @@ export interface paths {
         put?: never;
         /**
          * Reactivate reservation
-         * @description Reactivates a cancelled reservation. Implemented in Phase 7.
+         * @description Reactivates a cancelled reservation back to confirmed.
          */
         post: {
             parameters: {
@@ -1334,8 +1474,8 @@ export interface paths {
                         "application/json": components["schemas"]["internal_booking.ReservationResponse"];
                     };
                 };
-                /** @description Not Implemented */
-                501: {
+                /** @description Invalid ID */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1345,6 +1485,85 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Subscribe to real-time SSE events
+         * @description Opens a Server-Sent Events stream for real-time updates
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Property UUID (must match authenticated session) */
+                    property_id: string;
+                };
+                header: {
+                    /** @description Property UUID from authenticated session */
+                    "X-Property-ID": string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description SSE event stream — one ChangeEvent per line */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description property_id query parameter is required or invalid UUID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description No authenticated session */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Property access denied */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description SSE at capacity */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1405,7 +1624,9 @@ export interface components {
             room_id?: string;
         };
         "internal_booking.BatchError": {
+            /** @example ROOM_UNAVAILABLE */
             code?: string;
+            /** @example Room not available on selected dates */
             message?: string;
         };
         "internal_booking.BatchResult": {
@@ -1413,9 +1634,13 @@ export interface components {
         };
         "internal_booking.BatchResultItem": {
             error?: components["schemas"]["internal_booking.BatchError"];
+            /** @example 00000000-0000-0000-0000-000000000000 */
             item_id?: string;
             reservation_item?: components["schemas"]["internal_booking.ItemResponse"];
-            /** @description "ok" | "failed" */
+            /**
+             * @description "ok" | "failed"
+             * @example ok
+             */
             status?: string;
         };
         "internal_booking.CancelInput": {
