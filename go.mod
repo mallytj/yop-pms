@@ -1,12 +1,12 @@
 module github.com/lexxcode1/yop-pms
 
-go 1.25.10
+go 1.25.11
 
 require (
 	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/exaring/otelpgx v0.10.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.8.0
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/riandyrn/otelchi v0.12.2
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.6
