@@ -33,6 +33,7 @@ func (s *Service) UpdateBookedRates(ctx context.Context, itemID uuid.UUID, input
 				rate, err := qtx.GetBaseRateForDate(ctx, &store.GetBaseRateForDateParams{
 					ReservationItemID: itemID,
 					CalendarDate:      calDate,
+					PropertyID:        propertyID,
 				})
 				if err != nil {
 					return struct{}{}, fmt.Errorf("get base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
@@ -42,6 +43,7 @@ func (s *Service) UpdateBookedRates(ctx context.Context, itemID uuid.UUID, input
 				if err := qtx.SetBaseRateForDate(ctx, &store.SetBaseRateForDateParams{
 					ReservationItemID: itemID,
 					CalendarDate:      calDate,
+					PropertyID:        propertyID,
 					BasePricePence:    newPrice,
 				}); err != nil {
 					return struct{}{}, fmt.Errorf("set base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
@@ -55,6 +57,7 @@ func (s *Service) UpdateBookedRates(ctx context.Context, itemID uuid.UUID, input
 			if err := qtx.SetBaseRateForDate(ctx, &store.SetBaseRateForDateParams{
 				ReservationItemID: itemID,
 				CalendarDate:      calDate,
+				PropertyID:        propertyID,
 				BasePricePence:    newPrice,
 			}); err != nil {
 				return struct{}{}, fmt.Errorf("set base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
@@ -66,7 +69,6 @@ func (s *Service) UpdateBookedRates(ctx context.Context, itemID uuid.UUID, input
 		return nil, err
 	}
 
-	// Re-fetch to return populated response.
 	item, err := s.q.GetReservationItem(ctx, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("get item after rate update: %w", err)
