@@ -92,6 +92,9 @@ definitions:
     - AdjustmentFixed
   internal_booking.AssignRoomInput:
     properties:
+      override_dnm_reason:
+        example: Guest insists on room 101
+        type: string
       room_id:
         example: 00000000-0000-0000-0000-000000000000
         type: string

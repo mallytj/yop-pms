@@ -55,6 +55,8 @@ type Querier interface {
 	FindOverstays(ctx context.Context) ([]OperationsReservationItem, error)
 	GetBookedRates(ctx context.Context, arg *GetBookedRatesParams) ([]PricingBookedDailyRate, error)
 	GetGuest(ctx context.Context, id uuid.UUID) (IdentityGuest, error)
+	// Property settings lookup
+	GetPropertySettings(ctx context.Context, propertyID uuid.UUID) (GetPropertySettingsRow, error)
 	GetPropertyTimezone(ctx context.Context, id uuid.UUID) (string, error)
 	GetReservation(ctx context.Context, id uuid.UUID) (GetReservationRow, error)
 	GetReservationItem(ctx context.Context, id uuid.UUID) (OperationsReservationItem, error)

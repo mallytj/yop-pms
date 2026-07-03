@@ -1614,6 +1614,10 @@ const docTemplateyop = `{
         "internal_booking.AssignRoomInput": {
             "type": "object",
             "properties": {
+                "override_dnm_reason": {
+                    "type": "string",
+                    "example": "Guest insists on room 101"
+                },
                 "room_id": {
                     "type": "string",
                     "example": "00000000-0000-0000-0000-000000000000"

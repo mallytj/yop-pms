@@ -1620,6 +1620,8 @@ export interface components {
         /** @enum {string} */
         "internal_booking.AdjustmentType": "percentage" | "fixed";
         "internal_booking.AssignRoomInput": {
+            /** @example Guest insists on room 101 */
+            override_dnm_reason?: string;
             /** @example 00000000-0000-0000-0000-000000000000 */
             room_id?: string;
         };
