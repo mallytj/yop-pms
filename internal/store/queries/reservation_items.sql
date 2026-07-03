@@ -9,7 +9,7 @@ SELECT
         WHEN COUNT(*) = 0 THEN 'cancelled'::operations.reservation_status
         WHEN COUNT(*) FILTER (WHERE status IN ('checked_out', 'no_show', 'cancelled', 'archived')) = COUNT(*) AND COUNT(*) FILTER (WHERE status = 'checked_out') > 0 THEN 'checked_out'::operations.reservation_status
         WHEN COUNT(*) FILTER (WHERE status = 'checked_in') > 0 AND COUNT(*) FILTER (WHERE status = 'booked') = 0 THEN 'checked_in'::operations.reservation_status
-        ELSE NULL
+        ELSE ''
     END::TEXT AS new_status
 FROM operations.reservation_items
 WHERE reservation_id = @reservation_id AND deleted_at IS NULL;
@@ -18,6 +18,11 @@ WHERE reservation_id = @reservation_id AND deleted_at IS NULL;
 SELECT COUNT(*)::INT AS cnt
 FROM inventory.rooms
 WHERE property_id = @property_id AND room_type_id = @room_type_id;
+
+-- name: GetRoomTypeOccupancy :one
+SELECT min_occupancy, max_occupancy, std_occupancy
+FROM inventory.room_types
+WHERE id = @id AND property_id = @property_id AND deleted_at IS NULL;
 
 -- name: BlockedCountByType :many
 SELECT ril.calendar_date, COUNT(DISTINCT ril.room_id)::INT AS blocked_count

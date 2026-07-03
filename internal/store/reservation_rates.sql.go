@@ -97,7 +97,7 @@ func (q *Queries) BulkInsertBookedDailyRates(ctx context.Context, arg *BulkInser
 	return err
 }
 
-const checkRatePlanCapacity = `-- name: CheckRatePlanCapacity :many
+const checkRatePlanCapacityBatch = `-- name: CheckRatePlanCapacityBatch :many
 WITH limited_dates AS (
     SELECT d.calendar_date,
            COALESCE(
@@ -125,35 +125,30 @@ GROUP BY ld.calendar_date, ld.daily_room_capacity
 HAVING COUNT(bdr.id) >= ld.daily_room_capacity
 `
 
-type CheckRatePlanCapacityParams struct {
+type CheckRatePlanCapacityBatchParams struct {
 	RatePlanID uuid.NullUUID `json:"rate_plan_id"`
 	PropertyID uuid.UUID     `json:"property_id"`
 	Dates      []pgtype.Date `json:"dates"`
 }
 
-type CheckRatePlanCapacityRow struct {
+type CheckRatePlanCapacityBatchRow struct {
 	CalendarDate      interface{} `json:"calendar_date"`
 	CurrentBookings   int32       `json:"current_bookings"`
 	DailyRoomCapacity interface{} `json:"daily_room_capacity"`
 }
 
-// Check if a rate plan has capacity for the requested dates.
-//
-// 3-tier inheritance: daily_price_grid (most specific) > seasonal_rates > base_rates.
-// COALESCE tries each tier in order; first non-NULL wins. NULL = unlimited.
-// Only dates WITH a non-NULL capacity are checked against BDRs (fail early for unlimited).
 // Returns only dates where the limit is met or exceeded.
 //
 // See ADR-021 for the 3-tier capacity model.
-func (q *Queries) CheckRatePlanCapacity(ctx context.Context, arg *CheckRatePlanCapacityParams) ([]CheckRatePlanCapacityRow, error) {
-	rows, err := q.db.Query(ctx, checkRatePlanCapacity, arg.RatePlanID, arg.PropertyID, arg.Dates)
+func (q *Queries) CheckRatePlanCapacityBatch(ctx context.Context, arg *CheckRatePlanCapacityBatchParams) ([]CheckRatePlanCapacityBatchRow, error) {
+	rows, err := q.db.Query(ctx, checkRatePlanCapacityBatch, arg.RatePlanID, arg.PropertyID, arg.Dates)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []CheckRatePlanCapacityRow
+	var items []CheckRatePlanCapacityBatchRow
 	for rows.Next() {
-		var i CheckRatePlanCapacityRow
+		var i CheckRatePlanCapacityBatchRow
 		if err := rows.Scan(&i.CalendarDate, &i.CurrentBookings, &i.DailyRoomCapacity); err != nil {
 			return nil, err
 		}
@@ -163,6 +158,61 @@ func (q *Queries) CheckRatePlanCapacity(ctx context.Context, arg *CheckRatePlanC
 		return nil, err
 	}
 	return items, nil
+}
+
+const countRatePlanUsage = `-- name: CountRatePlanUsage :one
+SELECT COUNT(*)::INT AS usage_count
+FROM pricing.booked_daily_rates bdr
+JOIN operations.reservation_items ri ON ri.id = bdr.reservation_item_id
+WHERE bdr.rate_plan_id = $1
+AND bdr.calendar_date = $2
+AND bdr.property_id = $3
+AND bdr.deleted_at IS NULL
+AND ri.deleted_at IS NULL
+AND ri.status NOT IN ('cancelled', 'archived')
+AND ($4::uuid IS NULL OR bdr.reservation_item_id != $4)
+`
+
+type CountRatePlanUsageParams struct {
+	RatePlanID    uuid.NullUUID `json:"rate_plan_id"`
+	CalendarDate  pgtype.Date   `json:"calendar_date"`
+	PropertyID    uuid.UUID     `json:"property_id"`
+	ExcludeItemID uuid.UUID     `json:"exclude_item_id"`
+}
+
+// Count active bookings using a rate plan on a date, optionally excluding one item.
+func (q *Queries) CountRatePlanUsage(ctx context.Context, arg *CountRatePlanUsageParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countRatePlanUsage,
+		arg.RatePlanID,
+		arg.CalendarDate,
+		arg.PropertyID,
+		arg.ExcludeItemID,
+	)
+	var usage_count int32
+	err := row.Scan(&usage_count)
+	return usage_count, err
+}
+
+const getBaseRateForDate = `-- name: GetBaseRateForDate :one
+SELECT base_price_pence FROM pricing.booked_daily_rates
+WHERE reservation_item_id = $1
+AND calendar_date = $2
+AND property_id = $3
+AND deleted_at IS NULL
+`
+
+type GetBaseRateForDateParams struct {
+	ReservationItemID uuid.UUID   `json:"reservation_item_id"`
+	CalendarDate      pgtype.Date `json:"calendar_date"`
+	PropertyID        uuid.UUID   `json:"property_id"`
+}
+
+// Get the base_price_pence for a reservation item on a specific calendar date.
+func (q *Queries) GetBaseRateForDate(ctx context.Context, arg *GetBaseRateForDateParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getBaseRateForDate, arg.ReservationItemID, arg.CalendarDate, arg.PropertyID)
+	var base_price_pence int32
+	err := row.Scan(&base_price_pence)
+	return base_price_pence, err
 }
 
 const getBookedRates = `-- name: GetBookedRates :many
@@ -210,6 +260,43 @@ func (q *Queries) GetBookedRates(ctx context.Context, arg *GetBookedRatesParams)
 		return nil, err
 	}
 	return items, nil
+}
+
+const getRatePlanCapacity = `-- name: GetRatePlanCapacity :one
+
+SELECT COALESCE(
+    (SELECT dp.daily_room_capacity FROM pricing.daily_price_grid dp 
+     WHERE dp.rate_plan_id = $1 AND dp.calendar_date = $2 AND dp.property_id = $3
+     AND dp.deleted_at IS NULL),
+    (SELECT sr.max_daily_capacity FROM pricing.seasonal_rates sr 
+     WHERE sr.rate_plan_id = $1 AND $2::timestamptz <@ sr.override_period AND sr.property_id = $3
+     AND sr.deleted_at IS NULL
+     LIMIT 1),
+    (SELECT br.max_daily_capacity FROM pricing.base_rates br 
+     WHERE br.rate_plan_id = $1 AND br.property_id = $3
+     AND br.deleted_at IS NULL
+     LIMIT 1),
+    0
+)::INT AS max_capacity
+`
+
+type GetRatePlanCapacityParams struct {
+	RatePlanID   uuid.UUID   `json:"rate_plan_id"`
+	CalendarDate pgtype.Date `json:"calendar_date"`
+	PropertyID   uuid.UUID   `json:"property_id"`
+}
+
+// Check if a rate plan has capacity for the requested dates.
+//
+// 3-tier inheritance: daily_price_grid (most specific) > seasonal_rates > base_rates.
+// COALESCE tries each tier in order; first non-NULL wins. NULL = unlimited.
+// Only dates WITH a non-NULL capacity are checked against BDRs (fail early for unlimited).
+// Single-date capacity lookup (0 = unlimited).
+func (q *Queries) GetRatePlanCapacity(ctx context.Context, arg *GetRatePlanCapacityParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getRatePlanCapacity, arg.RatePlanID, arg.CalendarDate, arg.PropertyID)
+	var max_capacity int32
+	err := row.Scan(&max_capacity)
+	return max_capacity, err
 }
 
 const getResolvedNightlyRate = `-- name: GetResolvedNightlyRate :one
@@ -290,6 +377,33 @@ func (q *Queries) InsertBookedDailyRate(ctx context.Context, arg *InsertBookedDa
 		arg.CalendarDate,
 		arg.RatePlanID,
 		arg.BasePricePence,
+	)
+	return err
+}
+
+const setBaseRateForDate = `-- name: SetBaseRateForDate :exec
+UPDATE pricing.booked_daily_rates
+SET base_price_pence = $1, updated_at = NOW()
+WHERE reservation_item_id = $2
+AND calendar_date = $3
+AND property_id = $4
+AND deleted_at IS NULL
+`
+
+type SetBaseRateForDateParams struct {
+	BasePricePence    int32       `json:"base_price_pence"`
+	ReservationItemID uuid.UUID   `json:"reservation_item_id"`
+	CalendarDate      pgtype.Date `json:"calendar_date"`
+	PropertyID        uuid.UUID   `json:"property_id"`
+}
+
+// Update the base_price_pence for an existing booked daily rate row.
+func (q *Queries) SetBaseRateForDate(ctx context.Context, arg *SetBaseRateForDateParams) error {
+	_, err := q.db.Exec(ctx, setBaseRateForDate,
+		arg.BasePricePence,
+		arg.ReservationItemID,
+		arg.CalendarDate,
+		arg.PropertyID,
 	)
 	return err
 }

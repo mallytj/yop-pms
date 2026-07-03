@@ -11,6 +11,24 @@ import (
 	"github.com/google/uuid"
 )
 
+const archiveFolios = `-- name: ArchiveFolios :exec
+UPDATE finance.folios
+SET deleted_at = NOW()
+WHERE reservation_id = $1
+AND property_id = $2
+AND deleted_at IS NULL
+`
+
+type ArchiveFoliosParams struct {
+	ReservationID uuid.NullUUID `json:"reservation_id"`
+	PropertyID    uuid.UUID     `json:"property_id"`
+}
+
+func (q *Queries) ArchiveFolios(ctx context.Context, arg *ArchiveFoliosParams) error {
+	_, err := q.db.Exec(ctx, archiveFolios, arg.ReservationID, arg.PropertyID)
+	return err
+}
+
 const createFolio = `-- name: CreateFolio :one
 
 INSERT INTO finance.folios (

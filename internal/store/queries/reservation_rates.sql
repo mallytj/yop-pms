@@ -18,7 +18,7 @@ INSERT INTO pricing.booked_daily_rates (
     unnest(@reservation_item_ids::uuid[]),
     unnest(@calendar_dates::date[]),
     unnest(@rate_plan_ids::uuid[])::uuid,
-    unnest(@base_price_pences::int[]);
+    unnest(@base_price_pences::int[]);;
 
 -- name: SoftDeleteBookedRatesNotInPeriod :exec
 UPDATE pricing.booked_daily_rates
@@ -48,6 +48,55 @@ AND calendar_date = ANY(@dates::date[]);
 -- 3-tier inheritance: daily_price_grid (most specific) > seasonal_rates > base_rates.
 -- COALESCE tries each tier in order; first non-NULL wins. NULL = unlimited.
 -- Only dates WITH a non-NULL capacity are checked against BDRs (fail early for unlimited).
+
+-- name: GetRatePlanCapacity :one
+-- Single-date capacity lookup (0 = unlimited).
+SELECT COALESCE(
+    (SELECT dp.daily_room_capacity FROM pricing.daily_price_grid dp 
+     WHERE dp.rate_plan_id = @rate_plan_id AND dp.calendar_date = @calendar_date AND dp.property_id = @property_id
+     AND dp.deleted_at IS NULL),
+    (SELECT sr.max_daily_capacity FROM pricing.seasonal_rates sr 
+     WHERE sr.rate_plan_id = @rate_plan_id AND @calendar_date::timestamptz <@ sr.override_period AND sr.property_id = @property_id
+     AND sr.deleted_at IS NULL
+     LIMIT 1),
+    (SELECT br.max_daily_capacity FROM pricing.base_rates br 
+     WHERE br.rate_plan_id = @rate_plan_id AND br.property_id = @property_id
+     AND br.deleted_at IS NULL
+     LIMIT 1),
+    0
+)::INT AS max_capacity;
+
+-- name: CountRatePlanUsage :one
+-- Count active bookings using a rate plan on a date, optionally excluding one item.
+SELECT COUNT(*)::INT AS usage_count
+FROM pricing.booked_daily_rates bdr
+JOIN operations.reservation_items ri ON ri.id = bdr.reservation_item_id
+WHERE bdr.rate_plan_id = @rate_plan_id
+AND bdr.calendar_date = @calendar_date
+AND bdr.property_id = @property_id
+AND bdr.deleted_at IS NULL
+AND ri.deleted_at IS NULL
+AND ri.status NOT IN ('cancelled', 'archived')
+AND (@exclude_item_id::uuid IS NULL OR bdr.reservation_item_id != @exclude_item_id);
+
+-- name: GetBaseRateForDate :one
+-- Get the base_price_pence for a reservation item on a specific calendar date.
+SELECT base_price_pence FROM pricing.booked_daily_rates
+WHERE reservation_item_id = @reservation_item_id
+AND calendar_date = @calendar_date
+AND property_id = @property_id
+AND deleted_at IS NULL;
+
+-- name: SetBaseRateForDate :exec
+-- Update the base_price_pence for an existing booked daily rate row.
+UPDATE pricing.booked_daily_rates
+SET base_price_pence = @base_price_pence, updated_at = NOW()
+WHERE reservation_item_id = @reservation_item_id
+AND calendar_date = @calendar_date
+AND property_id = @property_id
+AND deleted_at IS NULL;
+
+-- name: CheckRatePlanCapacityBatch :many
 -- Returns only dates where the limit is met or exceeded.
 --
 -- See ADR-021 for the 3-tier capacity model.

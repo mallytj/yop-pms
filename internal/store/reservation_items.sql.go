@@ -311,6 +311,30 @@ func (q *Queries) GetReservationItems(ctx context.Context, arg *GetReservationIt
 	return items, nil
 }
 
+const getRoomTypeOccupancy = `-- name: GetRoomTypeOccupancy :one
+SELECT min_occupancy, max_occupancy, std_occupancy
+FROM inventory.room_types
+WHERE id = $1 AND property_id = $2 AND deleted_at IS NULL
+`
+
+type GetRoomTypeOccupancyParams struct {
+	ID         uuid.UUID `json:"id"`
+	PropertyID uuid.UUID `json:"property_id"`
+}
+
+type GetRoomTypeOccupancyRow struct {
+	MinOccupancy int32 `json:"min_occupancy"`
+	MaxOccupancy int32 `json:"max_occupancy"`
+	StdOccupancy int32 `json:"std_occupancy"`
+}
+
+func (q *Queries) GetRoomTypeOccupancy(ctx context.Context, arg *GetRoomTypeOccupancyParams) (GetRoomTypeOccupancyRow, error) {
+	row := q.db.QueryRow(ctx, getRoomTypeOccupancy, arg.ID, arg.PropertyID)
+	var i GetRoomTypeOccupancyRow
+	err := row.Scan(&i.MinOccupancy, &i.MaxOccupancy, &i.StdOccupancy)
+	return i, err
+}
+
 const insertLedgerRow = `-- name: InsertLedgerRow :exec
 INSERT INTO inventory.room_inventory_ledger (
     property_id, room_id, reservation_id, reservation_item_id, calendar_date, status
@@ -366,7 +390,7 @@ SELECT
         WHEN COUNT(*) = 0 THEN 'cancelled'::operations.reservation_status
         WHEN COUNT(*) FILTER (WHERE status IN ('checked_out', 'no_show', 'cancelled', 'archived')) = COUNT(*) AND COUNT(*) FILTER (WHERE status = 'checked_out') > 0 THEN 'checked_out'::operations.reservation_status
         WHEN COUNT(*) FILTER (WHERE status = 'checked_in') > 0 AND COUNT(*) FILTER (WHERE status = 'booked') = 0 THEN 'checked_in'::operations.reservation_status
-        ELSE NULL
+        ELSE ''
     END::TEXT AS new_status
 FROM operations.reservation_items
 WHERE reservation_id = $1 AND deleted_at IS NULL

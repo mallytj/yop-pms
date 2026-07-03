@@ -15,6 +15,7 @@ import (
 type Querier interface {
 	ApplyRateAdjustment(ctx context.Context, arg *ApplyRateAdjustmentParams) (pgconn.CommandTag, error)
 	ApproveRateAdjustments(ctx context.Context, arg *ApproveRateAdjustmentsParams) error
+	ArchiveFolios(ctx context.Context, arg *ArchiveFoliosParams) error
 	BlockedCountByType(ctx context.Context, arg *BlockedCountByTypeParams) ([]BlockedCountByTypeRow, error)
 	BulkInsertBookedDailyRates(ctx context.Context, arg *BulkInsertBookedDailyRatesParams) error
 	BulkInsertLedgerRows(ctx context.Context, arg *BulkInsertLedgerRowsParams) error
@@ -22,18 +23,15 @@ type Querier interface {
 	// No per-item version check — items have independent version counters.
 	// The status NOT IN clause prevents re-cancelling already-terminated items.
 	CancelReservationItems(ctx context.Context, arg *CancelReservationItemsParams) error
-	// Check if a rate plan has capacity for the requested dates.
-	//
-	// 3-tier inheritance: daily_price_grid (most specific) > seasonal_rates > base_rates.
-	// COALESCE tries each tier in order; first non-NULL wins. NULL = unlimited.
-	// Only dates WITH a non-NULL capacity are checked against BDRs (fail early for unlimited).
 	// Returns only dates where the limit is met or exceeded.
 	//
 	// See ADR-021 for the 3-tier capacity model.
-	CheckRatePlanCapacity(ctx context.Context, arg *CheckRatePlanCapacityParams) ([]CheckRatePlanCapacityRow, error)
+	CheckRatePlanCapacityBatch(ctx context.Context, arg *CheckRatePlanCapacityBatchParams) ([]CheckRatePlanCapacityBatchRow, error)
 	// Returns conflicting dates for precise error messaging
 	// @exclude_item_id is nullable: NULL = check all items
 	ConflictCheckOnLedger(ctx context.Context, arg *ConflictCheckOnLedgerParams) ([]pgtype.Date, error)
+	// Count active bookings using a rate plan on a date, optionally excluding one item.
+	CountRatePlanUsage(ctx context.Context, arg *CountRatePlanUsageParams) (int32, error)
 	CountRoomsByType(ctx context.Context, arg *CountRoomsByTypeParams) (int32, error)
 	// Finance folio queries
 	CreateFolio(ctx context.Context, arg *CreateFolioParams) (FinanceFolio, error)
@@ -53,17 +51,27 @@ type Querier interface {
 	FindExpiredHolds(ctx context.Context) ([]OperationsReservation, error)
 	FindOverdueCheckins(ctx context.Context) ([]OperationsReservationItem, error)
 	FindOverstays(ctx context.Context) ([]OperationsReservationItem, error)
+	// Get the base_price_pence for a reservation item on a specific calendar date.
+	GetBaseRateForDate(ctx context.Context, arg *GetBaseRateForDateParams) (int32, error)
 	GetBookedRates(ctx context.Context, arg *GetBookedRatesParams) ([]PricingBookedDailyRate, error)
 	GetGuest(ctx context.Context, id uuid.UUID) (IdentityGuest, error)
 	// Property settings lookup
 	GetPropertySettings(ctx context.Context, propertyID uuid.UUID) (GetPropertySettingsRow, error)
 	GetPropertyTimezone(ctx context.Context, id uuid.UUID) (string, error)
+	// Check if a rate plan has capacity for the requested dates.
+	//
+	// 3-tier inheritance: daily_price_grid (most specific) > seasonal_rates > base_rates.
+	// COALESCE tries each tier in order; first non-NULL wins. NULL = unlimited.
+	// Only dates WITH a non-NULL capacity are checked against BDRs (fail early for unlimited).
+	// Single-date capacity lookup (0 = unlimited).
+	GetRatePlanCapacity(ctx context.Context, arg *GetRatePlanCapacityParams) (int32, error)
 	GetReservation(ctx context.Context, id uuid.UUID) (GetReservationRow, error)
 	GetReservationItem(ctx context.Context, id uuid.UUID) (OperationsReservationItem, error)
 	GetReservationItems(ctx context.Context, arg *GetReservationItemsParams) ([]OperationsReservationItem, error)
 	// 3-tier inheritance: daily_price_grid > seasonal_rates > base_rates.
 	// Returns 10000 default if no rate found in any tier.
 	GetResolvedNightlyRate(ctx context.Context, arg *GetResolvedNightlyRateParams) (int32, error)
+	GetRoomTypeOccupancy(ctx context.Context, arg *GetRoomTypeOccupancyParams) (GetRoomTypeOccupancyRow, error)
 	// Reservation rate queries
 	// All price changes go through adjustment column + audit log
 	// Base price is immutable after creation
@@ -82,6 +90,8 @@ type Querier interface {
 	// ADR-013: Auto-pin lowest available room of requested type
 	// Uses LEFT JOIN with FOR UPDATE on the rooms side, not the outer join.
 	SelectRoomForAutoPin(ctx context.Context, arg *SelectRoomForAutoPinParams) (uuid.UUID, error)
+	// Update the base_price_pence for an existing booked daily rate row.
+	SetBaseRateForDate(ctx context.Context, arg *SetBaseRateForDateParams) error
 	// Cross-cutting queries used by ExecuteTx and notification infrastructure.
 	SetCurrentPropertyID(ctx context.Context, propertyID string) error
 	SoftDeleteBookedRatesNotInPeriod(ctx context.Context, arg *SoftDeleteBookedRatesNotInPeriodParams) error
