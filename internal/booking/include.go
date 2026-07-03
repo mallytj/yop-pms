@@ -48,7 +48,8 @@ func expandInclude(
 	q *store.Queries,
 	resp *ReservationResponse,
 	flags IncludeFlags,
-	propertyID, reservationID, primaryGuestID uuid.UUID,
+	propertyID, reservationID uuid.UUID,
+	primaryGuestID uuid.NullUUID,
 	log *slog.Logger,
 ) {
 	if flags.IncludeItems() && len(resp.Items) == 0 {
@@ -66,8 +67,8 @@ func expandInclude(
 		}
 	}
 
-	if flags.Guest && primaryGuestID != uuid.Nil {
-		guest, err := q.GetGuest(ctx, primaryGuestID)
+	if flags.Guest && primaryGuestID.Valid {
+		guest, err := q.GetGuest(ctx, primaryGuestID.UUID)
 		if err != nil {
 			log.Warn("failed to expand guest", "error", err, "guest_id", primaryGuestID)
 		} else {

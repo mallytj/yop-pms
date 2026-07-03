@@ -203,7 +203,8 @@ type UpdateItemStayPeriodInput struct {
 
 // AssignRoomInput is the request body for assigning a room to an item.
 type AssignRoomInput struct {
-	RoomID uuid.UUID `json:"room_id" example:"00000000-0000-0000-0000-000000000000"`
+	RoomID            uuid.UUID `json:"room_id" example:"00000000-0000-0000-0000-000000000000"`
+	OverrideDnmReason string    `json:"override_dnm_reason,omitempty" example:"Guest insists on room 101"`
 }
 
 // UpdateItemRoomTypeInput is the request body for changing an item's room type.
@@ -234,13 +235,14 @@ type AddItemInput struct {
 // ListParams controls pagination and filtering for GET /reservations.
 // Cursor pagination per ADR-014: clients pass cursor_date + cursor_id from the last result.
 type ListParams struct {
-	PropertyID uuid.UUID  `json:"property_id" example:"00000000-0000-0000-0000-000000000000"`
-	Status     *string    `json:"status,omitempty" example:"confirmed"`
-	CursorDate *time.Time `json:"cursor_date,omitempty" example:"2026-06-01T00:00:00Z"`
-	CursorID   *uuid.UUID `json:"cursor_id,omitempty" example:"00000000-0000-0000-0000-000000000000"`
-	StartDate  *time.Time `json:"start_date,omitempty" example:"2026-06-01T00:00:00Z"`
-	EndDate    *time.Time `json:"end_date,omitempty" example:"2026-06-05T00:00:00Z"`
-	Limit      int32      `json:"limit" example:"50"`
+	PropertyID      uuid.UUID  `json:"property_id" example:"00000000-0000-0000-0000-000000000000"`
+	Status          *string    `json:"status,omitempty" example:"confirmed"`
+	CursorDate      *time.Time `json:"cursor_date,omitempty" example:"2026-06-01T00:00:00Z"`
+	CursorID        *uuid.UUID `json:"cursor_id,omitempty" example:"00000000-0000-0000-0000-000000000000"`
+	StartDate       *time.Time `json:"start_date,omitempty" example:"2026-06-01T00:00:00Z"`
+	EndDate         *time.Time `json:"end_date,omitempty" example:"2026-06-05T00:00:00Z"`
+	Limit           int32      `json:"limit" example:"50"`
+	IncludeArchived bool       `json:"include_archived,omitempty"`
 }
 
 // BatchResultItem is one entry in a 207 Multi-Status batch response.

@@ -18,12 +18,9 @@ var reservationTransitions = map[ReservationStatus]map[ReservationStatus]bool{
 	StatusConfirmed: {
 		StatusCancelled: true,
 	},
-	// no_show→cancelled: handled by direct cancel on the reservation level
-	// no_show is an item-level status; reservation-level no_show goes via item rollup
-	StatusCheckedIn: {
-		StatusCancelled: true, // special: cancelled via CancelReservation when items
-		// not all checked_out (i.e. shorten stay)
-	},
+	// checked_in→checked_out is rollup-driven (ADR-015), not a direct transition.
+	// Cancel of a checked_in reservation is forbidden (R-RES-VALID-013).
+	StatusCheckedIn: {},
 	StatusCheckedOut: {
 		StatusArchived: true, // archival worker
 	},
@@ -58,8 +55,8 @@ var itemTransitions = map[ItemStatus]map[ItemStatus]bool{
 	ItemStatusCheckedIn: {
 		ItemStatusCheckedOut: true,
 		ItemStatusOverstay:   true, // overstay worker
-		ItemStatusNoShow:     true, // no-show override (rare)
-		ItemStatusCancelled:  true, // cancel item while checked in (cancels future nights via ShortenStay)
+		// Cancel of a checked-in item is forbidden (R-RES-VALID-013).
+		// Guest must be checked out first.
 	},
 	ItemStatusCheckedOut: {
 		ItemStatusArchived: true, // archival worker
@@ -68,8 +65,8 @@ var itemTransitions = map[ItemStatus]map[ItemStatus]bool{
 		ItemStatusCancelled: true, // staff closes no-show record
 	},
 	ItemStatusOverstay: {
+		ItemStatusCheckedIn:  true, // extend stay (R-RES-WORKER-005 resolve path)
 		ItemStatusCheckedOut: true, // resolve overstay → check-out
-		ItemStatusCancelled:  true, // staff closes stale overstay (guest left without checkout)
 	},
 	ItemStatusCancelled: {
 		ItemStatusBooked: true, // reactivation of a cancelled item
@@ -182,8 +179,9 @@ func ActionIdempotency(endpoint string, desiredStatus, currentStatus any) (noOp,
 	// confirm is invalid for: checked_in, checked_out, archived
 
 	// --- Reservation cancel ---
+	// Per §7.4: cancel on already-terminal state is destructive → 409.
 	case idempotencyKey{"cancel", StatusCancelled, StatusCancelled}:
-		return true, false
+		return false, true
 	case idempotencyKey{"cancel", StatusCancelled, StatusArchived}:
 		return false, true
 	case idempotencyKey{"cancel", StatusCancelled, StatusHold}:

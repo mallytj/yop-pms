@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/lexxcode1/yop-pms/internal/platform/apierror"
 	"github.com/lexxcode1/yop-pms/internal/platform/db"
 	"github.com/lexxcode1/yop-pms/internal/platform/helpers"
@@ -19,6 +20,9 @@ import (
 )
 
 // UpdateItem updates reservation item fields and returns the reservation response.
+// When the stay period or room assignment changes, this incrementally updates
+// inventory ledger rows and booked daily rates — only the rows that actually
+// changed, not a full delete+reinsert.
 func (s *Service) UpdateItem(ctx context.Context, itemID uuid.UUID, input CreateItemInput) (*ReservationResponse, error) {
 	propertyID := helpers.GetPropertyIDFromCtx(ctx)
 	if propertyID == uuid.Nil {
@@ -36,30 +40,130 @@ func (s *Service) UpdateItem(ctx context.Context, itemID uuid.UUID, input Create
 
 		version := helpers.GetIfMatchVersion(ctx)
 
+		// Detect room type change.
+		// TODO(bookings): Room type / rate plan changes return early, dropping
+		// other PATCH fields (dates, room assignment). Inline the updates
+		// within this transaction instead of delegating to separate txs.
+		// Ignore zero UUID — PATCH bodies often omit room_type_id.
+		if input.RoomTypeID != uuid.Nil && input.RoomTypeID != item.BookedRoomTypeID {
+			if _, err := s.UpdateItemRoomType(ctx, itemID, input.RoomTypeID, false /* retainPrice */, ""); err != nil {
+				return nil, err
+			}
+			return s.fetchAndExpandReservation(ctx, qtx, item.ReservationID, propertyID)
+		}
+
+		// Detect rate plan change (includes capacity check in UpdateItemRatePlan).
+		if input.RatePlanID != nil && (!item.RatePlanID.Valid || item.RatePlanID.UUID != *input.RatePlanID) {
+			if _, err := s.UpdateItemRatePlan(ctx, itemID, *input.RatePlanID, false /* retainPrice */); err != nil {
+				return nil, err
+			}
+			return s.fetchAndExpandReservation(ctx, qtx, item.ReservationID, propertyID)
+		}
+
 		arrival := input.ArrivalDate.Time
 		departure := input.DepartureDate.Time
 		if !departure.After(arrival) {
 			return nil, ErrInvalidDates.WithMessage("departure must be after arrival")
 		}
 
-		newStayPeriod := util.ToRange(arrival, departure)
-		var newRatePlanID = item.RatePlanID
+		oldNights := util.NightsBetween(item.StayPeriod.Lower.Time, item.StayPeriod.Upper.Time)
+		newNights := util.NightsBetween(arrival, departure)
+		datesChanged := !arrival.Equal(item.StayPeriod.Lower.Time) || !departure.Equal(item.StayPeriod.Upper.Time)
+		roomChanged := input.AssignedRoomID != nil && (item.AssignedRoomID.UUID != *input.AssignedRoomID || !item.AssignedRoomID.Valid)
+
+		newStayPeriod := util.ToStayRange(arrival, departure)
+
+		ratePlanID := item.RatePlanID
 		if input.RatePlanID != nil {
-			newRatePlanID = uuid.NullUUID{UUID: *input.RatePlanID, Valid: true}
+			ratePlanID = uuid.NullUUID{UUID: *input.RatePlanID, Valid: true}
 		}
-		var newRoomID = item.AssignedRoomID
+		newRoomID := item.AssignedRoomID
 		if input.AssignedRoomID != nil {
 			newRoomID = uuid.NullUUID{UUID: *input.AssignedRoomID, Valid: true}
 		}
 
+		// Determine effective room ID (old or new) for ledger operations.
+		effectiveRoomID := item.AssignedRoomID.UUID
+		if input.AssignedRoomID != nil {
+			effectiveRoomID = *input.AssignedRoomID
+		}
+
+		// --- Handle date changes incrementally ---
+		if datesChanged {
+			// Rates: soft-delete any that fall outside the new range.
+			// Keeps existing rates for dates still in range untouched.
+			if err := qtx.SoftDeleteBookedRatesNotInPeriod(ctx, &store.SoftDeleteBookedRatesNotInPeriodParams{
+				ReservationItemID: itemID,
+				PropertyID:        propertyID,
+				Dates:             util.DatesToPGDates(newNights),
+			}); err != nil {
+				return nil, fmt.Errorf("soft-delete removed rates: %w", err)
+			}
+
+			removedNights := util.RemovedDates(oldNights, newNights)
+			addedNights := util.AddedDates(oldNights, newNights)
+
+			// Ledger: handle removed nights.
+			// If removal is from the end only (shortening departure), use DeleteFromDate.
+			// Otherwise (removal at start or both ends), delete all and re-insert.
+			complexShift := len(removedNights) > 0 && len(addedNights) > 0
+
+			switch {
+			case complexShift:
+				// Both removed and added — full replace to avoid date-ordering issues.
+				if err := qtx.DeleteLedgerRowsByItem(ctx, &store.DeleteLedgerRowsByItemParams{
+					ReservationItemID: uuid.NullUUID{UUID: itemID, Valid: true},
+					PropertyID:        propertyID,
+				}); err != nil {
+					return nil, fmt.Errorf("delete all ledger: %w", err)
+				}
+				if err := insertItemLedgerAndRates(ctx, qtx, itemID, item.ReservationID, propertyID,
+					newNights, effectiveRoomID, ratePlanID, item.BookedRoomTypeID); err != nil {
+					return nil, err
+				}
+			case len(removedNights) > 0:
+				// Removal at end only (shorten) — use FromDate.
+				if err := qtx.DeleteLedgerRowsByItemFromDate(ctx, &store.DeleteLedgerRowsByItemFromDateParams{
+					ReservationItemID: uuid.NullUUID{UUID: itemID, Valid: true},
+					PropertyID:        propertyID,
+					FromDate:          pgtype.Date{Time: removedNights[0], Valid: true},
+				}); err != nil {
+					return nil, fmt.Errorf("delete removed ledger: %w", err)
+				}
+			case len(addedNights) > 0:
+				// Added nights only (lengthen) — insert ledger + rates.
+				if err := insertItemLedgerAndRates(ctx, qtx, itemID, item.ReservationID, propertyID,
+					addedNights, effectiveRoomID, ratePlanID, item.BookedRoomTypeID); err != nil {
+					return nil, err
+				}
+			}
+
+			// Recompute stay_period_envelope
+			if err := recomputeEnvelope(ctx, qtx, s.log, item.ReservationID, propertyID); err != nil {
+				return nil, err
+			}
+		}
+
+		// --- Handle room assignment change without date change ---
+		if !datesChanged && roomChanged {
+			if err := qtx.UpdateLedgerRowRoom(ctx, &store.UpdateLedgerRowRoomParams{
+				ReservationItemID: uuid.NullUUID{UUID: itemID, Valid: true},
+				PropertyID:        propertyID,
+				NewRoomID:         *input.AssignedRoomID,
+			}); err != nil {
+				return nil, fmt.Errorf("update ledger room: %w", err)
+			}
+		}
+
 		if _, err := qtx.UpdateReservationItem(ctx, &store.UpdateReservationItemParams{
 			ID: itemID, Version: version,
-			StayPeriod:     newStayPeriod,
-			RatePlanID:     newRatePlanID,
-			AssignedRoomID: newRoomID,
-			Status:         item.Status,
-			AdultsCount:    int32(input.AdultsCount),
-			ChildrenCount:  int32(input.ChildrenCount),
+			BookedRoomTypeID: uuid.NullUUID{UUID: item.BookedRoomTypeID, Valid: true},
+			StayPeriod:       newStayPeriod,
+			RatePlanID:       ratePlanID,
+			AssignedRoomID:   newRoomID,
+			Status:           item.Status,
+			AdultsCount:      int32(input.AdultsCount),
+			ChildrenCount:    int32(input.ChildrenCount),
 		}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, ErrVersionMismatch
@@ -67,18 +171,10 @@ func (s *Service) UpdateItem(ctx context.Context, itemID uuid.UUID, input Create
 			return nil, fmt.Errorf("update item: %w", err)
 		}
 
-		// Refresh reservation for response
-		resRow, err := qtx.GetReservation(ctx, item.ReservationID)
-		if err != nil {
-			return nil, fmt.Errorf("get reservation: %w", err)
-		}
-		resp := reservationFromRow(&resRow)
-		expandInclude(ctx, qtx, resp, IncludeFlags{Items: true}, propertyID, item.ReservationID, resRow.PrimaryGuestID, s.log)
-
 		if err := notifyReservationChange(ctx, qtx, "item_updated", item.ReservationID); err != nil {
 			return nil, fmt.Errorf("notify: %w", err)
 		}
-		return resp, nil
+		return s.fetchAndExpandReservation(ctx, qtx, item.ReservationID, propertyID)
 	})
 }
 
@@ -103,10 +199,18 @@ func (s *Service) UpdateItemStayPeriod(ctx context.Context, itemID uuid.UUID, ar
 			return nil, ErrInvalidDates.WithMessage("departure must be after arrival")
 		}
 
-		newStayPeriod := util.ToRange(arrival, departure)
+		newStayPeriod := util.ToStayRange(arrival, departure)
 		version := helpers.GetIfMatchVersion(ctx)
 
 		if item.Status == store.OperationsReservationItemStatusCheckedIn {
+			if err := requirePostCheckinPermission(ctx, item); err != nil {
+				return nil, err
+			}
+			// Arrival date cannot change after check-in — it would corrupt ledger
+			// housekeeping in ShortenStay which uses the original arrival.
+			if !arrival.Equal(item.StayPeriod.Lower.Time) {
+				return nil, ErrInvalidDates.WithMessage("cannot change arrival date for checked-in items")
+			}
 			if err := s.ShortenStay(ctx, qtx, item, departure); err != nil {
 				return nil, err
 			}
@@ -130,7 +234,7 @@ func (s *Service) UpdateItemStayPeriod(ctx context.Context, itemID uuid.UUID, ar
 		}
 
 		// Update envelope on the reservation
-		if err := recomputeEnvelope(ctx, qtx, s.log, item.ReservationID, propertyID, version); err != nil {
+		if err := recomputeEnvelope(ctx, qtx, s.log, item.ReservationID, propertyID); err != nil {
 			return nil, err
 		}
 
@@ -142,7 +246,8 @@ func (s *Service) UpdateItemStayPeriod(ctx context.Context, itemID uuid.UUID, ar
 	})
 }
 
-// AssignRoom assigns a room to an item. Respects do-not-move flag.
+// AssignRoom assigns a room to an item. Respects do-not-move flag —
+// override requires reservations:override_dnm permission + recorded reason.
 func (s *Service) AssignRoom(ctx context.Context, itemID uuid.UUID, input AssignRoomInput) (*ItemResponse, error) {
 	propertyID := helpers.GetPropertyIDFromCtx(ctx)
 	if propertyID == uuid.Nil {
@@ -159,7 +264,17 @@ func (s *Service) AssignRoom(ctx context.Context, itemID uuid.UUID, input Assign
 		}
 
 		if item.DoNotMove {
-			return nil, ErrDoNotMove
+			if !helpers.HasPermission(ctx, "reservations:override_dnm") {
+				return nil, ErrDoNotMove
+			}
+			if input.OverrideDnmReason == "" {
+				return nil, ErrDoNotMove.WithMessage("override_dnm_reason is required when overriding do-not-move")
+			}
+			s.log.Info("DNM override", "item_id", itemID, "reason", input.OverrideDnmReason)
+		}
+		// Post-checkin room move requires additional permission.
+		if err := requirePostCheckinPermission(ctx, item); err != nil {
+			return nil, err
 		}
 
 		version := helpers.GetIfMatchVersion(ctx)
@@ -198,7 +313,8 @@ func (s *Service) AssignRoom(ctx context.Context, itemID uuid.UUID, input Assign
 }
 
 // UpdateItemRoomType changes an item's room type. Optionally retains the original price.
-func (s *Service) UpdateItemRoomType(ctx context.Context, itemID uuid.UUID, newRoomTypeID uuid.UUID, retainPrice bool) (*ItemResponse, error) {
+// overrideDnmReason is required when do_not_move is set and caller has reservations:override_dnm.
+func (s *Service) UpdateItemRoomType(ctx context.Context, itemID uuid.UUID, newRoomTypeID uuid.UUID, retainPrice bool, overrideDnmReason string) (*ItemResponse, error) {
 	propertyID := helpers.GetPropertyIDFromCtx(ctx)
 	if propertyID == uuid.Nil {
 		return nil, ErrNoPropertyContext
@@ -214,7 +330,17 @@ func (s *Service) UpdateItemRoomType(ctx context.Context, itemID uuid.UUID, newR
 		}
 
 		if item.DoNotMove {
-			return nil, ErrDoNotMove
+			if !helpers.HasPermission(ctx, "reservations:override_dnm") {
+				return nil, ErrDoNotMove
+			}
+			if overrideDnmReason == "" {
+				return nil, ErrDoNotMove.WithMessage("override_dnm_reason is required when overriding do-not-move")
+			}
+			s.log.Info("DNM override on room type change", "item_id", itemID, "reason", overrideDnmReason)
+		}
+		// Post-checkin room type change requires additional permission.
+		if err := requirePostCheckinPermission(ctx, item); err != nil {
+			return nil, err
 		}
 
 		version := helpers.GetIfMatchVersion(ctx)
@@ -260,7 +386,7 @@ func (s *Service) UpdateItemRoomType(ctx context.Context, itemID uuid.UUID, newR
 	})
 }
 
-// UpdateItemRatePlan changes an item's rate plan. Checks rate plan capacity.
+// UpdateItemRatePlan changes an item's rate plan. Checks daily room capacity.
 func (s *Service) UpdateItemRatePlan(ctx context.Context, itemID uuid.UUID, newRatePlanID uuid.UUID, retainPrice bool) (*ItemResponse, error) {
 	propertyID := helpers.GetPropertyIDFromCtx(ctx)
 	if propertyID == uuid.Nil {
@@ -274,6 +400,42 @@ func (s *Service) UpdateItemRatePlan(ctx context.Context, itemID uuid.UUID, newR
 				return nil, apierror.ErrNotFound
 			}
 			return nil, fmt.Errorf("get item: %w", err)
+		}
+
+		// Post-checkin rate plan change requires additional permission.
+		if err := requirePostCheckinPermission(ctx, item); err != nil {
+			return nil, err
+		}
+
+		// Check daily room capacity for the new rate plan (R-RES-RATE-005 / M12).
+		// GetRatePlanCapacity uses 3-tier inheritance: daily_price_grid > seasonal_rates > base_rates.
+		dates := util.NightsBetween(item.StayPeriod.Lower.Time, item.StayPeriod.Upper.Time)
+		if len(dates) > 0 {
+			for _, d := range dates {
+				// maxCapacity == 0 means unlimited (SQL returns 0 for NULL).
+				maxCapacity, err := qtx.GetRatePlanCapacity(ctx, &store.GetRatePlanCapacityParams{
+					RatePlanID:   newRatePlanID,
+					CalendarDate: pgtype.Date{Time: d, Valid: true},
+				})
+				if err != nil {
+					return nil, fmt.Errorf("check rate plan capacity: %w", err)
+				}
+				if maxCapacity > 0 {
+					used, err := qtx.CountRatePlanUsage(ctx, &store.CountRatePlanUsageParams{
+						RatePlanID:    uuid.NullUUID{UUID: newRatePlanID, Valid: true},
+						CalendarDate:  pgtype.Date{Time: d, Valid: true},
+						ExcludeItemID: itemID,
+					})
+					if err != nil {
+						return nil, fmt.Errorf("count rate plan usage: %w", err)
+					}
+					if used >= maxCapacity {
+						return nil, ErrRatePlanCapacity.WithMessage(
+							fmt.Sprintf("rate plan capacity of %d exceeded on %s", maxCapacity, d.Format("2006-01-02")),
+						)
+					}
+				}
+			}
 		}
 
 		version := helpers.GetIfMatchVersion(ctx)
@@ -324,7 +486,8 @@ func (s *Service) AddItem(ctx context.Context, id uuid.UUID, input AddItemInput)
 			return nil, ErrTerminal
 		}
 
-		itemResp, err := insertSingleItem(ctx, qtx, input.CreateItemInput,
+		itemResp, err := insertSingleItem(
+			ctx, qtx, input.CreateItemInput,
 			struct {
 				ReservationStatus ReservationStatus
 				ItemStatus        ItemStatus
@@ -336,8 +499,7 @@ func (s *Service) AddItem(ctx context.Context, id uuid.UUID, input AddItemInput)
 		}
 
 		// Update stay_period_envelope to include new item's range
-		version := helpers.GetIfMatchVersion(ctx)
-		if err := recomputeEnvelope(ctx, qtx, s.log, id, propertyID, version); err != nil {
+		if err := recomputeEnvelope(ctx, qtx, s.log, id, propertyID); err != nil {
 			return nil, err
 		}
 
@@ -355,8 +517,31 @@ func (s *Service) AddItem(ctx context.Context, id uuid.UUID, input AddItemInput)
 	})
 }
 
+// requirePostCheckinPermission returns ErrMissingPermission if the item is checked_in
+// and the caller lacks reservations:post_checkin_mutate.
+func requirePostCheckinPermission(ctx context.Context, item store.OperationsReservationItem) error {
+	if ItemStatus(item.Status) == ItemStatusCheckedIn && !helpers.HasPermission(ctx, "reservations:post_checkin_mutate") {
+		return ErrMissingPermission.WithMessage("reservations:post_checkin_mutate required for checked-in items")
+	}
+	return nil
+}
+
+// fetchAndExpandReservation fetches a reservation by ID and returns an expanded response.
+// Used by UpdateItem to avoid repeating the fetch→hydrate→expand pattern.
+func (s *Service) fetchAndExpandReservation(ctx context.Context, qtx *store.Queries, reservationID, propertyID uuid.UUID) (*ReservationResponse, error) {
+	resRow, err := qtx.GetReservation(ctx, reservationID)
+	if err != nil {
+		return nil, fmt.Errorf("get reservation: %w", err)
+	}
+	resp := reservationFromRow(&resRow)
+	expandInclude(ctx, qtx, resp, IncludeFlags{Items: true}, propertyID, reservationID, resRow.PrimaryGuestID, s.log)
+	return resp, nil
+}
+
 // recomputeEnvelope recalculates stay_period_envelope from all items.
-func recomputeEnvelope(ctx context.Context, qtx *store.Queries, log *slog.Logger, reservationID, propertyID uuid.UUID, version int32) error {
+// Uses the reservation's own version (fetched inside) to avoid version mismatch
+// when called from item-level mutation paths where context has the item's version.
+func recomputeEnvelope(ctx context.Context, qtx *store.Queries, log *slog.Logger, reservationID, propertyID uuid.UUID) error {
 	items, err := qtx.GetReservationItems(ctx, &store.GetReservationItemsParams{
 		ReservationID: reservationID, PropertyID: propertyID,
 	})
@@ -375,6 +560,7 @@ func recomputeEnvelope(ctx context.Context, qtx *store.Queries, log *slog.Logger
 	}
 
 	if lower.IsZero() || upper.IsZero() {
+		log.Debug("recomputeEnvelope: no valid items, skipping envelope update", "reservation_id", reservationID)
 		return nil
 	}
 
@@ -385,7 +571,7 @@ func recomputeEnvelope(ctx context.Context, qtx *store.Queries, log *slog.Logger
 
 	_, err = qtx.UpdateReservationMetadata(ctx, &store.UpdateReservationMetadataParams{
 		ID:                 reservationID,
-		Version:            version,
+		Version:            res.Version,
 		StayPeriodEnvelope: util.ToRange(lower, upper),
 		PrimaryGuestID:     res.PrimaryGuestID,
 	})

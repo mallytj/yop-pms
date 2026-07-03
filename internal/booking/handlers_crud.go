@@ -118,6 +118,10 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if q.Get("include_archived") == "true" {
+		params.IncludeArchived = true
+	}
+
 	result, err := h.svc.ListReservations(r.Context(), params)
 	if err != nil {
 		platformjson.WriteError(w, r, err)

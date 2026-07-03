@@ -60,6 +60,7 @@ func TestIdempotency_PassthroughGET(t *testing.T) {
 	}
 }
 
+// R-RES-VALID-004: All mutations require Idempotency-Key header.
 func TestIdempotency_PostWithoutKey(t *testing.T) {
 	rdb, cleanup := newTestRedis(t)
 	defer cleanup()
@@ -117,6 +118,7 @@ func TestIdempotency_PostWithKeyNewRequest(t *testing.T) {
 	}
 }
 
+// R-RES-EDGE-006: Idempotency key retry with identical body returns cached response.
 func TestIdempotency_PostWithKeyCached(t *testing.T) {
 	rdb, cleanup := newTestRedis(t)
 	defer cleanup()
@@ -227,6 +229,7 @@ func TestIdempotency_DifferentKeys(t *testing.T) {
 	}
 }
 
+// R-RES-VALID-005: Idempotency-Key with different body returns 409.
 func TestIdempotency_SameKeyDifferentRequestReturnsConflict(t *testing.T) {
 	rdb, cleanup := newTestRedis(t)
 	defer cleanup()
@@ -265,6 +268,7 @@ func TestIdempotency_SameKeyDifferentRequestReturnsConflict(t *testing.T) {
 	}
 }
 
+// R-RES-EDGE-044: Same Idempotency-Key in parallel — atomic Redis SET NX.
 func TestIdempotency_ConcurrentSameKeyExecutesHandlerOnce(t *testing.T) {
 	rdb, cleanup := newTestRedis(t)
 	defer cleanup()

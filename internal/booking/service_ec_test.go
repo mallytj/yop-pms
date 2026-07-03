@@ -236,12 +236,11 @@ func TestEdge_061_ConfirmIdempotentOnConfirmed(t *testing.T) {
 		t.Fatalf("first confirm: %v", err)
 	}
 
-	// Second confirm at service layer: ErrInvalidTransition.
-	// ActionIdempotency at handler layer converts to 200 no-op per §7.4.
+	// Per §7.4: confirm on already-confirmed → 200 no-op (nil error at service layer).
 	confirmCtx2 := helpers.SetIfMatchVersion(ctx, confirmed.Version)
 	_, err = testSvc.ConfirmReservation(confirmCtx2, res.ID, IncludeFlags{})
-	if err == nil {
-		t.Fatal("expected ErrInvalidTransition on second confirm, got nil")
+	if err != nil {
+		t.Fatalf("second confirm on already-confirmed should be no-op, got: %v", err)
 	}
 }
 
@@ -282,56 +281,329 @@ func TestEdge_056_NotifyFailureNonFatal(t *testing.T) {
 	}
 }
 
-// R-RES-EDGE-040: Cancel on checked-out reservation → 409.
-// Blocked on CancelReservation.
+// seedConfirmedRes creates + confirms a reservation. Returns the
+// confirmed response plus the stay window used (ItemResponse.StayPeriod
+// is a TSTZRANGE string — easier to track separately).
+func seedConfirmedRes(t *testing.T) (*ReservationResponse, time.Time, time.Time) {
+	t.Helper()
+	ctx := ctxWithProperty(context.Background())
+	guestID := getGuestID(t)
+	arrival, departure := nextTestDate(t)
+	res, err := testSvc.CreateReservation(ctx, &CreateReservationInput{
+		Source:         SourceInternal,
+		PropertyID:     testPropertyID,
+		PrimaryGuestID: &guestID,
+		Items: []CreateItemInput{
+			{
+				RoomTypeID:     getRoomTypeID(t),
+				RatePlanID:     getRatePlanID(t),
+				ArrivalDate:    types.ISO8601Date{Time: arrival},
+				DepartureDate:  types.ISO8601Date{Time: departure},
+				AssignedRoomID: roomIDPtr(t),
+				AdultsCount:    1,
+			},
+		},
+	}, IncludeFlags{Items: true})
+	if err != nil {
+		t.Fatalf("seed create: %v", err)
+	}
+	confirmCtx := helpers.SetIfMatchVersion(ctx, res.Version)
+	confirmed, err := testSvc.ConfirmReservation(confirmCtx, res.ID, IncludeFlags{Items: true})
+	if err != nil {
+		t.Fatalf("seed confirm: %v", err)
+	}
+	return confirmed, arrival, departure
+}
+
+// R-RES-EDGE-040: Cancel on checked-out / cancelled / archived → 409.
 func TestEdge_040_CancelTerminalReservation(t *testing.T) {
-	t.Skip("blocked: CancelReservation not implemented (actions.go)")
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Cleanup(cleanupTestReservations)
+	ctx := ctxWithProperty(context.Background())
+	res, _, _ := seedConfirmedRes(t)
+
+	// First cancel succeeds.
+	cancelCtx := helpers.SetIfMatchVersion(ctx, res.Version)
+	cancelled, err := testSvc.CancelReservation(cancelCtx, res.ID, CancelInput{ReasonCode: "test"})
+	if err != nil {
+		t.Fatalf("first cancel: %v", err)
+	}
+	// Second cancel on terminal → error.
+	cancelCtx2 := helpers.SetIfMatchVersion(ctx, cancelled.Version)
+	_, err = testSvc.CancelReservation(cancelCtx2, res.ID, CancelInput{ReasonCode: "test"})
+	if err == nil {
+		t.Fatal("expected error cancelling terminal reservation, got nil")
+	}
 }
 
-// R-RES-EDGE-041: Reactivation on past reservation → 409.
-// Blocked on Reactivate.
+// R-RES-EDGE-041: Reactivation on past reservation rejected unless retroactive_create.
 func TestEdge_041_ReactivatePastReservation(t *testing.T) {
-	t.Skip("blocked: Reactivate not implemented (actions.go)")
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Cleanup(cleanupTestReservations)
+	ctx := ctxWithProperty(context.Background())
+	res, _, _ := seedConfirmedRes(t)
+
+	cancelCtx := helpers.SetIfMatchVersion(ctx, res.Version)
+	cancelled, err := testSvc.CancelReservation(cancelCtx, res.ID, CancelInput{ReasonCode: "test"})
+	if err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+
+	// Backdate items' stay AND the reservation envelope so lower bounds are in the past.
+	if _, err := testPool.Exec(ctx,
+		`UPDATE operations.reservation_items
+		   SET stay_period = tstzrange(now() - interval '10 days', now() - interval '7 days', '[)')
+		 WHERE reservation_id = $1`, res.ID); err != nil {
+		t.Fatalf("backdate items: %v", err)
+	}
+	if _, err := testPool.Exec(ctx,
+		`UPDATE operations.reservations
+		   SET stay_period_envelope = tstzrange(now() - interval '10 days', now() - interval '7 days', '[)')
+		 WHERE id = $1`, res.ID); err != nil {
+		t.Fatalf("backdate envelope: %v", err)
+	}
+
+	reactCtx := helpers.SetIfMatchVersion(ctx, cancelled.Version)
+	_, err = testSvc.ReactivateReservation(reactCtx, res.ID)
+	if err == nil {
+		t.Fatal("expected error reactivating past reservation, got nil")
+	}
 }
 
-// R-RES-EDGE-042: Cancel → reactivate → cancel cycle.
-// Blocked on CancelReservation + Reactivate.
+// R-RES-EDGE-042: Cancel → reactivate → cancel cycle audited.
 func TestEdge_042_CancelReactivateCycle(t *testing.T) {
-	t.Skip("blocked: CancelReservation + Reactivate not implemented (actions.go)")
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Cleanup(cleanupTestReservations)
+	ctx := ctxWithProperty(context.Background())
+	res, _, _ := seedConfirmedRes(t)
+
+	cancelCtx := helpers.SetIfMatchVersion(ctx, res.Version)
+	cancelled, err := testSvc.CancelReservation(cancelCtx, res.ID, CancelInput{ReasonCode: "test"})
+	if err != nil {
+		t.Fatalf("first cancel: %v", err)
+	}
+	if cancelled.Status != StatusCancelled && cancelled.Status != StatusPendingCancellation {
+		t.Errorf("status after cancel = %s", cancelled.Status)
+	}
+
+	reactCtx := helpers.SetIfMatchVersion(ctx, cancelled.Version)
+	reactivated, err := testSvc.ReactivateReservation(reactCtx, res.ID)
+	if err != nil {
+		t.Fatalf("reactivate: %v", err)
+	}
+	if reactivated.Status != StatusConfirmed {
+		t.Errorf("status after reactivate = %s, want confirmed", reactivated.Status)
+	}
+
+	cancelCtx2 := helpers.SetIfMatchVersion(ctx, reactivated.Version)
+	if _, err := testSvc.CancelReservation(cancelCtx2, res.ID, CancelInput{ReasonCode: "test2"}); err != nil {
+		t.Fatalf("second cancel: %v", err)
+	}
 }
 
-// R-RES-EDGE-059: Cancel on partially-checked-in reservation → 409 with checked_in item IDs.
-// Blocked on CancelReservation + CheckinItem.
+// R-RES-EDGE-059: Cancel on partially-checked-in reservation → 409, lists checked_in item IDs.
+// R-RES-VALID-013: Cancel rejected if any item is checked_in.
 func TestEdge_059_CancelPartialCheckin(t *testing.T) {
-	t.Skip("blocked: CheckinItem + CancelReservation not implemented (actions.go)")
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Cleanup(cleanupTestReservations)
+	ctx := ctxWithProperty(context.Background())
+	res, _, _ := seedConfirmedRes(t)
+
+	// Backdate stay so checkin is permitted.
+	if err := backdateForCheckin(ctx, res.ID, 1, 1); err != nil {
+		t.Fatalf("backdate: %v", err)
+	}
+
+	if _, err := testSvc.CheckinItem(helpers.SetIfMatchVersion(ctx, currentItemVersion(ctx, t, res.Items[0].ID)), res.Items[0].ID); err != nil {
+		t.Fatalf("checkin item: %v", err)
+	}
+
+	cancelCtx := helpers.SetIfMatchVersion(ctx, res.Version)
+	_, err := testSvc.CancelReservation(cancelCtx, res.ID, CancelInput{ReasonCode: "test"})
+	if err == nil {
+		t.Fatal("expected error cancelling partially-checked-in reservation, got nil")
+	}
 }
 
 // R-RES-EDGE-061: Cancel on cancelled → 409 (destructive action).
-// Blocked on CancelReservation.
 func TestEdge_061_CancelOnCancelled(t *testing.T) {
-	t.Skip("blocked: CancelReservation not implemented (actions.go)")
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Cleanup(cleanupTestReservations)
+	ctx := ctxWithProperty(context.Background())
+	res, _, _ := seedConfirmedRes(t)
+
+	cancelCtx := helpers.SetIfMatchVersion(ctx, res.Version)
+	cancelled, err := testSvc.CancelReservation(cancelCtx, res.ID, CancelInput{ReasonCode: "test"})
+	if err != nil {
+		t.Fatalf("first cancel: %v", err)
+	}
+
+	cancelCtx2 := helpers.SetIfMatchVersion(ctx, cancelled.Version)
+	_, err = testSvc.CancelReservation(cancelCtx2, res.ID, CancelInput{ReasonCode: "test2"})
+	if err == nil {
+		t.Fatal("expected error cancelling already-cancelled, got nil")
+	}
 }
 
 // R-RES-EDGE-003: Reactivate with now-conflicting dates → 409.
-// Blocked on CancelReservation + Reactivate.
 func TestEdge_003_ReactivateConflictingDates(t *testing.T) {
-	t.Skip("blocked: CancelReservation + Reactivate not implemented (actions.go)")
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Cleanup(cleanupTestReservations)
+	ctx := ctxWithProperty(context.Background())
+
+	original, originalArrival, originalDeparture := seedConfirmedRes(t)
+	cancelCtx := helpers.SetIfMatchVersion(ctx, original.Version)
+	cancelled, err := testSvc.CancelReservation(cancelCtx, original.ID, CancelInput{ReasonCode: "test"})
+	if err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+
+	// Occupy every same-type room on those dates with new bookings so reactivate has nowhere to land.
+	rtID := getRoomTypeID(t)
+	rpID := getRatePlanID(t)
+	guestID := getGuestID(t)
+	var roomIDs []uuid.UUID
+	if err := testPool.QueryRow(ctx,
+		`SELECT array_agg(id) FROM inventory.rooms WHERE property_id=$1 AND room_type_id=$2`,
+		testPropertyID, rtID).Scan(&roomIDs); err != nil {
+		t.Fatalf("room ids: %v", err)
+	}
+	for _, rid := range roomIDs {
+		_, err := testSvc.CreateReservation(ctx, &CreateReservationInput{
+			Source:         SourceInternal,
+			PropertyID:     testPropertyID,
+			PrimaryGuestID: &guestID,
+			Items: []CreateItemInput{
+				{
+					RoomTypeID:     rtID,
+					RatePlanID:     rpID,
+					AssignedRoomID: &rid,
+					ArrivalDate:    types.ISO8601Date{Time: originalArrival},
+					DepartureDate:  types.ISO8601Date{Time: originalDeparture},
+					AdultsCount:    1,
+				},
+			},
+		}, IncludeFlags{})
+		if err != nil {
+			t.Fatalf("seed block: %v", err)
+		}
+	}
+
+	reactCtx := helpers.SetIfMatchVersion(ctx, cancelled.Version)
+	_, err = testSvc.ReactivateReservation(reactCtx, original.ID)
+	if err == nil {
+		t.Fatal("expected conflict error on reactivate, got nil")
+	}
 }
 
-// R-RES-EDGE-035: Stay shortened on checked-in reservation.
-// Blocked on ShortenStay.
+// R-RES-EDGE-035: Stay shortened on checked-in reservation — future ledger rows released.
 func TestEdge_035_ShortenStayCheckedIn(t *testing.T) {
-	t.Skip("blocked: ShortenStay not implemented (actions.go)")
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Cleanup(cleanupTestReservations)
+	ctx := ctxWithProperty(context.Background())
+	res, _, _ := seedConfirmedRes(t)
+
+	if err := backdateForCheckin(ctx, res.ID, 1, 3); err != nil {
+		t.Fatalf("backdate: %v", err)
+	}
+	if _, err := testSvc.CheckinItem(helpers.SetIfMatchVersion(ctx, currentItemVersion(ctx, t, res.Items[0].ID)), res.Items[0].ID); err != nil {
+		t.Fatalf("checkin: %v", err)
+	}
+
+	newDeparture := time.Now().Add(24 * time.Hour)
+	mutCtx := helpers.SetIfMatchVersion(
+		helpers.SetPermissionsInCtx(ctx, []string{"reservations:post_checkin_mutate", "reservations:update_item"}),
+		currentItemVersion(ctx, t, res.Items[0].ID),
+	)
+	if _, err := testSvc.UpdateItemStayPeriod(mutCtx, res.Items[0].ID, time.Now().Add(-1*time.Hour), newDeparture); err != nil {
+		t.Fatalf("shorten: %v", err)
+	}
+
+	// Verify in DB that future ledger rows past newDeparture are gone.
+	var rowCount int
+	if err := testPool.QueryRow(ctx,
+		`SELECT count(*) FROM inventory.room_inventory_ledger
+		   WHERE reservation_item_id = $1 AND calendar_date >= $2::date`,
+		res.Items[0].ID, newDeparture).Scan(&rowCount); err != nil {
+		t.Fatalf("count ledger: %v", err)
+	}
+	if rowCount != 0 {
+		t.Errorf("expected 0 future ledger rows after shorten, got %d", rowCount)
+	}
 }
 
-// R-RES-EDGE-051: PATCH dates on checked-in reservation.
-// Blocked on UpdateItemStayPeriod.
+// R-RES-EDGE-051: PATCH dates on checked-in reservation — extension allowed.
 func TestEdge_051_PatchDatesCheckedIn(t *testing.T) {
-	t.Skip("blocked: UpdateItemStayPeriod not implemented (mutations.go)")
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Cleanup(cleanupTestReservations)
+	ctx := ctxWithProperty(context.Background())
+	res, _, _ := seedConfirmedRes(t)
+
+	if err := backdateForCheckin(ctx, res.ID, 1, 1); err != nil {
+		t.Fatalf("backdate: %v", err)
+	}
+	if _, err := testSvc.CheckinItem(helpers.SetIfMatchVersion(ctx, currentItemVersion(ctx, t, res.Items[0].ID)), res.Items[0].ID); err != nil {
+		t.Fatalf("checkin: %v", err)
+	}
+
+	extended := time.Now().Add(48 * time.Hour)
+	mutCtx := helpers.SetIfMatchVersion(
+		helpers.SetPermissionsInCtx(ctx, []string{"reservations:post_checkin_mutate", "reservations:update_item"}),
+		currentItemVersion(ctx, t, res.Items[0].ID),
+	)
+	if _, err := testSvc.UpdateItemStayPeriod(mutCtx, res.Items[0].ID, time.Now().Add(-1*time.Hour), extended); err != nil {
+		t.Fatalf("extend: %v", err)
+	}
+
+	// Verify DB has a ledger row on the extended night.
+	var rowCount int
+	if err := testPool.QueryRow(ctx,
+		`SELECT count(*) FROM inventory.room_inventory_ledger
+		   WHERE reservation_item_id = $1 AND calendar_date >= $2::date`,
+		res.Items[0].ID, time.Now().Add(36*time.Hour)).Scan(&rowCount); err != nil {
+		t.Fatalf("count ledger: %v", err)
+	}
+	if rowCount == 0 {
+		t.Errorf("expected ≥1 ledger row on extended night, got 0")
+	}
 }
 
-// R-RES-EDGE-045: Concurrent update and cancel → 412.
-// Blocked on CancelReservation.
+// R-RES-EDGE-045: Concurrent update + cancel — second mutation 412.
+// R-RES-VALID-012: If-Match version mismatch returns 412 / ErrVersionMismatch.
 func TestEdge_045_ConcurrentUpdateCancel(t *testing.T) {
-	t.Skip("blocked: CancelReservation not implemented (actions.go)")
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Cleanup(cleanupTestReservations)
+	ctx := ctxWithProperty(context.Background())
+	res, _, _ := seedConfirmedRes(t)
+
+	// First mutation: cancel with the current version.
+	cancelCtx := helpers.SetIfMatchVersion(ctx, res.Version)
+	if _, err := testSvc.CancelReservation(cancelCtx, res.ID, CancelInput{ReasonCode: "test"}); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+
+	// Second mutation: cancel again with stale version.
+	staleCtx := helpers.SetIfMatchVersion(ctx, res.Version)
+	_, err := testSvc.CancelReservation(staleCtx, res.ID, CancelInput{ReasonCode: "test2"})
+	if err == nil {
+		t.Fatal("expected version mismatch or terminal-state error on stale cancel, got nil")
+	}
 }

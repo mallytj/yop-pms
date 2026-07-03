@@ -1076,7 +1076,7 @@ type OperationsPropertySetting struct {
 type OperationsReservation struct {
 	ID                 uuid.UUID                        `json:"id"`
 	PropertyID         uuid.UUID                        `json:"property_id"`
-	PrimaryGuestID     uuid.UUID                        `json:"primary_guest_id"`
+	PrimaryGuestID     uuid.NullUUID                    `json:"primary_guest_id"`
 	GroupID            uuid.NullUUID                    `json:"group_id"`
 	Source             OperationsReservationSource      `json:"source"`
 	TravelAgentID      uuid.NullUUID                    `json:"travel_agent_id"`

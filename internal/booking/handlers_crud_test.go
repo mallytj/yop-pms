@@ -71,6 +71,11 @@ func TestHandler_Create_MissingPermission(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-001: Create reservation via HTTP.
+// R-RES-CRUD-008: Creation produces audit log via outbox.
+// R-RES-INTEG-003: Emit NOTIFY reservation_changes on mutation.
+// R-RES-INTEG-004: Enqueue confirmation email via outbox.
+// R-RES-VALID-015: Body accepts arrival/departure as DATE.
 func TestHandler_Create_OK(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
@@ -122,6 +127,7 @@ func TestHandler_Create_OK(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-002: GET single reservation by ID includes items + guest.
 func TestHandler_Get_OK(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
@@ -186,6 +192,7 @@ func TestHandler_Get_NotFound(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-003: List reservations with cursor pagination.
 func TestHandler_List_OK(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/reservations", nil)
 	req.Header.Set("X-Property-ID", testPropertyID.String())
@@ -204,6 +211,7 @@ func TestHandler_List_OK(t *testing.T) {
 	}
 }
 
+// R-RES-VALID-012: Mutating endpoints require If-Match; mismatch → 412.
 func TestHandler_Confirm_VersionMismatch(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
@@ -249,6 +257,9 @@ func TestHandler_Confirm_VersionMismatch(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-004a: PATCH /reservations/{id} updates reservation-level metadata.
+// R-RES-VALID-012: Mutation bumps version.
+// R-RES-VALID-008: Notes max 2500 chars (DB constraint).
 func TestHandler_UpdateMetadata_OK(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
@@ -306,6 +317,7 @@ func TestHandler_UpdateMetadata_OK(t *testing.T) {
 	}
 }
 
+// R-RES-VALID-012: If-Match version mismatch → 412.
 func TestHandler_UpdateMetadata_VersionMismatch(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
@@ -353,6 +365,7 @@ func TestHandler_UpdateMetadata_VersionMismatch(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-017: POST /reservations/{id}/items — add item to non-terminal reservation.
 func TestHandler_AddItem_OK(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
@@ -406,6 +419,8 @@ func TestHandler_AddItem_OK(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-004b: PATCH item — triggers availability re-check + ledger move + rates recompute.
+// R-RES-VALID-012: Items have own version column.
 func TestHandler_UpdateItem_OK(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
@@ -470,6 +485,9 @@ func TestHandler_UpdateItem_OK(t *testing.T) {
 	}
 }
 
+// R-RES-GROOM-003: Item assigned_room_id required before check-in.
+// R-RES-GROOM-004: Room assignment validates no overlap.
+// R-RES-GROOM-005: Room assignable up to and including day of check-in.
 func TestHandler_AssignRoom_OK(t *testing.T) {
 	if testing.Short() {
 		t.Skip()

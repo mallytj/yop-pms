@@ -1,6 +1,8 @@
 package booking
 
 // Core Requirements: R-RES-WORKER-001, R-RES-WORKER-002, R-RES-WORKER-003, R-RES-WORKER-004, ADR-016
+// Workers run background sweeps (hold expiry, no-show, overstay, archival).
+// Single file in booking package is appropriate for this scale.
 
 import (
 	"context"
@@ -111,8 +113,9 @@ func (w *Workers) cancelHoldTx(ctx context.Context, res store.OperationsReservat
 		return nil // not an error — another worker or user got there first
 	}
 
-	// Notify via pg_notify for SSE broadcast
-	// @AI - it gets notified via DB Trigger so no need.
+	// Notify reservation_changes with explicit action for frontend toast routing.
+	// DB trigger (trg_reservations_notify) also fires on status change for general SSE
+	// broadcast, but this carries a typed action payload the frontend can match on.
 	payload, _ := json.Marshal(struct {
 		Action string `json:"action"`
 		ID     string `json:"reservation_id"`
@@ -336,7 +339,7 @@ func (w *Workers) archiveReservationTx(ctx context.Context, res store.Operations
 		return fmt.Errorf("set rls: %w", err)
 	}
 
-	// Soft-delete items
+	// Soft-delete items (R-RES-INTEG-008)
 	if _, err := tx.Exec(
 		ctx,
 		`UPDATE operations.reservation_items SET deleted_at = NOW(), version = version + 1
@@ -344,6 +347,11 @@ func (w *Workers) archiveReservationTx(ctx context.Context, res store.Operations
 		res.ID,
 	); err != nil {
 		return fmt.Errorf("archive items: %w", err)
+	}
+
+	// Soft-archive folios (R-RES-INTEG-008)
+	if err := qtx.ArchiveFolios(ctx, uuid.NullUUID{UUID: res.ID, Valid: true}); err != nil {
+		return fmt.Errorf("archive folios: %w", err)
 	}
 
 	// Soft-delete reservation

@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// R-RES-AVAIL-001: Availability check endpoint.
+// R-RES-AVAIL-007: Per-date remaining count returned.
 func TestHandler_Availability_OK(t *testing.T) {
 	if testing.Short() {
 		t.Skip()

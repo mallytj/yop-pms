@@ -45,6 +45,16 @@ func GetUserIDFromCtx(ctx context.Context) uuid.UUID {
 	return id
 }
 
+// GetUserIDPtrFromCtx extracts the user UUID from context as a pointer.
+// Returns nil if not set.
+func GetUserIDPtrFromCtx(ctx context.Context) *uuid.UUID {
+	id, ok := ctx.Value(ctxUserID).(uuid.UUID)
+	if !ok {
+		return nil
+	}
+	return &id
+}
+
 // SetUserIDInCtx stores the user UUID in context.
 func SetUserIDInCtx(ctx context.Context, id uuid.UUID) context.Context {
 	return context.WithValue(ctx, ctxUserID, id)

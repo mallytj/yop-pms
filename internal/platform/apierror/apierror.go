@@ -2,6 +2,7 @@ package apierror
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
@@ -110,6 +111,16 @@ func MapPostgresError(err error) *APIError {
 		return ErrUnprocessable.WithMessage("the request violates a business rule")
 
 	default:
+		// Log the actual error code for debugging.
+		slog.Default().Error("unexpected database error",
+			"code", func() string {
+				var pgErr *pgconn.PgError
+				if errors.As(err, &pgErr) {
+					return pgErr.Code + ": " + pgErr.Message
+				}
+				return err.Error()
+			}(),
+		)
 		return ErrInternal.WithMessage("an unexpected database error occurred")
 	}
 }

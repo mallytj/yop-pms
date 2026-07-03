@@ -14,6 +14,7 @@ type TransitionTest[T StatusConstraint] struct {
 	to   T
 }
 
+// R-RES-VALID-006: Status transitions follow state machine (§7.1).
 func TestValidateReservationTransition_Valid(t *testing.T) {
 	tests := []TransitionTest[ReservationStatus]{
 		{"hold→confirmed", StatusHold, StatusConfirmed},
@@ -32,6 +33,8 @@ func TestValidateReservationTransition_Valid(t *testing.T) {
 	}
 }
 
+// R-RES-VALID-006: Invalid transitions rejected.
+// R-RES-VALID-007: Cancelled reservation not mutable except via reactivation.
 func TestValidateReservationTransition_Invalid(t *testing.T) {
 	tests := []TransitionTest[ReservationStatus]{
 		{"hold→checked_in", StatusHold, StatusCheckedIn},
@@ -41,6 +44,7 @@ func TestValidateReservationTransition_Invalid(t *testing.T) {
 		{"cancelled→hold", StatusCancelled, StatusHold},
 		{"archived→confirmed", StatusArchived, StatusConfirmed},
 		{"checked_in→archived", StatusCheckedIn, StatusArchived},
+		{"checked_in→cancelled", StatusCheckedIn, StatusCancelled},
 	}
 
 	for _, tt := range tests {
@@ -60,6 +64,7 @@ func TestValidateReservationTransition_UnknownSource(t *testing.T) {
 
 // --- Item transition tests ---
 
+// R-RES-VALID-006: Item state transitions per §7.2.
 func TestValidateItemTransition_Valid(t *testing.T) {
 	tests := []TransitionTest[ItemStatus]{
 		{"booked→checked_in", ItemStatusBooked, ItemStatusCheckedIn},
@@ -67,10 +72,9 @@ func TestValidateItemTransition_Valid(t *testing.T) {
 		{"booked→cancelled", ItemStatusBooked, ItemStatusCancelled},
 		{"checked_in→checked_out", ItemStatusCheckedIn, ItemStatusCheckedOut},
 		{"checked_in→overstay", ItemStatusCheckedIn, ItemStatusOverstay},
-		{"checked_in→cancelled", ItemStatusCheckedIn, ItemStatusCancelled},
 		{"no_show→cancelled", ItemStatusNoShow, ItemStatusCancelled},
+		{"overstay→checked_in", ItemStatusOverstay, ItemStatusCheckedIn},
 		{"overstay→checked_out", ItemStatusOverstay, ItemStatusCheckedOut},
-		{"overstay→cancelled", ItemStatusOverstay, ItemStatusCancelled},
 		{"cancelled→booked", ItemStatusCancelled, ItemStatusBooked},
 		{"checked_out→archived", ItemStatusCheckedOut, ItemStatusArchived},
 	}
@@ -88,6 +92,9 @@ func TestValidateItemTransition_Invalid(t *testing.T) {
 	tests := []TransitionTest[ItemStatus]{
 		{"booked→overstay", ItemStatusBooked, ItemStatusOverstay},
 		{"booked→archived", ItemStatusBooked, ItemStatusArchived},
+		{"checked_in→cancelled", ItemStatusCheckedIn, ItemStatusCancelled},
+		{"checked_in→booked", ItemStatusCheckedIn, ItemStatusBooked},
+		{"overstay→cancelled", ItemStatusOverstay, ItemStatusCancelled},
 		{"checked_out→booked", ItemStatusCheckedOut, ItemStatusBooked},
 		{"checked_out→checked_in", ItemStatusCheckedOut, ItemStatusCheckedIn},
 		{"cancelled→checked_in", ItemStatusCancelled, ItemStatusCheckedIn},
@@ -201,6 +208,8 @@ func TestRollupReservationStatus_NoChange(t *testing.T) {
 
 // --- ActionIdempotency tests ---
 
+// R-RES-EDGE-061: Action endpoint called with target already in destination state.
+// Constructive (confirm) → 200 no-op. Per §7.4.
 func TestActionIdempotency_Confirm(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -227,6 +236,8 @@ func TestActionIdempotency_Confirm(t *testing.T) {
 	}
 }
 
+// R-RES-EDGE-040: Cancel on terminal → 409.
+// R-RES-EDGE-061: Destructive action on already-applied state → 409.
 func TestActionIdempotency_Cancel(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -235,7 +246,7 @@ func TestActionIdempotency_Cancel(t *testing.T) {
 		wantNoOp     bool
 		wantConflict bool
 	}{
-		{"already cancelled", StatusCancelled, StatusCancelled, true, false},
+		{"already cancelled", StatusCancelled, StatusCancelled, false, true}, // §7.4: cancel is destructive → 409
 		{"from hold", StatusCancelled, StatusHold, false, false},
 		{"from confirmed", StatusCancelled, StatusConfirmed, false, false},
 		{"from archived", StatusCancelled, StatusArchived, false, true},
@@ -307,6 +318,8 @@ func TestActionIdempotency_CheckoutItem(t *testing.T) {
 	}
 }
 
+// R-RES-EDGE-041: Reactivation on past reservation rejection model.
+// R-RES-EDGE-061: Reactivate only valid from cancelled — 409 otherwise.
 func TestActionIdempotency_Reactivate(t *testing.T) {
 	tests := []struct {
 		name         string

@@ -56,7 +56,7 @@ func (h *Handler) Availability(w http.ResponseWriter, r *http.Request) {
 	platformjson.WriteJSON(w, http.StatusOK, result)
 }
 
-// TODO: add /folios for all and the ability to get mutliple in one request
+// TODO: add /folios for all and the ability to get multiple in one request
 
 // GetFolio handles GET /reservations/{id}/folios/{folio_id}.
 //

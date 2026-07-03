@@ -186,6 +186,13 @@ func seedTestData(ctx context.Context) error {
 
 // --- Tests ---
 
+// R-RES-CRUD-001: Create reservation with primary guest + items.
+// R-RES-CRUD-007: Reservation code RES-XXXXXX sequential per property.
+// R-RES-CRUD-009: ≥1 reservation_item + booked_daily_rates atomic with insert.
+// R-RES-CRUD-010: Creation creates Folio A.
+// R-RES-CRUD-011: Each item gets a room_inventory_ledger entry.
+// R-RES-CRUD-013: Lifecycle: hold default for internal source.
+// R-RES-AVAIL-009: Auto-pin at hold creation.
 func TestCreate_Hold(t *testing.T) {
 	ctx := ctxWithProperty(context.Background())
 	t.Cleanup(func() { cleanupTestReservations() })
@@ -226,6 +233,9 @@ func TestCreate_Hold(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-013: Lifecycle: walkin bypasses to checked_in.
+// R-RES-CRUD-014: Walk-in requires room assigned, creates in checked_in today only.
+// R-RES-VALID-011: Walk-in must be created today, room assigned immediately.
 func TestCreate_Walkin(t *testing.T) {
 	ctx := ctxWithProperty(context.Background())
 	t.Cleanup(func() { cleanupTestReservations() })
@@ -262,6 +272,7 @@ func TestCreate_Walkin(t *testing.T) {
 	}
 }
 
+// R-RES-VALID-002: lower(stay_period) not before today (no retroactive_create perm).
 func TestCreate_PastDate_Rejected(t *testing.T) {
 	ctx := ctxWithProperty(context.Background())
 	t.Cleanup(func() { cleanupTestReservations() })
@@ -289,6 +300,8 @@ func TestCreate_PastDate_Rejected(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-014: Walk-in requires room assigned on every item.
+// R-RES-VALID-011: Walk-in must have room assigned immediately.
 func TestCreate_WalkinNoRoom_Rejected(t *testing.T) {
 	ctx := ctxWithProperty(context.Background())
 	t.Cleanup(func() { cleanupTestReservations() })
@@ -317,6 +330,7 @@ func TestCreate_WalkinNoRoom_Rejected(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-015: POST accepts existing primary_guest_id.
 func TestCreate_GuestExpansion(t *testing.T) {
 	ctx := ctxWithProperty(context.Background())
 	t.Cleanup(func() { cleanupTestReservations() })
@@ -351,6 +365,8 @@ func TestCreate_GuestExpansion(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-015: POST accepts inline guest payload created in same tx.
+// R-RES-GROOM-001: Primary guest required at creation (inline OK).
 func TestCreate_InlineGuest(t *testing.T) {
 	ctx := ctxWithProperty(context.Background())
 	t.Cleanup(func() { cleanupTestReservations() })
@@ -419,6 +435,8 @@ func TestCreate_IncludeNone(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-018: POST /confirm — hold→confirmed staff path.
+// R-RES-CRUD-013: Lifecycle: hold→confirmed for internal.
 func TestConfirm_HoldToConfirmed(t *testing.T) {
 	ctx := ctxWithProperty(context.Background())
 	t.Cleanup(func() { cleanupTestReservations() })

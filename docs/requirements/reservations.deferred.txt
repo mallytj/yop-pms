@@ -1,0 +1,68 @@
+# Reservation RTM — deferred IDs.
+#
+# IDs listed here are explicitly out of scope for the current milestone
+# and are skipped by `make rtm-check`. Add an inline comment with the
+# reason and the owning PR/milestone.
+#
+# Wildcards: trailing * matches any suffix (e.g. R-RES-OTA-* matches
+# every OTA family ID).
+
+# Finance PR — fee math, tax, folio reads
+R-RES-CRUD-005a   # cancellation-quote math (stub today)
+R-RES-RATE-004    # tax rules
+R-RES-EDGE-009    # folio refund_action — finance PR
+R-RES-EDGE-024    # tax_rate_snapshot on folio_transactions — finance PR
+
+# OTA milestone — deferred
+R-RES-OTA-*
+
+# Reservation groups milestone — deferred
+R-RES-GRP-*
+R-RES-EDGE-053    # outbox dead-letter — covered by platform tests
+
+# Auth/permission edge cases — auth PR
+R-RES-EDGE-015    # override min LOS — needs auth PR for permission seed
+
+# Workers — separate worker-test harness
+R-RES-WORKER-001  # hold expiry sweep — covered indirectly by INTEG-007 once worker tests land
+R-RES-WORKER-004  # outbox dispatcher — covered by platform/worker
+R-RES-INTEG-007   # hold-expiry worker behaviour
+R-RES-EDGE-013    # stagnant lock sweep
+R-RES-EDGE-043    # server crash recovery via R-RES-INTEG-007
+
+# Non-functional / infrastructure
+R-RES-AVAIL-005   # housekeeping_buffer_minutes superseded by ADR-018 (advisory only)
+R-RES-EDGE-018    # DST boundary — presentation-layer concern
+R-RES-EDGE-019    # leap year — Postgres DATE handles
+R-RES-EDGE-046    # server crash during creation — tx rollback (DB invariant)
+R-RES-EDGE-054    # Redis stale during invalidation — DB re-check covered
+R-RES-EDGE-055    # OpenTelemetry init failure — non-fatal logging
+R-RES-INTEG-006   # OpenTelemetry spans — verified at platform layer
+
+# OTA / future scope
+R-RES-EDGE-012    # OTA concurrent booking — OTA milestone
+R-RES-EDGE-022    # derived rate plan update — pricing PR
+R-RES-EDGE-026    # rate adjustment negative — pricing PR (clamping)
+R-RES-EDGE-029    # rate plan inconsistent across stay — pricing PR
+R-RES-EDGE-038    # rate change during stay — covered when rate mutation lands
+R-RES-EDGE-039    # rate change before check-in — covered when rate mutation lands
+R-RES-EDGE-057    # LOS grandfathering — pricing PR
+R-RES-EDGE-058    # overstay collision — overstay worker
+R-RES-EDGE-052    # batch 207 multi-status — handler-level; deferred until batch impl
+R-RES-EDGE-037    # room type change during stay — mid-stay change endpoint deferred
+R-RES-EDGE-036    # room type change pre-checkin — mid-stay change endpoint deferred
+
+# Subsumed by other IDs (no separate test needed)
+R-RES-EDGE-004    # rate plan boundary span — covered by R-RES-RATE-001 per-night resolution
+R-RES-EDGE-011    # grandfathered LOS — covered by AVAIL-008
+R-RES-EDGE-020    # eventually consistent availability — covered by AVAIL-001 re-check
+R-RES-EDGE-021    # seasonal rate spans — covered by RATE-001 per-night
+R-RES-EDGE-027    # no rate for a day — covered by EDGE-014
+R-RES-EDGE-028    # multi-room per-item rate plans — covered by CRUD-009
+R-RES-EDGE-030    # redacted guest — guest-profile PR
+R-RES-EDGE-033    # room type deactivated — covered by EDGE-010 pattern
+R-RES-EDGE-022    # derived rate plan update — pricing PR (already above; keep)
+
+# Handler-level (skipped in service suite)
+R-RES-GROOM-007   # post-checkin room move perm — handler-only test
+R-RES-RATE-005    # subsumed by R-RES-AVAIL-008 (same LOS constraint path)

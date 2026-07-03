@@ -12,6 +12,7 @@ import (
 	"github.com/lexxcode1/yop-pms/internal/platform/types"
 )
 
+// R-RES-CRUD-018: POST /confirm — hold→confirmed staff path via HTTP.
 func TestHandler_Confirm_OK(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
@@ -63,6 +64,7 @@ func TestHandler_Confirm_OK(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-005: Cancel endpoint exists; 404 for unknown id.
 func TestHandler_Cancel_NotFound(t *testing.T) {
 	body := bytes.NewReader([]byte(`{}`))
 	req := httptest.NewRequest(http.MethodPost, "/reservations/00000000-0000-0000-0000-000000000001/cancel", body)
@@ -78,6 +80,7 @@ func TestHandler_Cancel_NotFound(t *testing.T) {
 	}
 }
 
+// R-RES-CRUD-006: Reactivate endpoint exists; 404 for unknown id.
 func TestHandler_Reactivate_NotFound(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/reservations/00000000-0000-0000-0000-000000000001/reactivate", nil)
 	req.Header.Set("X-Property-ID", testPropertyID.String())

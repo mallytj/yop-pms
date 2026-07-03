@@ -15,6 +15,8 @@ import (
 //   TestCheckAvailability_EmptyInventory          → R-RES-AVAIL-002
 //   TestCheckAvailability_Success                 → R-RES-AVAIL-003
 
+// R-RES-AVAIL-001: Availability check required before create/update.
+// R-RES-VALID-001: stay_period lower < upper, both bounds required.
 // TestCheckAvailability_InvalidDateRange verifies that end_date <= start_date returns ErrInvalidDates.
 func TestCheckAvailability_InvalidDateRange(t *testing.T) {
 	ctx := ctxWithProperty(context.Background())
@@ -32,6 +34,8 @@ func TestCheckAvailability_InvalidDateRange(t *testing.T) {
 	}
 }
 
+// R-RES-AVAIL-002: Reads inventory.room_inventory_ledger.
+// R-RES-AVAIL-007: Availability response includes remaining count per type per date.
 // TestCheckAvailability_PartialAvailability books one room in a three-room type;
 // CheckAvailability must return available=2 for each night (3 total - 1 booked).
 func TestCheckAvailability_PartialAvailability(t *testing.T) {
@@ -81,6 +85,8 @@ func TestCheckAvailability_PartialAvailability(t *testing.T) {
 
 // TestCheckAvailability_CacheHit verifies Redis is populated after the first call,
 // and that a second call returns identical results (served from cache).
+// R-RES-INTEG-001: Cache reservation queries via platform/cache with TTL.
+// R-RES-INTEG-005: Rate / availability cache hit path.
 func TestCheckAvailability_CacheHit(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
@@ -122,6 +128,9 @@ func TestCheckAvailability_CacheHit(t *testing.T) {
 
 // TestConflictCheck_Conflict asserts that booking a room twice on the same dates
 // returns ErrRoomNotAvailable from conflictCheck.
+// R-RES-AVAIL-003: Per-room overlap detection via ledger UNIQUE.
+// R-RES-AVAIL-006: Rejected overlap reports specific conflicting dates.
+// R-RES-EDGE-001: Concurrent booking of last available room of a type (loser 409).
 func TestConflictCheck_Conflict(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
@@ -165,6 +174,8 @@ func TestConflictCheck_Conflict(t *testing.T) {
 
 // TestConflictCheck_ExcludeItemID verifies that an item's own ledger rows do not
 // trigger a conflict when its ID is passed as excludeItemID (needed for updates).
+// R-RES-GROOM-004: Room assignment validates no overlap with another reservation.
+// R-RES-AVAIL-004: Concurrent attempts for same room/date serialised.
 func TestConflictCheck_ExcludeItemID(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
