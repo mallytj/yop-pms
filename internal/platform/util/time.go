@@ -45,3 +45,35 @@ func DatesToPGDates(dates []time.Time) []pgtype.Date {
 	}
 	return pgDates
 }
+
+// RemovedDates returns dates in old that are not in new.
+// Both slices must be sorted ascending.
+func RemovedDates(old, new []time.Time) []time.Time {
+	newSet := make(map[string]bool, len(new))
+	for _, d := range new {
+		newSet[d.Format("2006-01-02")] = true
+	}
+	var removed []time.Time
+	for _, d := range old {
+		if !newSet[d.Format("2006-01-02")] {
+			removed = append(removed, d)
+		}
+	}
+	return removed
+}
+
+// AddedDates returns dates in new that are not in old.
+// Both slices must be sorted ascending.
+func AddedDates(old, new []time.Time) []time.Time {
+	oldSet := make(map[string]bool, len(old))
+	for _, d := range old {
+		oldSet[d.Format("2006-01-02")] = true
+	}
+	var added []time.Time
+	for _, d := range new {
+		if !oldSet[d.Format("2006-01-02")] {
+			added = append(added, d)
+		}
+	}
+	return added
+}

@@ -71,7 +71,7 @@ func (s *Service) UpdateItem(ctx context.Context, itemID uuid.UUID, input Create
 		datesChanged := !arrival.Equal(item.StayPeriod.Lower.Time) || !departure.Equal(item.StayPeriod.Upper.Time)
 		roomChanged := input.AssignedRoomID != nil && (item.AssignedRoomID.UUID != *input.AssignedRoomID || !item.AssignedRoomID.Valid)
 
-		newStayPeriod := util.ToStayRange(arrival, departure)
+		newStayPeriod := util.ToRange(arrival, departure)
 
 		ratePlanID := item.RatePlanID
 		if input.RatePlanID != nil {
@@ -199,7 +199,7 @@ func (s *Service) UpdateItemStayPeriod(ctx context.Context, itemID uuid.UUID, ar
 			return nil, ErrInvalidDates.WithMessage("departure must be after arrival")
 		}
 
-		newStayPeriod := util.ToStayRange(arrival, departure)
+		newStayPeriod := util.ToRange(arrival, departure)
 		version := helpers.GetIfMatchVersion(ctx)
 
 		if item.Status == store.OperationsReservationItemStatusCheckedIn {
@@ -208,7 +208,10 @@ func (s *Service) UpdateItemStayPeriod(ctx context.Context, itemID uuid.UUID, ar
 			}
 			// Arrival date cannot change after check-in — it would corrupt ledger
 			// housekeeping in ShortenStay which uses the original arrival.
-			if !arrival.Equal(item.StayPeriod.Lower.Time) {
+			// Compare calendar dates, not exact timestamps (clock skew between Go and DB).
+			arrivalDay := arrival.Truncate(24 * time.Hour)
+			itemArrivalDay := item.StayPeriod.Lower.Time.Truncate(24 * time.Hour)
+			if !arrivalDay.Equal(itemArrivalDay) {
 				return nil, ErrInvalidDates.WithMessage("cannot change arrival date for checked-in items")
 			}
 			if err := s.ShortenStay(ctx, qtx, item, departure); err != nil {
@@ -416,6 +419,7 @@ func (s *Service) UpdateItemRatePlan(ctx context.Context, itemID uuid.UUID, newR
 				maxCapacity, err := qtx.GetRatePlanCapacity(ctx, &store.GetRatePlanCapacityParams{
 					RatePlanID:   newRatePlanID,
 					CalendarDate: pgtype.Date{Time: d, Valid: true},
+					PropertyID:   propertyID,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("check rate plan capacity: %w", err)
@@ -424,6 +428,7 @@ func (s *Service) UpdateItemRatePlan(ctx context.Context, itemID uuid.UUID, newR
 					used, err := qtx.CountRatePlanUsage(ctx, &store.CountRatePlanUsageParams{
 						RatePlanID:    uuid.NullUUID{UUID: newRatePlanID, Valid: true},
 						CalendarDate:  pgtype.Date{Time: d, Valid: true},
+						PropertyID:    propertyID,
 						ExcludeItemID: itemID,
 					})
 					if err != nil {
@@ -534,7 +539,7 @@ func (s *Service) fetchAndExpandReservation(ctx context.Context, qtx *store.Quer
 		return nil, fmt.Errorf("get reservation: %w", err)
 	}
 	resp := reservationFromRow(&resRow)
-	expandInclude(ctx, qtx, resp, IncludeFlags{Items: true}, propertyID, reservationID, resRow.PrimaryGuestID, s.log)
+	expandInclude(ctx, qtx, resp, IncludeFlags{Items: true}, propertyID, reservationID, uuid.NullUUID{UUID: resRow.PrimaryGuestID, Valid: true}, s.log)
 	return resp, nil
 }
 

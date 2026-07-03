@@ -21,7 +21,7 @@ func reservationToResponse(r *store.OperationsReservation) *ReservationResponse 
 	return &ReservationResponse{
 		ID:                 r.ID,
 		PropertyID:         r.PropertyID,
-		PrimaryGuestID:     util.NullUUIDToPtr(r.PrimaryGuestID),
+		PrimaryGuestID:     util.PtrToUUID(r.PrimaryGuestID),
 		GroupID:            util.NullUUIDToPtr(r.GroupID),
 		Source:             ReservationSource(r.Source),
 		TravelAgentID:      util.NullUUIDToPtr(r.TravelAgentID),
@@ -43,7 +43,7 @@ func reservationFromRow(r *store.GetReservationRow) *ReservationResponse {
 	return &ReservationResponse{
 		ID:                 r.ID,
 		PropertyID:         r.PropertyID,
-		PrimaryGuestID:     util.NullUUIDToPtr(r.PrimaryGuestID),
+		PrimaryGuestID:     util.PtrToUUID(r.PrimaryGuestID),
 		GroupID:            util.NullUUIDToPtr(r.GroupID),
 		Source:             ReservationSource(r.Source),
 		TravelAgentID:      util.NullUUIDToPtr(r.TravelAgentID),
@@ -200,7 +200,9 @@ func insertSingleItem(
 
 	// Validate occupancy against room type min/max (R-RES-VALID-010).
 	totalGuests := int32(item.AdultsCount + item.ChildrenCount)
-	limits, err := qtx.GetRoomTypeOccupancy(ctx, item.RoomTypeID)
+	limits, err := qtx.GetRoomTypeOccupancy(ctx, &store.GetRoomTypeOccupancyParams{
+		ID: item.RoomTypeID, PropertyID: propertyID,
+	})
 	if err != nil {
 		return ItemResponse{}, fmt.Errorf("get room type occupancy: %w", err)
 	}
@@ -249,7 +251,7 @@ func insertSingleItem(
 		AssignedRoomID:   uuid.NullUUID{UUID: util.PtrUUID(item.AssignedRoomID), Valid: item.AssignedRoomID != nil},
 		GuestID:          uuid.NullUUID{UUID: uuid.Nil, Valid: false},
 		RatePlanID:       uuid.NullUUID{UUID: util.PtrUUID(item.RatePlanID), Valid: item.RatePlanID != nil},
-		StayPeriod:       util.ToStayRange(arrival, departure),
+		StayPeriod:       util.ToRange(arrival, departure),
 		BaseRatePence:    baseRatePences[0],
 		AdultsCount:      int32(item.AdultsCount),
 		ChildrenCount:    int32(item.ChildrenCount),

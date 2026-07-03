@@ -35,7 +35,7 @@ func (s *Service) GetReservation(ctx context.Context, id uuid.UUID, include Incl
 
 	response := reservationFromRow(&row)
 
-	expandInclude(ctx, s.q, response, include, propertyID, id, row.PrimaryGuestID, s.log)
+	expandInclude(ctx, s.q, response, include, propertyID, id, uuid.NullUUID{UUID: row.PrimaryGuestID, Valid: true}, s.log)
 
 	return response, nil
 }

@@ -118,7 +118,7 @@ func (s *Service) createReservationInTx(
 	// Compute stay_period_envelope across all items (ADR-020)
 	envLower, envUpper := computeEnvelope(input.Items)
 
-	expiresAt := computeExpiresAt(input.Source, initial.ReservationStatus, now)
+	expiresAt := computeExpiresAt(ctx, qtx, propertyID, input.Source, initial.ReservationStatus, now)
 
 	// --- 2. Resolve guest before creating reservation (FK requires valid primary_guest_id) ---
 	primaryGuestID, err := resolvePrimaryGuest(ctx, qtx, input, propertyID)
@@ -129,7 +129,7 @@ func (s *Service) createReservationInTx(
 	// --- 3. Insert reservation ---
 	res, err := qtx.CreateReservation(ctx, &store.CreateReservationParams{
 		PropertyID:         propertyID,
-		PrimaryGuestID:     primaryGuestID,
+		PrimaryGuestID:     primaryGuestID.UUID,
 		GroupID:            uuid.NullUUID{UUID: util.PtrUUID(input.GroupID), Valid: input.GroupID != nil},
 		Source:             store.OperationsReservationSource(input.Source),
 		TravelAgentID:      uuid.NullUUID{UUID: util.PtrUUID(input.TravelAgentID), Valid: input.TravelAgentID != nil},
@@ -193,7 +193,13 @@ func (s *Service) ConfirmReservation(ctx context.Context, id uuid.UUID, include 
 			return nil, fmt.Errorf("get reservation: %w", err)
 		}
 
-		// State machine check: only hold → confirmed is allowed
+		// State machine check: only hold → confirmed is allowed.
+		// Idempotent: if already confirmed, return as-is (no-op).
+		if ReservationStatus(resRow.Status) == StatusConfirmed {
+			response := reservationFromRow(&resRow)
+			expandInclude(ctx, qtx, response, include, resRow.PropertyID, id, uuid.NullUUID{UUID: resRow.PrimaryGuestID, Valid: true}, s.log)
+			return response, nil
+		}
 		if err := ValidateReservationTransition(
 			ReservationStatus(resRow.Status),
 			StatusConfirmed,
@@ -226,7 +232,7 @@ func (s *Service) ConfirmReservation(ctx context.Context, id uuid.UUID, include 
 
 		response := reservationFromRow(&updatedRow)
 
-		expandInclude(ctx, qtx, response, include, resRow.PropertyID, id, resRow.PrimaryGuestID, s.log)
+		expandInclude(ctx, qtx, response, include, resRow.PropertyID, id, uuid.NullUUID{UUID: resRow.PrimaryGuestID, Valid: true}, s.log)
 
 		if err := notifyReservationChange(ctx, qtx, "confirmed", id); err != nil {
 			return nil, fmt.Errorf("notify reservation_changes: %w", err)
