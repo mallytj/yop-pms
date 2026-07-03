@@ -8,6 +8,9 @@ tmp/
 .gemini/
 gha-creds-*.json
 
+# Tool caches
+.lean-ctx/
+
 # Binaries
 /server
 /sync-constraints
