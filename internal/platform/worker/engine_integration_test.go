@@ -28,7 +28,8 @@ func startTestPostgres(t *testing.T) string {
 	t.Helper()
 	ctx := context.Background()
 
-	ctr, err := postgres.Run(ctx, "postgres:18-alpine",
+	ctr, err := postgres.Run(
+		ctx, "postgres:18-alpine",
 		postgres.WithDatabase("yop_test"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("password"),
@@ -114,7 +115,8 @@ func integrationLogger() *slog.Logger {
 func insertEvent(t *testing.T, pool *pgxpool.Pool, eventType string, payload any) {
 	t.Helper()
 	b, _ := json.Marshal(payload)
-	_, err := pool.Exec(context.Background(),
+	_, err := pool.Exec(
+		context.Background(),
 		`INSERT INTO internal.outbox_events (event_type, payload) VALUES ($1, $2)`,
 		eventType, b,
 	)
@@ -126,7 +128,8 @@ func insertEvent(t *testing.T, pool *pgxpool.Pool, eventType string, payload any
 func countByStatus(t *testing.T, pool *pgxpool.Pool, status string) int {
 	t.Helper()
 	var n int
-	err := pool.QueryRow(context.Background(),
+	err := pool.QueryRow(
+		context.Background(),
 		`SELECT COUNT(*) FROM internal.outbox_events WHERE status = $1`, status,
 	).Scan(&n)
 	if err != nil {
