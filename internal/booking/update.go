@@ -659,7 +659,13 @@ func (s *Service) UpdateBookedRates(ctx context.Context, itemID uuid.UUID, input
 				}
 				continue
 			}
-			newPrice := max(int32(adj.Value), 0)
+			rate, err := qtx.GetBaseRateForDate(ctx, &store.GetBaseRateForDateParams{
+				ReservationItemID: itemID, CalendarDate: calDate, PropertyID: propertyID,
+			})
+			if err != nil {
+				return struct{}{}, fmt.Errorf("get base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
+			}
+			newPrice := max(rate+int32(adj.Value), 0)
 			if err := qtx.SetBaseRateForDate(ctx, &store.SetBaseRateForDateParams{
 				ReservationItemID: itemID, CalendarDate: calDate, PropertyID: propertyID, BasePricePence: newPrice,
 			}); err != nil {

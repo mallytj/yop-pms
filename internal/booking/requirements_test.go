@@ -37,7 +37,7 @@ func TestValid_003_MaxStayLength(t *testing.T) {
 	if _, err := testPool.Exec(ctx,
 		`UPDATE operations.property_settings SET max_stay_length_nights = 3 WHERE property_id = $1`,
 		testPropertyID); err != nil {
-		t.Skipf("property_settings.max_stay_length_nights column missing — deferred: %v", err)
+		t.Fatalf("property_settings.max_stay_length_nights update failed — migration may be missing: %v", err)
 	}
 	t.Cleanup(func() {
 		_, _ = testPool.Exec(context.Background(),
@@ -202,7 +202,7 @@ func TestAvail_008_LOSEnforced(t *testing.T) {
 	_, err := testPool.Exec(ctx,
 		`UPDATE pricing.daily_price_grid SET min_los = 5 WHERE room_type_id = $1`, rtID)
 	if err != nil {
-		t.Skipf("min_los update failed — schema may differ: %v", err)
+		t.Fatalf("min_los update failed — pricing.daily_price_grid schema may differ: %v", err)
 	}
 	t.Cleanup(func() {
 		_, _ = testPool.Exec(context.Background(),
@@ -303,7 +303,7 @@ func TestAvail_012_MaintenanceLedger(t *testing.T) {
 		   (id, property_id, room_id, calendar_date, status)
 		 VALUES ($1, $2, $3, $4, 'maintenance')`,
 		uuid.New(), testPropertyID, roomID, day); err != nil {
-		t.Skipf("maintenance enum may not be wired yet — deferred: %v", err)
+		t.Fatalf("maintenance ledger insert failed — enum may not be wired: %v", err)
 	}
 	t.Cleanup(func() {
 		_, _ = testPool.Exec(context.Background(),

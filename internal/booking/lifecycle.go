@@ -615,6 +615,19 @@ func (s *Service) ReactivateReservation(ctx context.Context, id uuid.UUID) (*Res
 			return nil, fmt.Errorf("reactivate items: %w", err)
 		}
 
+		// Re-claim inventory (ledger rows + booked daily rates) for each reactivated item.
+		reactivated, err := qtx.GetReservationItems(ctx, &store.GetReservationItemsParams{
+			ReservationID: id, PropertyID: propertyID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("get reactivated items: %w", err)
+		}
+		for _, item := range reactivated {
+			if err := reactivateItemInventory(ctx, qtx, item, s.log); err != nil {
+				return nil, fmt.Errorf("reactivate inventory for item %s: %w", item.ID, err)
+			}
+		}
+
 		updated, err := qtx.GetReservation(ctx, id)
 		if err != nil {
 			return nil, fmt.Errorf("re-fetch after reactivate: %w", err)

@@ -1,7 +1,6 @@
 package validation
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
@@ -234,46 +233,4 @@ func TestStruct_PointerField(t *testing.T) {
 		errs := Struct(input, "operations.reservations")
 		require.Nil(t, errs)
 	})
-}
-
-func TestStruct(t *testing.T) {
-	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for target function.
-		v        any
-		tableKey string
-		want     []error
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := Struct(tt.v, tt.tableKey)
-			// TODO: update the condition below to compare got with tt.want.
-			if true {
-				t.Errorf("Struct() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_isZero(t *testing.T) {
-	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for target function.
-		fv   reflect.Value
-		kind reflect.Kind
-		want bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isZero(tt.fv, tt.kind)
-			// TODO: update the condition below to compare got with tt.want.
-			if true {
-				t.Errorf("isZero() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }

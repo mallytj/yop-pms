@@ -71,7 +71,7 @@ func (s *Service) CheckAvailability(
 			(SELECT COUNT(*) FROM inventory.rooms WHERE room_type_id = $2 AND property_id = $1) -
 			COALESCE(
 				(SELECT COUNT(*) FROM inventory.room_inventory_ledger
-				 WHERE calendar_date = d::date AND status = 'sold'
+				 WHERE calendar_date = d::date AND status IN ('sold', 'on_hold', 'maintenance', 'decommissioned')
 				 AND room_id IN (SELECT id FROM inventory.rooms WHERE room_type_id = $2 AND property_id = $1)),
 			0
 		)::INT AS available
