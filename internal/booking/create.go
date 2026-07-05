@@ -293,7 +293,7 @@ func (s *Service) createReservationInTx(
 		if err := worker.Enqueue(ctx, qtx, worker.EventConfirmationEmail, worker.ConfirmationEmailPayload{
 			ReservationID: res.ID.String(),
 		}); err != nil {
-			s.log.Error("enqueue confirmation email", "error", err, "reservation_id", res.ID)
+			s.log.Warn("enqueue confirmation email", "error", err, "reservation_id", res.ID)
 		}
 	}
 
@@ -366,7 +366,7 @@ func (s *Service) ConfirmReservation(ctx context.Context, id uuid.UUID, include 
 		if err := worker.Enqueue(ctx, qtx, worker.EventConfirmationEmail, worker.ConfirmationEmailPayload{
 			ReservationID: id.String(),
 		}); err != nil {
-			s.log.Error("enqueue confirmation email", "error", err, "reservation_id", id)
+			s.log.Warn("enqueue confirmation email", "error", err, "reservation_id", id)
 		}
 
 		return response, nil

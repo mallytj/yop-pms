@@ -119,6 +119,10 @@ func (h *Handler) AssignRoom(w http.ResponseWriter, r *http.Request) {
 		platformjson.WriteError(w, r, apiErr)
 		return
 	}
+	if errs := validation.Struct(input, "operations.reservation_items"); len(errs) > 0 {
+		platformjson.WriteError(w, r, apierror.ErrUnprocessable.WithMessage(errs[0].Error()))
+		return
+	}
 	res, svcErr := h.svc.AssignRoom(r.Context(), itemID, input)
 	if svcErr != nil {
 		platformjson.WriteError(w, r, svcErr)
@@ -203,6 +207,10 @@ func (h *Handler) UpdateBookedRates(w http.ResponseWriter, r *http.Request) {
 		platformjson.WriteError(w, r, apiErr)
 		return
 	}
+	if errs := validation.Struct(input, "pricing.booked_daily_rates"); len(errs) > 0 {
+		platformjson.WriteError(w, r, apierror.ErrUnprocessable.WithMessage(errs[0].Error()))
+		return
+	}
 	res, svcErr := h.svc.UpdateBookedRates(r.Context(), itemID, input)
 	if svcErr != nil {
 		platformjson.WriteError(w, r, svcErr)
@@ -221,6 +229,10 @@ func (h *Handler) AdjustRate(w http.ResponseWriter, r *http.Request) {
 	var input RateAdjustInput
 	if apiErr := platformjson.ReadJSON(r, &input); apiErr != nil {
 		platformjson.WriteError(w, r, apiErr)
+		return
+	}
+	if errs := validation.Struct(input, "pricing.booked_daily_rates"); len(errs) > 0 {
+		platformjson.WriteError(w, r, apierror.ErrUnprocessable.WithMessage(errs[0].Error()))
 		return
 	}
 	res, svcErr := h.svc.AdjustRate(r.Context(), itemID, input)
@@ -635,54 +647,6 @@ func (s *Service) AddItem(ctx context.Context, id uuid.UUID, input AddItemInput)
 // ─────────────────────────────────────────────────────────────────────────────
 // Service: Rate management
 // ─────────────────────────────────────────────────────────────────────────────
-
-func (s *Service) UpdateBookedRates(ctx context.Context, itemID uuid.UUID, input RateAdjustInput) (*ReservationResponse, error) {
-	propertyID := helpers.GetPropertyIDFromCtx(ctx)
-	if propertyID == uuid.Nil {
-		return nil, ErrNoPropertyContext
-	}
-	_, err := db.ExecuteTx(ctx, s.pool, s.q, func(qtx *store.Queries) (struct{}, error) {
-		for _, adj := range input.Adjustments {
-			calDate := pgtype.Date{Time: adj.CalendarDate, Valid: true}
-			if adj.Type == AdjustmentPercent {
-				rate, err := qtx.GetBaseRateForDate(ctx, &store.GetBaseRateForDateParams{
-					ReservationItemID: itemID, CalendarDate: calDate, PropertyID: propertyID,
-				})
-				if err != nil {
-					return struct{}{}, fmt.Errorf("get base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
-				}
-				newPrice := max(int32(float64(rate)*(1+float64(adj.Value)/100.0)), 0)
-				if err := qtx.SetBaseRateForDate(ctx, &store.SetBaseRateForDateParams{
-					ReservationItemID: itemID, CalendarDate: calDate, PropertyID: propertyID, BasePricePence: newPrice,
-				}); err != nil {
-					return struct{}{}, fmt.Errorf("set base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
-				}
-				continue
-			}
-			rate, err := qtx.GetBaseRateForDate(ctx, &store.GetBaseRateForDateParams{
-				ReservationItemID: itemID, CalendarDate: calDate, PropertyID: propertyID,
-			})
-			if err != nil {
-				return struct{}{}, fmt.Errorf("get base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
-			}
-			newPrice := max(rate+int32(adj.Value), 0)
-			if err := qtx.SetBaseRateForDate(ctx, &store.SetBaseRateForDateParams{
-				ReservationItemID: itemID, CalendarDate: calDate, PropertyID: propertyID, BasePricePence: newPrice,
-			}); err != nil {
-				return struct{}{}, fmt.Errorf("set base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
-			}
-		}
-		return struct{}{}, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	item, err := s.q.GetReservationItem(ctx, itemID)
-	if err != nil {
-		return nil, fmt.Errorf("get item after rate update: %w", err)
-	}
-	return s.GetReservation(ctx, item.ReservationID, IncludeFlags{Items: true})
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers

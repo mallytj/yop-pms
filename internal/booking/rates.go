@@ -40,21 +40,27 @@ func (s *Service) OverrideNightlyRate(ctx context.Context, itemID uuid.UUID, dat
 		return ErrNoPropertyContext
 	}
 
-	item, err := s.q.GetReservationItem(ctx, itemID)
-	if err != nil {
-		return fmt.Errorf("get item: %w", err)
-	}
-	if !item.RatePlanID.Valid {
-		return fmt.Errorf("item has no rate plan")
-	}
+	_, err := db.ExecuteTx(ctx, s.pool, s.q, func(qtx *store.Queries) (struct{}, error) {
+		item, err := qtx.GetReservationItem(ctx, itemID)
+		if err != nil {
+			return struct{}{}, fmt.Errorf("get item: %w", err)
+		}
+		if !item.RatePlanID.Valid {
+			return struct{}{}, fmt.Errorf("item has no rate plan")
+		}
 
-	return s.q.InsertBookedDailyRate(ctx, &store.InsertBookedDailyRateParams{
-		PropertyID:        propertyID,
-		ReservationItemID: itemID,
-		CalendarDate:      pgtype.Date{Time: date, Valid: true},
-		RatePlanID:        item.RatePlanID,
-		BasePricePence:    int32(baseRatePence),
+		if err := qtx.InsertBookedDailyRate(ctx, &store.InsertBookedDailyRateParams{
+			PropertyID:        propertyID,
+			ReservationItemID: itemID,
+			CalendarDate:      pgtype.Date{Time: date, Valid: true},
+			RatePlanID:        item.RatePlanID,
+			BasePricePence:    int32(baseRatePence),
+		}); err != nil {
+			return struct{}{}, fmt.Errorf("insert booked daily rate: %w", err)
+		}
+		return struct{}{}, nil
 	})
+	return err
 }
 
 // AdjustRate applies rate adjustments and returns a reservation response.
@@ -201,6 +207,56 @@ func (s *Service) ApproveAdjustments(ctx context.Context, itemID uuid.UUID) (*Re
 	item, err := s.q.GetReservationItem(ctx, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("get item after approve: %w", err)
+	}
+	return s.GetReservation(ctx, item.ReservationID, IncludeFlags{Items: true})
+}
+
+// UpdateBookedRates applies percentage or fixed adjustments to booked daily rates
+// based on the current base rate (not the original). Uses ExecuteTx for consistency.
+func (s *Service) UpdateBookedRates(ctx context.Context, itemID uuid.UUID, input RateAdjustInput) (*ReservationResponse, error) {
+	propertyID := helpers.GetPropertyIDFromCtx(ctx)
+	if propertyID == uuid.Nil {
+		return nil, ErrNoPropertyContext
+	}
+	_, err := db.ExecuteTx(ctx, s.pool, s.q, func(qtx *store.Queries) (struct{}, error) {
+		for _, adj := range input.Adjustments {
+			calDate := pgtype.Date{Time: adj.CalendarDate, Valid: true}
+			if adj.Type == AdjustmentPercent {
+				rate, err := qtx.GetBaseRateForDate(ctx, &store.GetBaseRateForDateParams{
+					ReservationItemID: itemID, CalendarDate: calDate, PropertyID: propertyID,
+				})
+				if err != nil {
+					return struct{}{}, fmt.Errorf("get base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
+				}
+				newPrice := max(int32(float64(rate)*(1+float64(adj.Value)/100.0)), 0)
+				if err := qtx.SetBaseRateForDate(ctx, &store.SetBaseRateForDateParams{
+					ReservationItemID: itemID, CalendarDate: calDate, PropertyID: propertyID, BasePricePence: newPrice,
+				}); err != nil {
+					return struct{}{}, fmt.Errorf("set base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
+				}
+				continue
+			}
+			rate, err := qtx.GetBaseRateForDate(ctx, &store.GetBaseRateForDateParams{
+				ReservationItemID: itemID, CalendarDate: calDate, PropertyID: propertyID,
+			})
+			if err != nil {
+				return struct{}{}, fmt.Errorf("get base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
+			}
+			newPrice := max(rate+int32(adj.Value), 0)
+			if err := qtx.SetBaseRateForDate(ctx, &store.SetBaseRateForDateParams{
+				ReservationItemID: itemID, CalendarDate: calDate, PropertyID: propertyID, BasePricePence: newPrice,
+			}); err != nil {
+				return struct{}{}, fmt.Errorf("set base rate for %s: %w", adj.CalendarDate.Format("2006-01-02"), err)
+			}
+		}
+		return struct{}{}, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	item, err := s.q.GetReservationItem(ctx, itemID)
+	if err != nil {
+		return nil, fmt.Errorf("get item after rate update: %w", err)
 	}
 	return s.GetReservation(ctx, item.ReservationID, IncludeFlags{Items: true})
 }

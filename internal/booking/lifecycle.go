@@ -25,6 +25,7 @@ import (
 	httputil "github.com/lexxcode1/yop-pms/internal/platform/httputil"
 	platformjson "github.com/lexxcode1/yop-pms/internal/platform/json"
 	"github.com/lexxcode1/yop-pms/internal/platform/util"
+	"github.com/lexxcode1/yop-pms/internal/platform/validation"
 	"github.com/lexxcode1/yop-pms/internal/store"
 )
 
@@ -58,6 +59,10 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 	var input CancelInput
 	if apiErr := platformjson.ReadJSON(r, &input); apiErr != nil {
 		platformjson.WriteError(w, r, apiErr)
+		return
+	}
+	if errs := validation.Struct(input, "operations.reservations"); len(errs) > 0 {
+		platformjson.WriteError(w, r, apierror.ErrUnprocessable.WithMessage(errs[0].Error()))
 		return
 	}
 	res, svcErr := h.svc.CancelReservation(r.Context(), id, input)

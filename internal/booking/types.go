@@ -192,7 +192,7 @@ type RateAdjustment struct {
 
 // RateAdjustInput is the request body for rate adjustment endpoints.
 type RateAdjustInput struct {
-	Adjustments []RateAdjustment `json:"adjustments"`
+	Adjustments []RateAdjustment `json:"adjustments" constraints:"pricing.booked_daily_rates"`
 }
 
 // UpdateItemStayPeriodInput is the request body for changing an item's dates.
@@ -277,11 +277,6 @@ type DateAvailability struct {
 	Available int               `json:"available" example:"1"`
 	// Reason explains why unavailable (e.g. "no_rate_configured"). Empty when available.
 	Reason string `json:"reason,omitempty" example:"no_rate_configured"`
-}
-
-// ConflictDate is a specific date causing a booking conflict.
-type ConflictDate struct {
-	Date time.Time `json:"date"`
 }
 
 // SourceIsWalkin checks whether a reservation source+walkin combo indicates a walk-in.
