@@ -645,30 +645,15 @@ func (s *Service) ShortenStay(ctx context.Context, qtx *store.Queries, item stor
 		return ErrInvalidDates.WithMessage("new departure must be after arrival")
 	}
 
-	oldDates := util.NightsBetween(item.StayPeriod.Lower.Time, item.StayPeriod.Upper.Time)
 	newDates := util.NightsBetween(item.StayPeriod.Lower.Time, newDeparture)
 
-	removeSet := make(map[string]bool, len(oldDates))
-	for _, d := range oldDates {
-		removeSet[d.Format("2006-01-02")] = true
-	}
-	for _, d := range newDates {
-		delete(removeSet, d.Format("2006-01-02"))
-	}
-
-	var pgDates []pgtype.Date
-	for dateStr := range removeSet {
-		if t, err := time.Parse("2006-01-02", dateStr); err == nil {
-			pgDates = append(pgDates, pgtype.Date{Time: t, Valid: true})
-		}
-	}
-
-	if len(pgDates) > 0 {
-		if err := qtx.SoftDeleteBookedRatesNotInPeriod(ctx, &store.SoftDeleteBookedRatesNotInPeriodParams{
-			ReservationItemID: item.ID, PropertyID: item.PropertyID, Dates: pgDates,
-		}); err != nil {
-			return fmt.Errorf("soft delete rates: %w", err)
-		}
+	// SoftDeleteBookedRatesNotInPeriod deletes rows whose date is NOT IN the provided
+	// list. Pass newDates (dates to KEEP) so removed dates are cleaned up.
+	keepDates := util.DatesToPGDates(newDates)
+	if err := qtx.SoftDeleteBookedRatesNotInPeriod(ctx, &store.SoftDeleteBookedRatesNotInPeriodParams{
+		ReservationItemID: item.ID, PropertyID: item.PropertyID, Dates: keepDates,
+	}); err != nil {
+		return fmt.Errorf("soft delete rates: %w", err)
 	}
 
 	if err := qtx.DeleteLedgerRowsByItemFromDate(ctx, &store.DeleteLedgerRowsByItemFromDateParams{
