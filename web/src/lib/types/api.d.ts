@@ -175,6 +175,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reservations/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check room type availability
+         * @description Check date-range availability for a room type.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Room type UUID */
+                    room_type_id: string;
+                    /** @description Start date (YYYY-MM-DD) */
+                    start_date: string;
+                    /** @description End date (YYYY-MM-DD) */
+                    end_date: string;
+                };
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.DateAvailability"][];
+                    };
+                };
+                /** @description Invalid query params */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/reservations/{id}": {
         parameters: {
             query?: never;
@@ -235,6 +293,1407 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update reservation metadata
+         * @description Patch reservation-level fields: notes, travel_agent_id, group_id, primary_guest_id.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Fields to update */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["internal_booking.UpdateMetadataInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Reservation not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Validation failed */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/reservations/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel reservation
+         * @description Cancel a reservation and all its items. Rejects if any item is checked in.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["internal_booking.CancelInput"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Reservation not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch or checked-in items */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Validation failed */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}/cancellation-quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get cancellation quote
+         * @description Estimate cancellation fees before committing to cancel.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Not implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.CancellationQuoteResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}/checkin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Check in reservation
+         * @description Batch check-in all items on a reservation. Returns per-item results.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.BatchResult"];
+                    };
+                };
+                /** @description Partial success (some items failed) */
+                207: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.BatchResult"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Reservation not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/reservations/{id}/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Check out reservation
+         * @description Batch check-out all checked-in items on a reservation.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.BatchResult"];
+                    };
+                };
+                /** @description Partial success */
+                207: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.BatchResult"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Reservation not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/reservations/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm reservation
+         * @description Transition reservation from hold to confirmed. Requires attached guest.
+         */
+        post: {
+            parameters: {
+                query?: {
+                    /** @description Comma-separated: items,guest,none */
+                    include?: string;
+                };
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Reservation not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch or invalid transition */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}/folios/{folio_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get reservation folio
+         * @description Fetch folio details for a reservation.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                    /** @description Folio UUID */
+                    folio_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Not implemented */
+                501: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add item to reservation
+         * @description Add a new room item to an existing reservation.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Item payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["internal_booking.AddItemInput"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Reservation not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch or terminal state */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Validation failed */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update reservation item
+         * @description Update stay period, room type, rate plan, guest counts of a reservation item.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                    /** @description Item UUID */
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Updated item fields */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["internal_booking.CreateItemInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Validation failed */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/reservations/{id}/items/{item_id}/adjust-rate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adjust nightly rate
+         * @description Apply percentage or fixed discount/surcharge to a nightly rate.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                    /** @description Item UUID */
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Adjustment payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["internal_booking.RateAdjustInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Validation failed */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}/items/{item_id}/assign-room": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Assign room to item
+         * @description Assign or reassign a physical room to a reservation item.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                    /** @description Item UUID */
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Room assignment payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["internal_booking.AssignRoomInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ItemResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch or DNM conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Validation failed */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/reservations/{id}/items/{item_id}/booked-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get booked daily rates
+         * @description Fetch booked daily rates for a reservation item.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                    /** @description Item UUID */
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate"][];
+                    };
+                };
+                /** @description Invalid ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update booked daily rates
+         * @description Override base rates for a reservation item.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                    /** @description Item UUID */
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Rate override payload */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["internal_booking.RateAdjustInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Validation failed */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/reservations/{id}/items/{item_id}/booked-rates/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve rate adjustments
+         * @description Approve pending rate adjustments for a reservation item.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                    /** @description Item UUID */
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}/items/{item_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel single item
+         * @description Cancel an individual reservation item.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                    /** @description Item UUID */
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["internal_booking.CancelInput"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ItemResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch or invalid transition */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Validation failed */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}/items/{item_id}/checkin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Check in single item
+         * @description Check in a single reservation item. Requires assigned room.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                    /** @description Item UUID */
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ItemResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch or invalid transition or unassigned */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/reservations/{id}/items/{item_id}/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Check out single item
+         * @description Check out a single reservation item.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                    /** @description Item UUID */
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ItemResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch or invalid transition */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/reservations/{id}/items/{item_id}/no-show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Mark item as no-show
+         * @description Mark a reservation item as no-show. Must be on or after arrival date.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                    /** @description Item UUID */
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ItemResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Item not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch or before arrival */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/reservations/{id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reactivate cancelled reservation
+         * @description Restore a cancelled reservation to confirmed, reactivate items and inventory.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Property UUID */
+                    "X-Property-ID": string;
+                    /** @description Version for optimistic concurrency */
+                    "If-Match": string;
+                };
+                path: {
+                    /** @description Reservation UUID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
+                    };
+                };
+                /** @description Invalid ID or X-Property-ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Reservation not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Version mismatch or invalid transition or past reservation */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -351,6 +1810,67 @@ export interface components {
         "github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date": {
             "time.Time"?: string;
         };
+        "github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate": {
+            adjustment?: number[];
+            adjustment_approved?: boolean;
+            adjustment_approved_by_user_id?: components["schemas"]["uuid.NullUUID"];
+            base_price_pence?: number;
+            calendar_date?: components["schemas"]["pgtype.Date"];
+            created_at?: components["schemas"]["pgtype.Timestamptz"];
+            deleted_at?: components["schemas"]["pgtype.Timestamptz"];
+            final_price_pence?: number;
+            id?: string;
+            property_id?: string;
+            rate_plan_id?: components["schemas"]["uuid.NullUUID"];
+            reservation_item_id?: string;
+            updated_at?: components["schemas"]["pgtype.Timestamptz"];
+        };
+        "internal_booking.AddItemInput": Record<string, never>;
+        /** @enum {string} */
+        "internal_booking.AdjustmentType": "percentage" | "fixed";
+        "internal_booking.AssignRoomInput": {
+            /** @example Guest insists on room 101 */
+            override_dnm_reason?: string;
+            /** @example 00000000-0000-0000-0000-000000000000 */
+            room_id?: string;
+        };
+        "internal_booking.BatchError": {
+            /** @example ROOM_UNAVAILABLE */
+            code?: string;
+            /** @example Room not available on selected dates */
+            message?: string;
+        };
+        "internal_booking.BatchResult": {
+            results?: components["schemas"]["internal_booking.BatchResultItem"][];
+        };
+        "internal_booking.BatchResultItem": {
+            error?: components["schemas"]["internal_booking.BatchError"];
+            /** @example 00000000-0000-0000-0000-000000000000 */
+            item_id?: string;
+            reservation_item?: components["schemas"]["internal_booking.ItemResponse"];
+            /**
+             * @description "ok" | "failed"
+             * @example ok
+             */
+            status?: string;
+        };
+        "internal_booking.CancelInput": {
+            /** @example Loyalty member */
+            fee_override_reason?: string;
+            /** @example 5000 */
+            fee_pence?: number;
+            /** @example guest_request */
+            reason_code?: string;
+            /** @example original */
+            refund_action?: components["schemas"]["internal_booking.RefundAction"];
+            /**
+             * @description force-cancel checked-in items (requires reservations:post_checkin_mutate)
+             * @example false
+             */
+            shorten_stay?: boolean;
+            /** @example false */
+            waive_fee?: boolean;
+        };
         "internal_booking.CancellationIntent": {
             cancelled_by_user_id?: string;
             /** @example Loyalty member */
@@ -364,7 +1884,25 @@ export interface components {
             /** @example false */
             waive_fee?: boolean;
         };
+        "internal_booking.CancellationQuoteResponse": {
+            fee_pence?: number;
+            status?: string;
+        };
+        "internal_booking.CreateItemInput": Record<string, never>;
         "internal_booking.CreateReservationInput": Record<string, never>;
+        "internal_booking.DateAvailability": {
+            /** @example 1 */
+            available?: number;
+            /** @example 2026-06-01 */
+            date?: string;
+            /**
+             * @description Reason explains why unavailable (e.g. "no_rate_configured"). Empty when available.
+             * @example no_rate_configured
+             */
+            reason?: string;
+            /** @example 4 */
+            total?: number;
+        };
         "internal_booking.GuestInlinePayload": {
             /** @example jane.doe@example.com */
             email?: string;
@@ -424,6 +1962,19 @@ export interface components {
         };
         /** @enum {string} */
         "internal_booking.ItemStatus": "booked" | "checked_in" | "checked_out" | "no_show" | "overstay" | "cancelled" | "archived";
+        "internal_booking.RateAdjustInput": {
+            adjustments?: components["schemas"]["internal_booking.RateAdjustment"][];
+        };
+        "internal_booking.RateAdjustment": {
+            /** @example 2026-06-01 */
+            calendar_date?: string;
+            /** @example Corp Rate */
+            reason?: string;
+            /** @example percentage */
+            type?: components["schemas"]["internal_booking.AdjustmentType"];
+            /** @example 10000 */
+            value?: number;
+        };
         /** @enum {string} */
         "internal_booking.RefundAction": "none" | "original" | "credit";
         "internal_booking.ReservationResponse": {
@@ -462,10 +2013,47 @@ export interface components {
         "internal_booking.ReservationSource": "website" | "internal" | "ota";
         /** @enum {string} */
         "internal_booking.ReservationStatus": "hold" | "confirmed" | "checked_in" | "checked_out" | "pending_cancellation" | "cancelled" | "archived";
+        "internal_booking.UpdateMetadataInput": {
+            /** @example 00000000-0000-0000-0000-000000000000 */
+            group_id?: string;
+            /** @example Updated contact info */
+            notes?: string;
+            /** @example 00000000-0000-0000-0000-000000000000 */
+            primary_guest_id?: string;
+            /** @example 00000000-0000-0000-0000-000000000000 */
+            travel_agent_id?: string;
+        };
+        "pgtype.Date": {
+            infinityModifier?: components["schemas"]["pgtype.InfinityModifier"];
+            time?: string;
+            valid?: boolean;
+        };
+        /**
+         * Format: int32
+         * @enum {integer}
+         */
+        "pgtype.InfinityModifier": 1 | 0 | -1;
+        "pgtype.Timestamptz": {
+            infinityModifier?: components["schemas"]["pgtype.InfinityModifier"];
+            time?: string;
+            valid?: boolean;
+        };
+        "uuid.NullUUID": {
+            uuid?: string;
+            /** @description Valid is true if UUID is not NULL */
+            valid?: boolean;
+        };
     };
     responses: never;
     parameters: never;
-    requestBodies: never;
+    requestBodies: {
+        /** @description Cancellation details */
+        "internal_booking.CancelInput": {
+            content: {
+                "application/json": components["schemas"]["internal_booking.CancelInput"];
+            };
+        };
+    };
     headers: never;
     pathItems: never;
 }

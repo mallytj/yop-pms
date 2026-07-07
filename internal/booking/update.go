@@ -36,6 +36,23 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 // UpdateMetadata handles PATCH /reservations/{id}.
+// UpdateMetadata handles PATCH /{id}.
+//
+// @Summary      Update reservation metadata
+// @Description  Patch reservation-level fields: notes, travel_agent_id, group_id, primary_guest_id.
+// @Tags         Reservations
+// @Accept       json
+// @Produce      json
+// @Param        X-Property-ID  header               string               true  "Property UUID"
+// @Param        id             path                 string               true  "Reservation UUID"
+// @Param        If-Match       header               string               true  "Version for optimistic concurrency"
+// @Param        body           body                 UpdateMetadataInput  true  "Fields to update"
+// @Success      200            {object}             ReservationResponse
+// @Failure      400            {object}             apierror.APIError    "Invalid ID or X-Property-ID"
+// @Failure      404            {object}             apierror.APIError    "Reservation not found"
+// @Failure      409            {object}             apierror.APIError    "Version mismatch"
+// @Failure      422            {object}             apierror.APIError    "Validation failed"
+// @Router       /v1/reservations/{id} [patch]
 func (h *Handler) UpdateMetadata(w http.ResponseWriter, r *http.Request) {
 	id, err := httputil.ParseUUIDParam(r, "id")
 	if err != nil {
@@ -60,6 +77,23 @@ func (h *Handler) UpdateMetadata(w http.ResponseWriter, r *http.Request) {
 }
 
 // AddItem handles POST /reservations/{id}/items.
+// AddItem handles POST /{id}/items.
+//
+// @Summary      Add item to reservation
+// @Description  Add a new room item to an existing reservation.
+// @Tags         Reservations
+// @Accept       json
+// @Produce      json
+// @Param        X-Property-ID  header    string        true  "Property UUID"
+// @Param        id             path      string        true  "Reservation UUID"
+// @Param        If-Match       header    string        true  "Version for optimistic concurrency"
+// @Param        body           body      AddItemInput  true  "Item payload"
+// @Success      201            {object}  ReservationResponse
+// @Failure      400            {object}  apierror.APIError  "Invalid ID or X-Property-ID"
+// @Failure      404            {object}  apierror.APIError  "Reservation not found"
+// @Failure      409            {object}  apierror.APIError  "Version mismatch or terminal state"
+// @Failure      422            {object}  apierror.APIError  "Validation failed"
+// @Router       /v1/reservations/{id}/items [post]
 func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
 	id, err := httputil.ParseUUIDParam(r, "id")
 	if err != nil {
@@ -84,6 +118,24 @@ func (h *Handler) AddItem(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateItem handles PATCH /reservations/{id}/items/{item_id}.
+// UpdateItem handles PATCH /{id}/items/{item_id}.
+//
+// @Summary      Update reservation item
+// @Description  Update stay period, room type, rate plan, guest counts of a reservation item.
+// @Tags         Reservations
+// @Accept       json
+// @Produce      json
+// @Param        X-Property-ID  header             string            true  "Property UUID"
+// @Param        id             path               string            true  "Reservation UUID"
+// @Param        item_id        path               string            true  "Item UUID"
+// @Param        If-Match       header             string            true  "Version for optimistic concurrency"
+// @Param        body           body               CreateItemInput   true  "Updated item fields"
+// @Success      200            {object}           ReservationResponse
+// @Failure      400            {object}           apierror.APIError  "Invalid ID or X-Property-ID"
+// @Failure      404            {object}           apierror.APIError  "Item not found"
+// @Failure      409            {object}           apierror.APIError  "Version mismatch"
+// @Failure      422            {object}           apierror.APIError  "Validation failed"
+// @Router       /v1/reservations/{id}/items/{item_id} [patch]
 func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
 	if err != nil {
@@ -108,6 +160,24 @@ func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 }
 
 // AssignRoom handles PATCH /reservations/{id}/items/{item_id}/assign-room.
+// AssignRoom handles PATCH /{id}/items/{item_id}/assign-room.
+//
+// @Summary      Assign room to item
+// @Description  Assign or reassign a physical room to a reservation item.
+// @Tags         Reservations
+// @Accept       json
+// @Produce      json
+// @Param        X-Property-ID  header             string            true  "Property UUID"
+// @Param        id             path               string            true  "Reservation UUID"
+// @Param        item_id        path               string            true  "Item UUID"
+// @Param        If-Match       header             string            true  "Version for optimistic concurrency"
+// @Param        body           body               AssignRoomInput   true  "Room assignment payload"
+// @Success      200            {object}           ItemResponse
+// @Failure      400            {object}           apierror.APIError  "Invalid ID or X-Property-ID"
+// @Failure      404            {object}           apierror.APIError  "Item not found"
+// @Failure      409            {object}           apierror.APIError  "Version mismatch or DNM conflict"
+// @Failure      422            {object}           apierror.APIError  "Validation failed"
+// @Router       /v1/reservations/{id}/items/{item_id}/assign-room [patch]
 func (h *Handler) AssignRoom(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
 	if err != nil {
@@ -136,6 +206,19 @@ func (h *Handler) AssignRoom(w http.ResponseWriter, r *http.Request) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Availability handles GET /reservations/availability.
+// Availability handles GET /availability.
+//
+// @Summary      Check room type availability
+// @Description  Check date-range availability for a room type.
+// @Tags         Reservations
+// @Produce      json
+// @Param        X-Property-ID  header    string  true  "Property UUID"
+// @Param        room_type_id   query     string  true  "Room type UUID"
+// @Param        start_date     query     string  true  "Start date (YYYY-MM-DD)"
+// @Param        end_date       query     string  true  "End date (YYYY-MM-DD)"
+// @Success      200            {array}   DateAvailability
+// @Failure      400            {object}  apierror.APIError  "Invalid query params"
+// @Router       /v1/reservations/availability [get]
 func (h *Handler) Availability(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	rtRaw := q.Get("room_type_id")
@@ -164,11 +247,32 @@ func (h *Handler) Availability(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetFolio handles GET /reservations/{id}/folios/{folio_id}.
+// GetFolio handles GET /{id}/folios/{folio_id}.
+//
+// @Summary      Get reservation folio
+// @Description  Fetch folio details for a reservation.
+// @Tags         Reservations
+// @Produce      json
+// @Param        X-Property-ID  header    string  true  "Property UUID"
+// @Param        id             path      string  true  "Reservation UUID"
+// @Param        folio_id       path      string  true  "Folio UUID"
+// @Success      501            {object}  apierror.APIError  "Not implemented"
+// @Router       /v1/reservations/{id}/folios/{folio_id} [get]
 func (h *Handler) GetFolio(w http.ResponseWriter, _ *http.Request) {
 	platformjson.WriteJSON(w, http.StatusNotImplemented, map[string]string{"status": "not_implemented"})
 }
 
 // CancellationQuote handles GET /reservations/{id}/cancellation-quote.
+// CancellationQuote handles GET /{id}/cancellation-quote.
+//
+// @Summary      Get cancellation quote
+// @Description  Estimate cancellation fees before committing to cancel.
+// @Tags         Reservations
+// @Produce      json
+// @Param        X-Property-ID  header    string  true  "Property UUID"
+// @Param        id             path      string  true  "Reservation UUID"
+// @Success      501            {object}  CancellationQuoteResponse  "Not implemented"
+// @Router       /v1/reservations/{id}/cancellation-quote [get]
 func (h *Handler) CancellationQuote(w http.ResponseWriter, _ *http.Request) {
 	platformjson.WriteJSON(w, http.StatusNotImplemented, CancellationQuoteResponse{
 		FeePence: nil,
@@ -181,6 +285,19 @@ func (h *Handler) CancellationQuote(w http.ResponseWriter, _ *http.Request) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // GetBookedRates handles GET /reservations/{id}/items/{item_id}/booked-rates.
+// GetBookedRates handles GET /{id}/items/{item_id}/booked-rates.
+//
+// @Summary      Get booked daily rates
+// @Description  Fetch booked daily rates for a reservation item.
+// @Tags         Reservations
+// @Produce      json
+// @Param        X-Property-ID  header    string  true  "Property UUID"
+// @Param        id             path      string  true  "Reservation UUID"
+// @Param        item_id        path      string  true  "Item UUID"
+// @Success      200            {array}   store.PricingBookedDailyRate
+// @Failure      400            {object}  apierror.APIError  "Invalid ID"
+// @Failure      404            {object}  apierror.APIError  "Item not found"
+// @Router       /v1/reservations/{id}/items/{item_id}/booked-rates [get]
 func (h *Handler) GetBookedRates(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
 	if err != nil {
@@ -196,6 +313,23 @@ func (h *Handler) GetBookedRates(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateBookedRates handles PATCH /reservations/{id}/items/{item_id}/booked-rates.
+// UpdateBookedRates handles PATCH /{id}/items/{item_id}/booked-rates.
+//
+// @Summary      Update booked daily rates
+// @Description  Override base rates for a reservation item.
+// @Tags         Reservations
+// @Accept       json
+// @Produce      json
+// @Param        X-Property-ID  header            string            true  "Property UUID"
+// @Param        id             path              string            true  "Reservation UUID"
+// @Param        item_id        path              string            true  "Item UUID"
+// @Param        If-Match       header            string            true  "Version for optimistic concurrency"
+// @Param        body           body              RateAdjustInput   true  "Rate override payload"
+// @Success      200            {object}          ReservationResponse
+// @Failure      400            {object}          apierror.APIError  "Invalid ID or X-Property-ID"
+// @Failure      404            {object}          apierror.APIError  "Item not found"
+// @Failure      422            {object}          apierror.APIError  "Validation failed"
+// @Router       /v1/reservations/{id}/items/{item_id}/booked-rates [patch]
 func (h *Handler) UpdateBookedRates(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
 	if err != nil {
@@ -220,6 +354,23 @@ func (h *Handler) UpdateBookedRates(w http.ResponseWriter, r *http.Request) {
 }
 
 // AdjustRate handles POST /reservations/{id}/items/{item_id}/adjust-rate.
+// AdjustRate handles POST /{id}/items/{item_id}/adjust-rate.
+//
+// @Summary      Adjust nightly rate
+// @Description  Apply percentage or fixed discount/surcharge to a nightly rate.
+// @Tags         Reservations
+// @Accept       json
+// @Produce      json
+// @Param        X-Property-ID  header             string            true  "Property UUID"
+// @Param        id             path               string            true  "Reservation UUID"
+// @Param        item_id        path               string            true  "Item UUID"
+// @Param        If-Match       header             string            true  "Version for optimistic concurrency"
+// @Param        body           body               RateAdjustInput   true  "Adjustment payload"
+// @Success      200            {object}           ReservationResponse
+// @Failure      400            {object}           apierror.APIError  "Invalid ID or X-Property-ID"
+// @Failure      404            {object}           apierror.APIError  "Item not found"
+// @Failure      422            {object}           apierror.APIError  "Validation failed"
+// @Router       /v1/reservations/{id}/items/{item_id}/adjust-rate [post]
 func (h *Handler) AdjustRate(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
 	if err != nil {
@@ -244,6 +395,21 @@ func (h *Handler) AdjustRate(w http.ResponseWriter, r *http.Request) {
 }
 
 // ApproveAdjustments handles POST /reservations/{id}/items/{item_id}/booked-rates/approve.
+// ApproveAdjustments handles POST /{id}/items/{item_id}/booked-rates/approve.
+//
+// @Summary      Approve rate adjustments
+// @Description  Approve pending rate adjustments for a reservation item.
+// @Tags         Reservations
+// @Accept       json
+// @Produce      json
+// @Param        X-Property-ID  header             string            true  "Property UUID"
+// @Param        id             path               string            true  "Reservation UUID"
+// @Param        item_id        path               string            true  "Item UUID"
+// @Param        If-Match       header             string            true  "Version for optimistic concurrency"
+// @Success      200            {object}           ReservationResponse
+// @Failure      400            {object}           apierror.APIError  "Invalid ID or X-Property-ID"
+// @Failure      404            {object}           apierror.APIError  "Item not found"
+// @Router       /v1/reservations/{id}/items/{item_id}/booked-rates/approve [post]
 func (h *Handler) ApproveAdjustments(w http.ResponseWriter, r *http.Request) {
 	itemID, err := httputil.ParseUUIDParam(r, "item_id")
 	if err != nil {
