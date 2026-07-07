@@ -25,6 +25,9 @@ CREATE TABLE operations.reservations (
     source operations.reservation_source NOT NULL DEFAULT 'internal',
     notes TEXT CHECK (char_length(notes) <= 2500),
     status operations.reservation_status NOT NULL DEFAULT 'hold',
+    stay_period_envelope TSTZRANGE NOT NULL CHECK (
+        lower(stay_period_envelope) < upper(stay_period_envelope)
+    ),
     version INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -42,6 +45,9 @@ ALTER TABLE operations.reservations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE operations.reservations FORCE ROW LEVEL SECURITY;
 CREATE POLICY reservations_isolation ON operations.reservations USING (property_id = current_setting('app.current_property_id')::uuid);
 
+
+CREATE INDEX idx_reservations_envelope_gist 
+    ON operations.reservations USING GIST (property_id, stay_period_envelope);
 CREATE INDEX idx_reservations_property ON operations.reservations (property_id);
 CREATE INDEX idx_reservations_primary_guest ON operations.reservations (primary_guest_id);
 
