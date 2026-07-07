@@ -177,6 +177,19 @@ constraints:
         required: true
     notes:
       - 'travel_agents_commission_percent_check: (commission_percent >= (0)::numeric) AND (commission_percent <= (75)::numeric)'
+  internal.outbox_events:
+    fields:
+      event_type:
+        required: true
+        max_length: 100
+      payload:
+        required: true
+      process_at:
+        required: true
+      retry_count:
+        required: true
+      status:
+        required: true
   inventory.housekeeping_logs:
     fields:
       notes:
@@ -219,10 +232,10 @@ constraints:
       status:
         required: true
     notes:
-      - 'room_inventory_ledger_check: ((status = ''sold''::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR (status <> ''sold''::inventory.inventory_status)'
-      - 'room_inventory_ledger_check: ((status = ''sold''::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR (status <> ''sold''::inventory.inventory_status)'
-      - 'room_inventory_ledger_check1: ((status = ''on_hold''::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR (status <> ''on_hold''::inventory.inventory_status)'
-      - 'room_inventory_ledger_check1: ((status = ''on_hold''::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR (status <> ''on_hold''::inventory.inventory_status)'
+      - 'inv_ledger_status_consistency: ((status = ''sold''::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR ((status = ''on_hold''::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR ((status = ''maintenance''::inventory.inventory_status) AND (maintenance_block_id IS NOT NULL)) OR (status = ANY (ARRAY[''available''::inventory.inventory_status, ''decommissioned''::inventory.inventory_status]))'
+      - 'inv_ledger_status_consistency: ((status = ''sold''::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR ((status = ''on_hold''::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR ((status = ''maintenance''::inventory.inventory_status) AND (maintenance_block_id IS NOT NULL)) OR (status = ANY (ARRAY[''available''::inventory.inventory_status, ''decommissioned''::inventory.inventory_status]))'
+      - 'inv_ledger_status_consistency: ((status = ''sold''::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR ((status = ''on_hold''::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR ((status = ''maintenance''::inventory.inventory_status) AND (maintenance_block_id IS NOT NULL)) OR (status = ANY (ARRAY[''available''::inventory.inventory_status, ''decommissioned''::inventory.inventory_status]))'
+      - 'inv_ledger_status_consistency: ((status = ''sold''::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR ((status = ''on_hold''::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR ((status = ''maintenance''::inventory.inventory_status) AND (maintenance_block_id IS NOT NULL)) OR (status = ANY (ARRAY[''available''::inventory.inventory_status, ''decommissioned''::inventory.inventory_status]))'
   inventory.room_types:
     fields:
       code:
@@ -313,8 +326,36 @@ constraints:
       timezone:
         required: true
         max_length: 100
+  operations.property_settings:
+    fields:
+      housekeeping_buffer_minutes:
+        required: true
+        min: 0
+      internal_hold_ttl_seconds:
+        required: true
+        min: 1
+      late_checkout_grace_minutes:
+        required: true
+        min: 0
+      max_stay_length_days:
+        required: true
+        min: 1
+      no_show_grace_minutes:
+        required: true
+        min: 0
+      property_id:
+        required: true
+      reservation_archive_after_days:
+        required: true
+        min: 1
+      website_hold_ttl_seconds:
+        required: true
+        min: 1
   operations.reservation_groups:
     fields:
+      code:
+        required: true
+        pattern: ^GRP-[0-9]{5}$
       name:
         max_length: 50
       notes:
@@ -335,6 +376,8 @@ constraints:
         required: true
       children_count:
         required: true
+      do_not_move:
+        required: true
       property_id:
         required: true
       reservation_id:
@@ -344,10 +387,27 @@ constraints:
       stay_period:
         required: true
         valid_range: true
+      version:
+        required: true
     notes:
       - 'GIST reservation_items_assigned_room_id_stay_period_excl: EXCLUDE USING gist (assigned_room_id WITH =, stay_period WITH &&) WHERE (((deleted_at IS NULL) AND (assigned_room_id IS NOT NULL)))'
+  operations.reservation_sequences:
+    fields:
+      entity_type:
+        required: true
+        max_length: 50
+      next_value:
+        required: true
+        min: 1
+      property_id:
+        required: true
+    notes:
+      - 'reservation_sequences_entity_type_check: entity_type = ANY (ARRAY[''reservation''::text, ''group''::text])'
   operations.reservations:
     fields:
+      code:
+        required: true
+        pattern: ^RES-[0-9]{6}$
       notes:
         max_length: 2500
       primary_guest_id:
@@ -360,8 +420,13 @@ constraints:
         required: true
       status:
         required: true
+      stay_period_envelope:
+        required: true
       version:
         required: true
+    notes:
+      - 'chk_res_expires_at: ((status = ''hold''::operations.reservation_status) AND (expires_at IS NOT NULL)) OR (status <> ''hold''::operations.reservation_status)'
+      - 'chk_res_expires_at: ((status = ''hold''::operations.reservation_status) AND (expires_at IS NOT NULL)) OR (status <> ''hold''::operations.reservation_status)'
   pricing.base_rates:
     fields:
       base_price_pence:
@@ -369,6 +434,8 @@ constraints:
       day_of_week:
         required: true
         min: 0
+      max_daily_capacity:
+        min: 1
       min_los_restriction:
         min: 1
       property_id:
@@ -413,6 +480,8 @@ constraints:
         required: true
       calendar_date:
         required: true
+      daily_room_capacity:
+        min: 1
       is_available:
         required: true
       max_los_restriction:
@@ -467,6 +536,8 @@ constraints:
       day_of_week:
         required: true
         min: 0
+      max_daily_capacity:
+        min: 1
       min_los_restriction:
         min: 1
       override_period:

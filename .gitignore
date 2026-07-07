@@ -4,13 +4,15 @@ tmp/
 .worktrees/
 
 .env
-/cover.out
-/cover.html
 
 .gemini/
 gha-creds-*.json
-/.github
+
+# Tool caches
+.lean-ctx/
 
 # Binaries
 /server
 /sync-constraints
+/rtmcheck
+*.test

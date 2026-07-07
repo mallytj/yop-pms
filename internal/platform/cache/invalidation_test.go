@@ -158,8 +158,8 @@ func TestReservationChangeHandler_TwoNightStay(t *testing.T) {
 	if len(patterns) != 3 {
 		t.Errorf("expected 3 Invalidate calls (2 dates + 1 reservation), got %d: %v", len(patterns), patterns)
 	}
-	assertContains(t, patterns, "yop:availability:prop-1:2026-03-15")
-	assertContains(t, patterns, "yop:availability:prop-1:2026-03-16")
+	assertContains(t, patterns, "yop:availability:prop-1:*:2026-03-15")
+	assertContains(t, patterns, "yop:availability:prop-1:*:2026-03-16")
 	assertContains(t, patterns, "yop:reservation:res-1")
 
 	// Planner scan was issued for the right property
@@ -188,7 +188,7 @@ func TestReservationChangeHandler_SingleNightStay(t *testing.T) {
 	if len(patterns) != 2 {
 		t.Errorf("expected 2 Invalidate calls (1 date + 1 reservation), got %d: %v", len(patterns), patterns)
 	}
-	assertContains(t, patterns, "yop:availability:prop-1:2026-03-15")
+	assertContains(t, patterns, "yop:availability:prop-1:*:2026-03-15")
 	assertContains(t, patterns, "yop:reservation:res-1")
 }
 

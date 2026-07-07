@@ -1,7 +1,8 @@
-.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc
+.PHONY: help clean swag dev docker-up gen audit setup reset-db test sqlc _guard-local-db goose-circle
 
-COVERAGE_FILE = cover.out
-COVERAGE_HTML = cover.html
+COVERAGE_DIR = /tmp/yop-pms-coverage
+COVERAGE_FILE = $(COVERAGE_DIR)/cover.out
+COVERAGE_HTML = $(COVERAGE_DIR)/cover.html
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -42,7 +43,7 @@ audit: ## Run quality checks
 	go mod tidy
 	go vet ./...
 
-	go test -v -race -buildvcs ./...
+	gotestsum -- -v -race -buildvcs ./...
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 	@echo "🔍 Auditing Frontend..."
@@ -61,14 +62,20 @@ lint: ## Lints both front and backend
 	cd web && npm run lint
 
 
-reset-db: ## Run to reset the docker
+_guard-local-db:
+	@if [ ! -f .env ]; then echo "refusing: .env file is missing. Run 'make setup'."; exit 1; fi
+	@APP_ENV_VAL=$$(grep -E '^APP_ENV=' .env | cut -d= -f2- | xargs); \
+	[ "$$APP_ENV_VAL" = "dev" ] || { echo "refusing: APP_ENV in .env must be 'dev' (got '$$APP_ENV_VAL')"; exit 1; }
+	@[ "$$CONFIRM" = "YES" ] || { echo "refusing: set CONFIRM=YES to proceed with destructive DB action"; exit 1; }
+
+reset-db: _guard-local-db ## Run to reset the docker (requires CONFIRM=YES and local GOOSE_DBSTRING)
 	docker-compose down -v
 	docker-compose up -d
 	@echo "Waiting for database to be ready..."
 	@sleep 3
 
 test-backend: ## Run all tests in the backend
-	go test -buildvcs -race ./...
+	gotestsum -- -buildvcs -race ./...
 
 test-frontend: ## Run all tests in the frontend
 	cd web && npm run test
@@ -80,7 +87,7 @@ format: ## Formats all code
 	go fmt ./...
 	cd web && npm run format 
 
-goose-circle: ## Completely reset goose
+goose-circle: _guard-local-db ## Completely reset goose (requires CONFIRM=YES and local GOOSE_DBSTRING)
 	goose reset
 	goose up
 
@@ -89,10 +96,11 @@ gen-constraints: ## Sync constraints.yml and constraints.ts from live DB check c
 
 ## test-cover: Run tests and open coverage report in browser
 test-cover:
+	@mkdir -p $(COVERAGE_DIR)
 	@echo "Running tests and generating coverage..."
-	go test -v -coverprofile=$(COVERAGE_FILE) ./...
+	gotestsum -- -v -coverprofile=$(COVERAGE_FILE) ./...
 	go tool cover -html=$(COVERAGE_FILE) -o $(COVERAGE_HTML)
-	@echo "Opening coverage report..."
+	@echo "Coverage report: $(COVERAGE_HTML)"
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		open $(COVERAGE_HTML); \
 	elif [ "$$(uname)" = "Linux" ]; then \
@@ -103,4 +111,4 @@ test-cover:
 
 ## clean-cover: Remove coverage files
 clean-cover:
-	rm -f $(COVERAGE_FILE) $(COVERAGE_HTML)
+	rm -rf $(COVERAGE_DIR)

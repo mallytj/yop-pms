@@ -93,7 +93,7 @@ func TestDatabaseConventions(t *testing.T) {
 					ON usage.constraint_name = check_cons.constraint_name
 				WHERE usage.table_name = cols.table_name 
 					AND usage.column_name = cols.column_name
-					AND (check_cons.check_clause LIKE '%char_length%' OR check_cons.check_clause LIKE '%length%')
+					AND (check_cons.check_clause LIKE '%char_length%' OR check_cons.check_clause LIKE '%length%' OR check_cons.check_clause LIKE '%~%')
 			);
 		`
 

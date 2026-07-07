@@ -118,6 +118,15 @@ export const CONSTRAINTS = {
 			'travel_agents_commission_percent_check: (commission_percent \u003E\u003D (0)::numeric) AND (commission_percent \u003C\u003D (75)::numeric)'
 		]
 	},
+	'internal.outbox_events': {
+		fields: {
+			event_type: { required: true, maxLength: 100 },
+			payload: { required: true },
+			process_at: { required: true },
+			retry_count: { required: true },
+			status: { required: true }
+		}
+	},
 	'inventory.housekeeping_logs': {
 		fields: {
 			notes: { maxLength: 250 },
@@ -151,10 +160,10 @@ export const CONSTRAINTS = {
 			status: { required: true }
 		},
 		notes: [
-			"room_inventory_ledger_check: ((status \u003D \'sold\'::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR (status \u003C\u003E \'sold\'::inventory.inventory_status)",
-			"room_inventory_ledger_check: ((status \u003D \'sold\'::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR (status \u003C\u003E \'sold\'::inventory.inventory_status)",
-			"room_inventory_ledger_check1: ((status \u003D \'on_hold\'::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR (status \u003C\u003E \'on_hold\'::inventory.inventory_status)",
-			"room_inventory_ledger_check1: ((status \u003D \'on_hold\'::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR (status \u003C\u003E \'on_hold\'::inventory.inventory_status)"
+			"inv_ledger_status_consistency: ((status \u003D \'sold\'::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR ((status \u003D \'on_hold\'::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR ((status \u003D \'maintenance\'::inventory.inventory_status) AND (maintenance_block_id IS NOT NULL)) OR (status \u003D ANY (ARRAY[\'available\'::inventory.inventory_status, \'decommissioned\'::inventory.inventory_status]))",
+			"inv_ledger_status_consistency: ((status \u003D \'sold\'::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR ((status \u003D \'on_hold\'::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR ((status \u003D \'maintenance\'::inventory.inventory_status) AND (maintenance_block_id IS NOT NULL)) OR (status \u003D ANY (ARRAY[\'available\'::inventory.inventory_status, \'decommissioned\'::inventory.inventory_status]))",
+			"inv_ledger_status_consistency: ((status \u003D \'sold\'::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR ((status \u003D \'on_hold\'::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR ((status \u003D \'maintenance\'::inventory.inventory_status) AND (maintenance_block_id IS NOT NULL)) OR (status \u003D ANY (ARRAY[\'available\'::inventory.inventory_status, \'decommissioned\'::inventory.inventory_status]))",
+			"inv_ledger_status_consistency: ((status \u003D \'sold\'::inventory.inventory_status) AND (reservation_id IS NOT NULL)) OR ((status \u003D \'on_hold\'::inventory.inventory_status) AND (checkout_session_id IS NOT NULL)) OR ((status \u003D \'maintenance\'::inventory.inventory_status) AND (maintenance_block_id IS NOT NULL)) OR (status \u003D ANY (ARRAY[\'available\'::inventory.inventory_status, \'decommissioned\'::inventory.inventory_status]))"
 		]
 	},
 	'inventory.room_types': {
@@ -213,8 +222,21 @@ export const CONSTRAINTS = {
 			timezone: { required: true, maxLength: 100 }
 		}
 	},
+	'operations.property_settings': {
+		fields: {
+			housekeeping_buffer_minutes: { required: true, min: 0 },
+			internal_hold_ttl_seconds: { required: true, min: 1 },
+			late_checkout_grace_minutes: { required: true, min: 0 },
+			max_stay_length_days: { required: true, min: 1 },
+			no_show_grace_minutes: { required: true, min: 0 },
+			property_id: { required: true },
+			reservation_archive_after_days: { required: true, min: 1 },
+			website_hold_ttl_seconds: { required: true, min: 1 }
+		}
+	},
 	'operations.reservation_groups': {
 		fields: {
+			code: { required: true, pattern: /^GRP-[0-9]{5}$/ },
 			name: { maxLength: 50 },
 			notes: { maxLength: 2500 },
 			property_id: { required: true },
@@ -227,30 +249,49 @@ export const CONSTRAINTS = {
 			base_rate_pence: { required: true, min: 0 },
 			booked_room_type_id: { required: true },
 			children_count: { required: true },
+			do_not_move: { required: true },
 			property_id: { required: true },
 			reservation_id: { required: true },
 			status: { required: true },
-			stay_period: { required: true, validRange: true }
+			stay_period: { required: true, validRange: true },
+			version: { required: true }
 		},
 		notes: [
 			'GIST reservation_items_assigned_room_id_stay_period_excl: EXCLUDE USING gist (assigned_room_id WITH \u003D, stay_period WITH \u0026\u0026) WHERE (((deleted_at IS NULL) AND (assigned_room_id IS NOT NULL)))'
 		]
 	},
+	'operations.reservation_sequences': {
+		fields: {
+			entity_type: { required: true, maxLength: 50 },
+			next_value: { required: true, min: 1 },
+			property_id: { required: true }
+		},
+		notes: [
+			"reservation_sequences_entity_type_check: entity_type \u003D ANY (ARRAY[\'reservation\'::text, \'group\'::text])"
+		]
+	},
 	'operations.reservations': {
 		fields: {
+			code: { required: true, pattern: /^RES-[0-9]{6}$/ },
 			notes: { maxLength: 2500 },
 			primary_guest_id: { required: true },
 			property_id: { required: true },
 			sequential: { required: true },
 			source: { required: true },
 			status: { required: true },
+			stay_period_envelope: { required: true },
 			version: { required: true }
-		}
+		},
+		notes: [
+			"chk_res_expires_at: ((status \u003D \'hold\'::operations.reservation_status) AND (expires_at IS NOT NULL)) OR (status \u003C\u003E \'hold\'::operations.reservation_status)",
+			"chk_res_expires_at: ((status \u003D \'hold\'::operations.reservation_status) AND (expires_at IS NOT NULL)) OR (status \u003C\u003E \'hold\'::operations.reservation_status)"
+		]
 	},
 	'pricing.base_rates': {
 		fields: {
 			base_price_pence: { required: true },
 			day_of_week: { required: true, min: 0 },
+			max_daily_capacity: { min: 1 },
 			min_los_restriction: { min: 1 },
 			property_id: { required: true },
 			rate_plan_id: { required: true },
@@ -282,6 +323,7 @@ export const CONSTRAINTS = {
 		fields: {
 			base_price_pence: { required: true },
 			calendar_date: { required: true },
+			daily_room_capacity: { min: 1 },
 			is_available: { required: true },
 			max_los_restriction: { required: true },
 			min_los_restriction: { required: true, min: 1 },
@@ -316,6 +358,7 @@ export const CONSTRAINTS = {
 		fields: {
 			base_price_pence: { required: true },
 			day_of_week: { required: true, min: 0 },
+			max_daily_capacity: { min: 1 },
 			min_los_restriction: { min: 1 },
 			override_period: { required: true, validRange: true },
 			property_id: { required: true },
