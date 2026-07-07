@@ -45,8 +45,6 @@ func (app *application) routes() http.Handler {
 		AllowCredentials: true,
 	}))
 
-	r.Use(yopMw.StubAuth)
-
 	r.Get("/healthz", app.HealthHandler)
 
 	// API Docs
@@ -64,6 +62,9 @@ func (app *application) routes() http.Handler {
 		// Idempotency enforcement for POST/PATCH requests on v1 API
 		// (GET /sse is skipped by Idempotency middleware — safe to include here)
 		r.Use(yopMw.Idempotency(app.rdb))
+
+		// Placeholder for auth in the future
+		r.Use(yopMw.StubAuth)
 
 		// SSE real-time updates — EventSource on browser side
 		r.Get("/sse", app.hub.Subscribe)
