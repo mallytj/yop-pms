@@ -13,16 +13,14 @@ import (
 
 const findArchivableReservations = `-- name: FindArchivableReservations :many
 SELECT
-  r.id, r.property_id, r.primary_guest_id, r.group_id, r.source, r.travel_agent_id, r.notes, r.status, r.version, r.created_at, r.updated_at, r.deleted_at, r.sequential, r.code, r.stay_period_envelope, r.expires_at, r.cancellation_intent
+  id, property_id, primary_guest_id, sequential, code, source, notes, status, stay_period_envelope, version, created_at, updated_at, deleted_at, expires_at
 FROM
-  operations.reservations r
-JOIN operations.property_settings ps
-  ON r.property_id = ps.property_id
+  operations.reservations
 WHERE
-  r.status IN ('checked_out', 'cancelled')
-  AND r.updated_at < NOW() - (ps.reservation_archive_after_days || ' days') ::INTERVAL
+  status IN ('checked_out', 'cancelled')
+  AND updated_at < NOW() - (365 || ' days') ::INTERVAL
 ORDER BY
-  r.updated_at ASC
+  updated_at ASC
 LIMIT 500 FOR UPDATE SKIP LOCKED
 `
 
@@ -39,20 +37,17 @@ func (q *Queries) FindArchivableReservations(ctx context.Context) ([]OperationsR
 			&i.ID,
 			&i.PropertyID,
 			&i.PrimaryGuestID,
-			&i.GroupID,
+			&i.Sequential,
+			&i.Code,
 			&i.Source,
-			&i.TravelAgentID,
 			&i.Notes,
 			&i.Status,
+			&i.StayPeriodEnvelope,
 			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
-			&i.Sequential,
-			&i.Code,
-			&i.StayPeriodEnvelope,
 			&i.ExpiresAt,
-			&i.CancellationIntent,
 		); err != nil {
 			return nil, err
 		}
@@ -67,7 +62,7 @@ func (q *Queries) FindArchivableReservations(ctx context.Context) ([]OperationsR
 const findExpiredHolds = `-- name: FindExpiredHolds :many
 
 SELECT
-  id, property_id, primary_guest_id, group_id, source, travel_agent_id, notes, status, version, created_at, updated_at, deleted_at, sequential, code, stay_period_envelope, expires_at, cancellation_intent
+  id, property_id, primary_guest_id, sequential, code, source, notes, status, stay_period_envelope, version, created_at, updated_at, deleted_at, expires_at
 FROM
   operations.reservations
 WHERE
@@ -93,20 +88,17 @@ func (q *Queries) FindExpiredHolds(ctx context.Context) ([]OperationsReservation
 			&i.ID,
 			&i.PropertyID,
 			&i.PrimaryGuestID,
-			&i.GroupID,
+			&i.Sequential,
+			&i.Code,
 			&i.Source,
-			&i.TravelAgentID,
 			&i.Notes,
 			&i.Status,
+			&i.StayPeriodEnvelope,
 			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
-			&i.Sequential,
-			&i.Code,
-			&i.StayPeriodEnvelope,
 			&i.ExpiresAt,
-			&i.CancellationIntent,
 		); err != nil {
 			return nil, err
 		}
@@ -120,14 +112,12 @@ func (q *Queries) FindExpiredHolds(ctx context.Context) ([]OperationsReservation
 
 const findOverdueCheckins = `-- name: FindOverdueCheckins :many
 SELECT
-  ri.id, ri.property_id, ri.reservation_id, ri.booked_room_type_id, ri.assigned_room_id, ri.guest_id, ri.rate_plan_id, ri.stay_period, ri.base_rate_pence, ri.adults_count, ri.children_count, ri.status, ri.created_at, ri.updated_at, ri.deleted_at, ri.version, ri.do_not_move
+  id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, do_not_move, base_rate_pence, adults_count, children_count, status, version, created_at, updated_at, deleted_at
 FROM
-  operations.reservation_items ri
-JOIN operations.property_settings ps
-  ON ri.property_id = ps.property_id
+  operations.reservation_items
 WHERE
-  ri.status = 'booked'
-  AND LOWER(ri.stay_period) + (ps.no_show_grace_minutes || ' minutes') ::INTERVAL < NOW()
+  status = 'booked'
+  AND LOWER(stay_period) + (100 || ' minutes') ::INTERVAL < NOW()
 `
 
 func (q *Queries) FindOverdueCheckins(ctx context.Context) ([]OperationsReservationItem, error) {
@@ -148,15 +138,15 @@ func (q *Queries) FindOverdueCheckins(ctx context.Context) ([]OperationsReservat
 			&i.GuestID,
 			&i.RatePlanID,
 			&i.StayPeriod,
+			&i.DoNotMove,
 			&i.BaseRatePence,
 			&i.AdultsCount,
 			&i.ChildrenCount,
 			&i.Status,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
-			&i.Version,
-			&i.DoNotMove,
 		); err != nil {
 			return nil, err
 		}
@@ -170,16 +160,14 @@ func (q *Queries) FindOverdueCheckins(ctx context.Context) ([]OperationsReservat
 
 const findOverstays = `-- name: FindOverstays :many
 SELECT
-  ri.id, ri.property_id, ri.reservation_id, ri.booked_room_type_id, ri.assigned_room_id, ri.guest_id, ri.rate_plan_id, ri.stay_period, ri.base_rate_pence, ri.adults_count, ri.children_count, ri.status, ri.created_at, ri.updated_at, ri.deleted_at, ri.version, ri.do_not_move
+  id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, do_not_move, base_rate_pence, adults_count, children_count, status, version, created_at, updated_at, deleted_at
 FROM
-  operations.reservation_items ri
-JOIN operations.property_settings ps
-  ON ri.property_id = ps.property_id
+  operations.reservation_items
 WHERE
-  ri.status = 'checked_in'
-  AND NOW() > UPPER(ri.stay_period) + (ps.late_checkout_grace_minutes || ' minutes') ::INTERVAL
+  status = 'checked_in'
+  AND NOW() > UPPER(stay_period) + (100 || ' minutes') ::INTERVAL
 ORDER BY
-  ri.updated_at ASC
+  updated_at ASC
 LIMIT 100 FOR UPDATE SKIP LOCKED
 `
 
@@ -201,15 +189,15 @@ func (q *Queries) FindOverstays(ctx context.Context) ([]OperationsReservationIte
 			&i.GuestID,
 			&i.RatePlanID,
 			&i.StayPeriod,
+			&i.DoNotMove,
 			&i.BaseRatePence,
 			&i.AdultsCount,
 			&i.ChildrenCount,
 			&i.Status,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
-			&i.Version,
-			&i.DoNotMove,
 		); err != nil {
 			return nil, err
 		}

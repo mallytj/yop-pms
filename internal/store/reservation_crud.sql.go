@@ -15,22 +15,19 @@ import (
 const createReservation = `-- name: CreateReservation :one
 
 INSERT INTO operations.reservations (
-    property_id, primary_guest_id, group_id, source, travel_agent_id, notes, status, version, stay_period_envelope, expires_at
+    property_id, primary_guest_id, source, notes, status, version, expires_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, 1, $8, $9
-) RETURNING id, property_id, primary_guest_id, group_id, source, travel_agent_id, notes, status, version, created_at, updated_at, deleted_at, sequential, code, stay_period_envelope, expires_at, cancellation_intent
+    $1, $2, $3, $4, $5, 1, $6
+) RETURNING id, property_id, primary_guest_id, sequential, code, source, notes, status, stay_period_envelope, version, created_at, updated_at, deleted_at, expires_at
 `
 
 type CreateReservationParams struct {
-	PropertyID         uuid.UUID                        `json:"property_id"`
-	PrimaryGuestID     uuid.UUID                        `json:"primary_guest_id"`
-	GroupID            uuid.NullUUID                    `json:"group_id"`
-	Source             OperationsReservationSource      `json:"source"`
-	TravelAgentID      uuid.NullUUID                    `json:"travel_agent_id"`
-	Notes              pgtype.Text                      `json:"notes"`
-	Status             OperationsReservationStatus      `json:"status"`
-	StayPeriodEnvelope pgtype.Range[pgtype.Timestamptz] `json:"stay_period_envelope"`
-	ExpiresAt          pgtype.Timestamptz               `json:"expires_at"`
+	PropertyID     uuid.UUID                   `json:"property_id"`
+	PrimaryGuestID uuid.UUID                   `json:"primary_guest_id"`
+	Source         OperationsReservationSource `json:"source"`
+	Notes          pgtype.Text                 `json:"notes"`
+	Status         OperationsReservationStatus `json:"status"`
+	ExpiresAt      pgtype.Timestamptz          `json:"expires_at"`
 }
 
 // Reservation CRUD queries
@@ -39,12 +36,9 @@ func (q *Queries) CreateReservation(ctx context.Context, arg *CreateReservationP
 	row := q.db.QueryRow(ctx, createReservation,
 		arg.PropertyID,
 		arg.PrimaryGuestID,
-		arg.GroupID,
 		arg.Source,
-		arg.TravelAgentID,
 		arg.Notes,
 		arg.Status,
-		arg.StayPeriodEnvelope,
 		arg.ExpiresAt,
 	)
 	var i OperationsReservation
@@ -52,20 +46,17 @@ func (q *Queries) CreateReservation(ctx context.Context, arg *CreateReservationP
 		&i.ID,
 		&i.PropertyID,
 		&i.PrimaryGuestID,
-		&i.GroupID,
+		&i.Sequential,
+		&i.Code,
 		&i.Source,
-		&i.TravelAgentID,
 		&i.Notes,
 		&i.Status,
+		&i.StayPeriodEnvelope,
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.Sequential,
-		&i.Code,
-		&i.StayPeriodEnvelope,
 		&i.ExpiresAt,
-		&i.CancellationIntent,
 	)
 	return i, err
 }
@@ -75,7 +66,7 @@ INSERT INTO operations.reservation_items (
     property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status, version, do_not_move
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1, $12
-) RETURNING id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status, created_at, updated_at, deleted_at, version, do_not_move
+) RETURNING id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, do_not_move, base_rate_pence, adults_count, children_count, status, version, created_at, updated_at, deleted_at
 `
 
 type CreateReservationItemParams struct {
@@ -118,22 +109,22 @@ func (q *Queries) CreateReservationItem(ctx context.Context, arg *CreateReservat
 		&i.GuestID,
 		&i.RatePlanID,
 		&i.StayPeriod,
+		&i.DoNotMove,
 		&i.BaseRatePence,
 		&i.AdultsCount,
 		&i.ChildrenCount,
 		&i.Status,
+		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.Version,
-		&i.DoNotMove,
 	)
 	return i, err
 }
 
 const getReservation = `-- name: GetReservation :one
 SELECT 
-    r.id, r.property_id, r.primary_guest_id, r.group_id, r.source, r.travel_agent_id, r.notes, r.status, r.version, r.created_at, r.updated_at, r.deleted_at, r.sequential, r.code, r.stay_period_envelope, r.expires_at, r.cancellation_intent,
+    r.id, r.property_id, r.primary_guest_id, r.sequential, r.code, r.source, r.notes, r.status, r.stay_period_envelope, r.version, r.created_at, r.updated_at, r.deleted_at, r.expires_at,
     COALESCE(
         json_agg(
             json_build_object(
@@ -167,20 +158,17 @@ type GetReservationRow struct {
 	ID                 uuid.UUID                        `json:"id"`
 	PropertyID         uuid.UUID                        `json:"property_id"`
 	PrimaryGuestID     uuid.UUID                        `json:"primary_guest_id"`
-	GroupID            uuid.NullUUID                    `json:"group_id"`
+	Sequential         int64                            `json:"sequential"`
+	Code               string                           `json:"code"`
 	Source             OperationsReservationSource      `json:"source"`
-	TravelAgentID      uuid.NullUUID                    `json:"travel_agent_id"`
 	Notes              pgtype.Text                      `json:"notes"`
 	Status             OperationsReservationStatus      `json:"status"`
+	StayPeriodEnvelope pgtype.Range[pgtype.Timestamptz] `json:"stay_period_envelope"`
 	Version            int32                            `json:"version"`
 	CreatedAt          pgtype.Timestamptz               `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz               `json:"updated_at"`
 	DeletedAt          pgtype.Timestamptz               `json:"deleted_at"`
-	Sequential         int64                            `json:"sequential"`
-	Code               string                           `json:"code"`
-	StayPeriodEnvelope pgtype.Range[pgtype.Timestamptz] `json:"stay_period_envelope"`
 	ExpiresAt          pgtype.Timestamptz               `json:"expires_at"`
-	CancellationIntent []byte                           `json:"cancellation_intent"`
 	Items              interface{}                      `json:"items"`
 }
 
@@ -191,27 +179,24 @@ func (q *Queries) GetReservation(ctx context.Context, id uuid.UUID) (GetReservat
 		&i.ID,
 		&i.PropertyID,
 		&i.PrimaryGuestID,
-		&i.GroupID,
+		&i.Sequential,
+		&i.Code,
 		&i.Source,
-		&i.TravelAgentID,
 		&i.Notes,
 		&i.Status,
+		&i.StayPeriodEnvelope,
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.Sequential,
-		&i.Code,
-		&i.StayPeriodEnvelope,
 		&i.ExpiresAt,
-		&i.CancellationIntent,
 		&i.Items,
 	)
 	return i, err
 }
 
 const listReservations = `-- name: ListReservations :many
-SELECT r.id, r.property_id, r.primary_guest_id, r.group_id, r.source, r.travel_agent_id, r.notes, r.status, r.version, r.created_at, r.updated_at, r.deleted_at, r.sequential, r.code, r.stay_period_envelope, r.expires_at, r.cancellation_intent 
+SELECT r.id, r.property_id, r.primary_guest_id, r.sequential, r.code, r.source, r.notes, r.status, r.stay_period_envelope, r.version, r.created_at, r.updated_at, r.deleted_at, r.expires_at 
 FROM operations.reservations r
 WHERE r.property_id = $1 
 AND r.deleted_at IS NULL
@@ -256,20 +241,17 @@ func (q *Queries) ListReservations(ctx context.Context, arg *ListReservationsPar
 			&i.ID,
 			&i.PropertyID,
 			&i.PrimaryGuestID,
-			&i.GroupID,
+			&i.Sequential,
+			&i.Code,
 			&i.Source,
-			&i.TravelAgentID,
 			&i.Notes,
 			&i.Status,
+			&i.StayPeriodEnvelope,
 			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
-			&i.Sequential,
-			&i.Code,
-			&i.StayPeriodEnvelope,
 			&i.ExpiresAt,
-			&i.CancellationIntent,
 		); err != nil {
 			return nil, err
 		}
@@ -294,7 +276,7 @@ SET
     version = version + 1,
     updated_at = NOW()
 WHERE id = $8 AND version = $9
-RETURNING id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status, created_at, updated_at, deleted_at, version, do_not_move
+RETURNING id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, do_not_move, base_rate_pence, adults_count, children_count, status, version, created_at, updated_at, deleted_at
 `
 
 type UpdateReservationItemParams struct {
@@ -331,15 +313,15 @@ func (q *Queries) UpdateReservationItem(ctx context.Context, arg *UpdateReservat
 		&i.GuestID,
 		&i.RatePlanID,
 		&i.StayPeriod,
+		&i.DoNotMove,
 		&i.BaseRatePence,
 		&i.AdultsCount,
 		&i.ChildrenCount,
 		&i.Status,
+		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.Version,
-		&i.DoNotMove,
 	)
 	return i, err
 }
@@ -348,20 +330,16 @@ const updateReservationMetadata = `-- name: UpdateReservationMetadata :one
 UPDATE operations.reservations 
 SET 
     notes = COALESCE($1, notes),
-    travel_agent_id = COALESCE($2, travel_agent_id),
-    group_id = COALESCE($3, group_id),
-    primary_guest_id = COALESCE($4, primary_guest_id),
-    stay_period_envelope = COALESCE($5, stay_period_envelope),
+    primary_guest_id = COALESCE($2, primary_guest_id),
+    stay_period_envelope = COALESCE($3, stay_period_envelope),
     version = version + 1,
     updated_at = NOW()
-WHERE id = $6 AND version = $7
-RETURNING id, property_id, primary_guest_id, group_id, source, travel_agent_id, notes, status, version, created_at, updated_at, deleted_at, sequential, code, stay_period_envelope, expires_at, cancellation_intent
+WHERE id = $4 AND version = $5
+RETURNING id, property_id, primary_guest_id, sequential, code, source, notes, status, stay_period_envelope, version, created_at, updated_at, deleted_at, expires_at
 `
 
 type UpdateReservationMetadataParams struct {
 	Notes              pgtype.Text                      `json:"notes"`
-	TravelAgentID      uuid.NullUUID                    `json:"travel_agent_id"`
-	GroupID            uuid.NullUUID                    `json:"group_id"`
 	PrimaryGuestID     uuid.UUID                        `json:"primary_guest_id"`
 	StayPeriodEnvelope pgtype.Range[pgtype.Timestamptz] `json:"stay_period_envelope"`
 	ID                 uuid.UUID                        `json:"id"`
@@ -371,8 +349,6 @@ type UpdateReservationMetadataParams struct {
 func (q *Queries) UpdateReservationMetadata(ctx context.Context, arg *UpdateReservationMetadataParams) (OperationsReservation, error) {
 	row := q.db.QueryRow(ctx, updateReservationMetadata,
 		arg.Notes,
-		arg.TravelAgentID,
-		arg.GroupID,
 		arg.PrimaryGuestID,
 		arg.StayPeriodEnvelope,
 		arg.ID,
@@ -383,20 +359,17 @@ func (q *Queries) UpdateReservationMetadata(ctx context.Context, arg *UpdateRese
 		&i.ID,
 		&i.PropertyID,
 		&i.PrimaryGuestID,
-		&i.GroupID,
+		&i.Sequential,
+		&i.Code,
 		&i.Source,
-		&i.TravelAgentID,
 		&i.Notes,
 		&i.Status,
+		&i.StayPeriodEnvelope,
 		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.Sequential,
-		&i.Code,
-		&i.StayPeriodEnvelope,
 		&i.ExpiresAt,
-		&i.CancellationIntent,
 	)
 	return i, err
 }

@@ -3,9 +3,9 @@
 
 -- name: CreateReservation :one
 INSERT INTO operations.reservations (
-    property_id, primary_guest_id, group_id, source, travel_agent_id, notes, status, version, stay_period_envelope, expires_at
+    property_id, primary_guest_id, source, notes, status, version, expires_at
 ) VALUES (
-    @property_id, @primary_guest_id, @group_id, @source, @travel_agent_id, @notes, @status, 1, @stay_period_envelope, @expires_at
+    @property_id, @primary_guest_id, @source, @notes, @status, 1, @expires_at
 ) RETURNING *;
 
 -- name: CreateReservationItem :one
@@ -64,8 +64,6 @@ LIMIT sqlc.arg('limit');
 UPDATE operations.reservations 
 SET 
     notes = COALESCE(@notes, notes),
-    travel_agent_id = COALESCE(@travel_agent_id, travel_agent_id),
-    group_id = COALESCE(@group_id, group_id),
     primary_guest_id = COALESCE(@primary_guest_id, primary_guest_id),
     stay_period_envelope = COALESCE(@stay_period_envelope, stay_period_envelope),
     version = version + 1,
