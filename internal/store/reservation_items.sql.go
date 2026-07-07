@@ -231,7 +231,7 @@ func (q *Queries) DeleteLedgerRowsByItemFromDate(ctx context.Context, arg *Delet
 }
 
 const getReservationItem = `-- name: GetReservationItem :one
-SELECT id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status, created_at, updated_at, deleted_at, version, do_not_move FROM operations.reservation_items
+SELECT id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, do_not_move, base_rate_pence, adults_count, children_count, status, version, created_at, updated_at, deleted_at FROM operations.reservation_items
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -247,21 +247,21 @@ func (q *Queries) GetReservationItem(ctx context.Context, id uuid.UUID) (Operati
 		&i.GuestID,
 		&i.RatePlanID,
 		&i.StayPeriod,
+		&i.DoNotMove,
 		&i.BaseRatePence,
 		&i.AdultsCount,
 		&i.ChildrenCount,
 		&i.Status,
+		&i.Version,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.Version,
-		&i.DoNotMove,
 	)
 	return i, err
 }
 
 const getReservationItems = `-- name: GetReservationItems :many
-SELECT id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, base_rate_pence, adults_count, children_count, status, created_at, updated_at, deleted_at, version, do_not_move FROM operations.reservation_items
+SELECT id, property_id, reservation_id, booked_room_type_id, assigned_room_id, guest_id, rate_plan_id, stay_period, do_not_move, base_rate_pence, adults_count, children_count, status, version, created_at, updated_at, deleted_at FROM operations.reservation_items
 WHERE reservation_id = $1
 AND property_id = $2
 AND deleted_at IS NULL
@@ -291,15 +291,15 @@ func (q *Queries) GetReservationItems(ctx context.Context, arg *GetReservationIt
 			&i.GuestID,
 			&i.RatePlanID,
 			&i.StayPeriod,
+			&i.DoNotMove,
 			&i.BaseRatePence,
 			&i.AdultsCount,
 			&i.ChildrenCount,
 			&i.Status,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
-			&i.Version,
-			&i.DoNotMove,
 		); err != nil {
 			return nil, err
 		}

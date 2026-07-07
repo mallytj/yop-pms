@@ -12,100 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type AuthAuditLogAction string
-
-const (
-	AuthAuditLogActionCreate          AuthAuditLogAction = "create"
-	AuthAuditLogActionUpdate          AuthAuditLogAction = "update"
-	AuthAuditLogActionDelete          AuthAuditLogAction = "delete"
-	AuthAuditLogActionLogin           AuthAuditLogAction = "login"
-	AuthAuditLogActionLogout          AuthAuditLogAction = "logout"
-	AuthAuditLogActionPostTransaction AuthAuditLogAction = "post_transaction"
-)
-
-func (e *AuthAuditLogAction) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = AuthAuditLogAction(s)
-	case string:
-		*e = AuthAuditLogAction(s)
-	default:
-		return fmt.Errorf("unsupported scan type for AuthAuditLogAction: %T", src)
-	}
-	return nil
-}
-
-type NullAuthAuditLogAction struct {
-	AuthAuditLogAction AuthAuditLogAction `json:"auth_audit_log_action"`
-	Valid              bool               `json:"valid"` // Valid is true if AuthAuditLogAction is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullAuthAuditLogAction) Scan(value interface{}) error {
-	if value == nil {
-		ns.AuthAuditLogAction, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.AuthAuditLogAction.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullAuthAuditLogAction) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.AuthAuditLogAction), nil
-}
-
-type AuthAuditLogEntity string
-
-const (
-	AuthAuditLogEntityUser        AuthAuditLogEntity = "user"
-	AuthAuditLogEntityProperty    AuthAuditLogEntity = "property"
-	AuthAuditLogEntityReservation AuthAuditLogEntity = "reservation"
-	AuthAuditLogEntityRoom        AuthAuditLogEntity = "room"
-	AuthAuditLogEntityGuest       AuthAuditLogEntity = "guest"
-	AuthAuditLogEntityRatePlan    AuthAuditLogEntity = "rate_plan"
-	AuthAuditLogEntityFolio       AuthAuditLogEntity = "folio"
-	AuthAuditLogEntityTransaction AuthAuditLogEntity = "transaction"
-)
-
-func (e *AuthAuditLogEntity) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = AuthAuditLogEntity(s)
-	case string:
-		*e = AuthAuditLogEntity(s)
-	default:
-		return fmt.Errorf("unsupported scan type for AuthAuditLogEntity: %T", src)
-	}
-	return nil
-}
-
-type NullAuthAuditLogEntity struct {
-	AuthAuditLogEntity AuthAuditLogEntity `json:"auth_audit_log_entity"`
-	Valid              bool               `json:"valid"` // Valid is true if AuthAuditLogEntity is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullAuthAuditLogEntity) Scan(value interface{}) error {
-	if value == nil {
-		ns.AuthAuditLogEntity, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.AuthAuditLogEntity.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullAuthAuditLogEntity) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.AuthAuditLogEntity), nil
-}
-
 type AuthUserRole string
 
 const (
@@ -147,138 +53,6 @@ func (ns NullAuthUserRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.AuthUserRole), nil
-}
-
-type FinanceFolioPart string
-
-const (
-	FinanceFolioPartA FinanceFolioPart = "A"
-	FinanceFolioPartB FinanceFolioPart = "B"
-	FinanceFolioPartC FinanceFolioPart = "C"
-)
-
-func (e *FinanceFolioPart) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = FinanceFolioPart(s)
-	case string:
-		*e = FinanceFolioPart(s)
-	default:
-		return fmt.Errorf("unsupported scan type for FinanceFolioPart: %T", src)
-	}
-	return nil
-}
-
-type NullFinanceFolioPart struct {
-	FinanceFolioPart FinanceFolioPart `json:"finance_folio_part"`
-	Valid            bool             `json:"valid"` // Valid is true if FinanceFolioPart is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullFinanceFolioPart) Scan(value interface{}) error {
-	if value == nil {
-		ns.FinanceFolioPart, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.FinanceFolioPart.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullFinanceFolioPart) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.FinanceFolioPart), nil
-}
-
-type FinanceFolioTransactionStatus string
-
-const (
-	FinanceFolioTransactionStatusPending     FinanceFolioTransactionStatus = "pending"
-	FinanceFolioTransactionStatusPosted      FinanceFolioTransactionStatus = "posted"
-	FinanceFolioTransactionStatusVoided      FinanceFolioTransactionStatus = "voided"
-	FinanceFolioTransactionStatusReversed    FinanceFolioTransactionStatus = "reversed"
-	FinanceFolioTransactionStatusTransferred FinanceFolioTransactionStatus = "transferred"
-)
-
-func (e *FinanceFolioTransactionStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = FinanceFolioTransactionStatus(s)
-	case string:
-		*e = FinanceFolioTransactionStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for FinanceFolioTransactionStatus: %T", src)
-	}
-	return nil
-}
-
-type NullFinanceFolioTransactionStatus struct {
-	FinanceFolioTransactionStatus FinanceFolioTransactionStatus `json:"finance_folio_transaction_status"`
-	Valid                         bool                          `json:"valid"` // Valid is true if FinanceFolioTransactionStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullFinanceFolioTransactionStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.FinanceFolioTransactionStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.FinanceFolioTransactionStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullFinanceFolioTransactionStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.FinanceFolioTransactionStatus), nil
-}
-
-type IdentityIdentityDocType string
-
-const (
-	IdentityIdentityDocTypePassport      IdentityIdentityDocType = "passport"
-	IdentityIdentityDocTypeIDCard        IdentityIdentityDocType = "id_card"
-	IdentityIdentityDocTypeDriverLicense IdentityIdentityDocType = "driver_license"
-	IdentityIdentityDocTypeOther         IdentityIdentityDocType = "other"
-)
-
-func (e *IdentityIdentityDocType) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = IdentityIdentityDocType(s)
-	case string:
-		*e = IdentityIdentityDocType(s)
-	default:
-		return fmt.Errorf("unsupported scan type for IdentityIdentityDocType: %T", src)
-	}
-	return nil
-}
-
-type NullIdentityIdentityDocType struct {
-	IdentityIdentityDocType IdentityIdentityDocType `json:"identity_identity_doc_type"`
-	Valid                   bool                    `json:"valid"` // Valid is true if IdentityIdentityDocType is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullIdentityIdentityDocType) Scan(value interface{}) error {
-	if value == nil {
-		ns.IdentityIdentityDocType, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.IdentityIdentityDocType.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullIdentityIdentityDocType) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.IdentityIdentityDocType), nil
 }
 
 type InternalOutboxEventStatus string
@@ -505,94 +279,6 @@ func (ns NullInventoryOccupancyStatus) Value() (driver.Value, error) {
 	return string(ns.InventoryOccupancyStatus), nil
 }
 
-type OperationsCheckoutSessionStatus string
-
-const (
-	OperationsCheckoutSessionStatusPending   OperationsCheckoutSessionStatus = "pending"
-	OperationsCheckoutSessionStatusCompleted OperationsCheckoutSessionStatus = "completed"
-	OperationsCheckoutSessionStatusExpired   OperationsCheckoutSessionStatus = "expired"
-	OperationsCheckoutSessionStatusCancelled OperationsCheckoutSessionStatus = "cancelled"
-)
-
-func (e *OperationsCheckoutSessionStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = OperationsCheckoutSessionStatus(s)
-	case string:
-		*e = OperationsCheckoutSessionStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for OperationsCheckoutSessionStatus: %T", src)
-	}
-	return nil
-}
-
-type NullOperationsCheckoutSessionStatus struct {
-	OperationsCheckoutSessionStatus OperationsCheckoutSessionStatus `json:"operations_checkout_session_status"`
-	Valid                           bool                            `json:"valid"` // Valid is true if OperationsCheckoutSessionStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullOperationsCheckoutSessionStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.OperationsCheckoutSessionStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.OperationsCheckoutSessionStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullOperationsCheckoutSessionStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.OperationsCheckoutSessionStatus), nil
-}
-
-type OperationsReservationGuestRole string
-
-const (
-	OperationsReservationGuestRolePrimary          OperationsReservationGuestRole = "primary"
-	OperationsReservationGuestRoleAdditional       OperationsReservationGuestRole = "additional"
-	OperationsReservationGuestRoleVip              OperationsReservationGuestRole = "vip"
-	OperationsReservationGuestRoleBookerNotStaying OperationsReservationGuestRole = "booker_not_staying"
-)
-
-func (e *OperationsReservationGuestRole) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = OperationsReservationGuestRole(s)
-	case string:
-		*e = OperationsReservationGuestRole(s)
-	default:
-		return fmt.Errorf("unsupported scan type for OperationsReservationGuestRole: %T", src)
-	}
-	return nil
-}
-
-type NullOperationsReservationGuestRole struct {
-	OperationsReservationGuestRole OperationsReservationGuestRole `json:"operations_reservation_guest_role"`
-	Valid                          bool                           `json:"valid"` // Valid is true if OperationsReservationGuestRole is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullOperationsReservationGuestRole) Scan(value interface{}) error {
-	if value == nil {
-		ns.OperationsReservationGuestRole, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.OperationsReservationGuestRole.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullOperationsReservationGuestRole) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.OperationsReservationGuestRole), nil
-}
-
 type OperationsReservationItemStatus string
 
 const (
@@ -638,6 +324,47 @@ func (ns NullOperationsReservationItemStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.OperationsReservationItemStatus), nil
+}
+
+type OperationsReservationSequenceEntity string
+
+const (
+	OperationsReservationSequenceEntityReservation OperationsReservationSequenceEntity = "reservation"
+)
+
+func (e *OperationsReservationSequenceEntity) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OperationsReservationSequenceEntity(s)
+	case string:
+		*e = OperationsReservationSequenceEntity(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OperationsReservationSequenceEntity: %T", src)
+	}
+	return nil
+}
+
+type NullOperationsReservationSequenceEntity struct {
+	OperationsReservationSequenceEntity OperationsReservationSequenceEntity `json:"operations_reservation_sequence_entity"`
+	Valid                               bool                                `json:"valid"` // Valid is true if OperationsReservationSequenceEntity is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOperationsReservationSequenceEntity) Scan(value interface{}) error {
+	if value == nil {
+		ns.OperationsReservationSequenceEntity, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OperationsReservationSequenceEntity.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOperationsReservationSequenceEntity) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OperationsReservationSequenceEntity), nil
 }
 
 type OperationsReservationSource string
@@ -686,13 +413,12 @@ func (ns NullOperationsReservationSource) Value() (driver.Value, error) {
 type OperationsReservationStatus string
 
 const (
-	OperationsReservationStatusHold                OperationsReservationStatus = "hold"
-	OperationsReservationStatusConfirmed           OperationsReservationStatus = "confirmed"
-	OperationsReservationStatusCheckedIn           OperationsReservationStatus = "checked_in"
-	OperationsReservationStatusCheckedOut          OperationsReservationStatus = "checked_out"
-	OperationsReservationStatusCancelled           OperationsReservationStatus = "cancelled"
-	OperationsReservationStatusArchived            OperationsReservationStatus = "archived"
-	OperationsReservationStatusPendingCancellation OperationsReservationStatus = "pending_cancellation"
+	OperationsReservationStatusHold       OperationsReservationStatus = "hold"
+	OperationsReservationStatusConfirmed  OperationsReservationStatus = "confirmed"
+	OperationsReservationStatusCheckedIn  OperationsReservationStatus = "checked_in"
+	OperationsReservationStatusCheckedOut OperationsReservationStatus = "checked_out"
+	OperationsReservationStatusCancelled  OperationsReservationStatus = "cancelled"
+	OperationsReservationStatusArchived   OperationsReservationStatus = "archived"
 )
 
 func (e *OperationsReservationStatus) Scan(src interface{}) error {
@@ -730,67 +456,11 @@ func (ns NullOperationsReservationStatus) Value() (driver.Value, error) {
 	return string(ns.OperationsReservationStatus), nil
 }
 
-type SalesLedgersTransactionType string
-
-const (
-	SalesLedgersTransactionTypeCharge        SalesLedgersTransactionType = "charge"
-	SalesLedgersTransactionTypePayment       SalesLedgersTransactionType = "payment"
-	SalesLedgersTransactionTypeAdjustment    SalesLedgersTransactionType = "adjustment"
-	SalesLedgersTransactionTypeInvoiceCredit SalesLedgersTransactionType = "invoice_credit"
-	SalesLedgersTransactionTypeRefund        SalesLedgersTransactionType = "refund"
-)
-
-func (e *SalesLedgersTransactionType) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = SalesLedgersTransactionType(s)
-	case string:
-		*e = SalesLedgersTransactionType(s)
-	default:
-		return fmt.Errorf("unsupported scan type for SalesLedgersTransactionType: %T", src)
-	}
-	return nil
-}
-
-type NullSalesLedgersTransactionType struct {
-	SalesLedgersTransactionType SalesLedgersTransactionType `json:"sales_ledgers_transaction_type"`
-	Valid                       bool                        `json:"valid"` // Valid is true if SalesLedgersTransactionType is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullSalesLedgersTransactionType) Scan(value interface{}) error {
-	if value == nil {
-		ns.SalesLedgersTransactionType, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.SalesLedgersTransactionType.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullSalesLedgersTransactionType) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.SalesLedgersTransactionType), nil
-}
-
-type AuthAuditLog struct {
-	ID         uuid.UUID          `json:"id"`
-	UserID     uuid.NullUUID      `json:"user_id"`
-	PropertyID uuid.UUID          `json:"property_id"`
-	Action     AuthAuditLogAction `json:"action"`
-	Entity     AuthAuditLogEntity `json:"entity"`
-	EntityID   uuid.UUID          `json:"entity_id"`
-	Changes    []byte             `json:"changes"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
 type AuthUser struct {
 	ID           uuid.UUID          `json:"id"`
 	LicenceID    uuid.UUID          `json:"licence_id"`
 	Username     string             `json:"username"`
-	Email        string             `json:"email"`
+	Email        interface{}        `json:"email"`
 	PasswordHash string             `json:"password_hash"`
 	FirstName    string             `json:"first_name"`
 	LastName     string             `json:"last_name"`
@@ -799,92 +469,6 @@ type AuthUser struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type FinanceFolio struct {
-	ID            uuid.UUID          `json:"id"`
-	PropertyID    uuid.UUID          `json:"property_id"`
-	ReservationID uuid.NullUUID      `json:"reservation_id"`
-	SalesLedgerID uuid.NullUUID      `json:"sales_ledger_id"`
-	FolioPart     FinanceFolioPart   `json:"folio_part"`
-	BalancePence  int32              `json:"balance_pence"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type FinanceFolioTransaction struct {
-	ID                uuid.UUID                     `json:"id"`
-	PropertyID        uuid.UUID                     `json:"property_id"`
-	FolioID           uuid.UUID                     `json:"folio_id"`
-	LedgerCodeID      uuid.NullUUID                 `json:"ledger_code_id"`
-	Description       pgtype.Text                   `json:"description"`
-	NetUnitPricePence int32                         `json:"net_unit_price_pence"`
-	Quantity          int32                         `json:"quantity"`
-	TaxRuleID         uuid.NullUUID                 `json:"tax_rule_id"`
-	TaxRateSnapshot   pgtype.Numeric                `json:"tax_rate_snapshot"`
-	Status            FinanceFolioTransactionStatus `json:"status"`
-	PostedAt          pgtype.Timestamptz            `json:"posted_at"`
-	PostedByUserID    uuid.NullUUID                 `json:"posted_by_user_id"`
-	CreatedAt         pgtype.Timestamptz            `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz            `json:"updated_at"`
-	DeletedAt         pgtype.Timestamptz            `json:"deleted_at"`
-}
-
-type FinanceInvoice struct {
-	ID               uuid.UUID          `json:"id"`
-	PropertyID       uuid.UUID          `json:"property_id"`
-	FolioID          uuid.NullUUID      `json:"folio_id"`
-	PropertyCode     string             `json:"property_code"`
-	FiscalYear       int32              `json:"fiscal_year"`
-	FiscalSequential int32              `json:"fiscal_sequential"`
-	InvoiceNumber    pgtype.Text        `json:"invoice_number"`
-	BillingAddress   string             `json:"billing_address"`
-	IsProForma       bool               `json:"is_pro_forma"`
-	IssueDate        pgtype.Timestamptz `json:"issue_date"`
-	DueDate          pgtype.Timestamptz `json:"due_date"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type FinanceLedgerCode struct {
-	ID          uuid.UUID          `json:"id"`
-	PropertyID  uuid.UUID          `json:"property_id"`
-	Code        string             `json:"code"`
-	Description pgtype.Text        `json:"description"`
-	TaxRuleID   uuid.NullUUID      `json:"tax_rule_id"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type FinanceTaxRule struct {
-	ID             uuid.UUID          `json:"id"`
-	PropertyID     uuid.UUID          `json:"property_id"`
-	Name           string             `json:"name"`
-	Description    pgtype.Text        `json:"description"`
-	TaxPercentage  pgtype.Numeric     `json:"tax_percentage"`
-	IsTaxInclusive bool               `json:"is_tax_inclusive"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type IdentityCompanyProfile struct {
-	ID                   uuid.UUID          `json:"id"`
-	PropertyID           uuid.UUID          `json:"property_id"`
-	NegotiatedRatePlanID uuid.NullUUID      `json:"negotiated_rate_plan_id"`
-	TaxID                pgtype.Text        `json:"tax_id"`
-	CompanyName          string             `json:"company_name"`
-	ContactEmail         pgtype.Text        `json:"contact_email"`
-	ContactPhone         pgtype.Text        `json:"contact_phone"`
-	BillingAddress       pgtype.Text        `json:"billing_address"`
-	CompanyNotes         pgtype.Text        `json:"company_notes"`
-	HasCreditFacility    bool               `json:"has_credit_facility"`
-	CreatedAt            pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt            pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type IdentityGuest struct {
@@ -903,33 +487,6 @@ type IdentityGuest struct {
 	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
 }
 
-type IdentityIdentityDoc struct {
-	ID                 uuid.UUID               `json:"id"`
-	PropertyID         uuid.UUID               `json:"property_id"`
-	GuestID            uuid.UUID               `json:"guest_id"`
-	DocType            IdentityIdentityDocType `json:"doc_type"`
-	EncryptedDocNumber string                  `json:"encrypted_doc_number"`
-	IssuingCountry     pgtype.Text             `json:"issuing_country"`
-	ExpiryDate         pgtype.Date             `json:"expiry_date"`
-	CreatedAt          pgtype.Timestamptz      `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz      `json:"updated_at"`
-	DeletedAt          pgtype.Timestamptz      `json:"deleted_at"`
-}
-
-type IdentityTravelAgent struct {
-	ID                uuid.UUID          `json:"id"`
-	PropertyID        uuid.UUID          `json:"property_id"`
-	Name              string             `json:"name"`
-	ContactEmail      pgtype.Text        `json:"contact_email"`
-	ContactPhone      pgtype.Text        `json:"contact_phone"`
-	AgencyNotes       pgtype.Text        `json:"agency_notes"`
-	IataCode          pgtype.Text        `json:"iata_code"`
-	CommissionPercent pgtype.Numeric     `json:"commission_percent"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
-}
-
 type InternalOutboxEvent struct {
 	ID         uuid.UUID                 `json:"id"`
 	EventType  string                    `json:"event_type"`
@@ -941,19 +498,6 @@ type InternalOutboxEvent struct {
 	CreatedAt  pgtype.Timestamptz        `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz        `json:"updated_at"`
 	DeletedAt  pgtype.Timestamptz        `json:"deleted_at"`
-}
-
-type InventoryHousekeepingLog struct {
-	ID         uuid.UUID                   `json:"id"`
-	PropertyID uuid.UUID                   `json:"property_id"`
-	UserID     uuid.NullUUID               `json:"user_id"`
-	RoomID     uuid.UUID                   `json:"room_id"`
-	StatusTo   InventoryHousekeepingStatus `json:"status_to"`
-	StatusFrom InventoryHousekeepingStatus `json:"status_from"`
-	Notes      pgtype.Text                 `json:"notes"`
-	CreatedAt  pgtype.Timestamptz          `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz          `json:"updated_at"`
-	DeletedAt  pgtype.Timestamptz          `json:"deleted_at"`
 }
 
 type InventoryMaintenanceBlock struct {
@@ -986,14 +530,13 @@ type InventoryRoomInventoryLedger struct {
 	PropertyID         uuid.UUID                `json:"property_id"`
 	RoomID             uuid.UUID                `json:"room_id"`
 	ReservationID      uuid.NullUUID            `json:"reservation_id"`
-	CheckoutSessionID  uuid.NullUUID            `json:"checkout_session_id"`
+	ReservationItemID  uuid.NullUUID            `json:"reservation_item_id"`
+	MaintenanceBlockID uuid.NullUUID            `json:"maintenance_block_id"`
 	CalendarDate       pgtype.Date              `json:"calendar_date"`
 	Status             InventoryInventoryStatus `json:"status"`
 	CreatedAt          pgtype.Timestamptz       `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz       `json:"updated_at"`
 	DeletedAt          pgtype.Timestamptz       `json:"deleted_at"`
-	MaintenanceBlockID uuid.NullUUID            `json:"maintenance_block_id"`
-	ReservationItemID  uuid.NullUUID            `json:"reservation_item_id"`
 }
 
 type InventoryRoomType struct {
@@ -1009,37 +552,11 @@ type InventoryRoomType struct {
 	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
 }
 
-type OperationsAmenity struct {
-	ID          uuid.UUID          `json:"id"`
-	PropertyID  uuid.UUID          `json:"property_id"`
-	Name        string             `json:"name"`
-	ShortCode   pgtype.Text        `json:"short_code"`
-	Description pgtype.Text        `json:"description"`
-	IsActive    bool               `json:"is_active"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type OperationsCheckoutSession struct {
-	ID              uuid.UUID                       `json:"id"`
-	PropertyID      uuid.UUID                       `json:"property_id"`
-	ReservationID   uuid.UUID                       `json:"reservation_id"`
-	PaymentIntentID string                          `json:"payment_intent_id"`
-	ExpiresAt       pgtype.Timestamptz              `json:"expires_at"`
-	Status          OperationsCheckoutSessionStatus `json:"status"`
-	IdempotencyKey  pgtype.Text                     `json:"idempotency_key"`
-	CreatedAt       pgtype.Timestamptz              `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz              `json:"updated_at"`
-	DeletedAt       pgtype.Timestamptz              `json:"deleted_at"`
-}
-
 type OperationsLicence struct {
 	ID               uuid.UUID          `json:"id"`
 	LicenceKey       string             `json:"licence_key"`
 	OrganisationName string             `json:"organisation_name"`
-	ContactEmail     string             `json:"contact_email"`
-	LicenceNotes     pgtype.Text        `json:"licence_notes"`
+	ContactEmail     interface{}        `json:"contact_email"`
 	IsActive         bool               `json:"is_active"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
@@ -1047,63 +564,32 @@ type OperationsLicence struct {
 }
 
 type OperationsProperty struct {
-	ID            uuid.UUID          `json:"id"`
-	LicenceID     uuid.UUID          `json:"licence_id"`
-	Name          string             `json:"name"`
-	Address       string             `json:"address"`
-	Timezone      string             `json:"timezone"`
-	PropertyNotes pgtype.Text        `json:"property_notes"`
-	IsActive      bool               `json:"is_active"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type OperationsPropertySetting struct {
-	PropertyID                  uuid.UUID          `json:"property_id"`
-	WebsiteHoldTtlSeconds       int32              `json:"website_hold_ttl_seconds"`
-	InternalHoldTtlSeconds      int32              `json:"internal_hold_ttl_seconds"`
-	ReservationArchiveAfterDays int32              `json:"reservation_archive_after_days"`
-	HousekeepingBufferMinutes   int32              `json:"housekeeping_buffer_minutes"`
-	NoShowGraceMinutes          int32              `json:"no_show_grace_minutes"`
-	MaxStayLengthDays           int32              `json:"max_stay_length_days"`
-	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
-	LateCheckoutGraceMinutes    int32              `json:"late_checkout_grace_minutes"`
-	DeletedAt                   pgtype.Timestamptz `json:"deleted_at"`
+	ID        uuid.UUID          `json:"id"`
+	LicenceID uuid.UUID          `json:"licence_id"`
+	Name      string             `json:"name"`
+	Address   string             `json:"address"`
+	Timezone  string             `json:"timezone"`
+	IsActive  bool               `json:"is_active"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type OperationsReservation struct {
 	ID                 uuid.UUID                        `json:"id"`
 	PropertyID         uuid.UUID                        `json:"property_id"`
 	PrimaryGuestID     uuid.UUID                        `json:"primary_guest_id"`
-	GroupID            uuid.NullUUID                    `json:"group_id"`
+	Sequential         int64                            `json:"sequential"`
+	Code               string                           `json:"code"`
 	Source             OperationsReservationSource      `json:"source"`
-	TravelAgentID      uuid.NullUUID                    `json:"travel_agent_id"`
 	Notes              pgtype.Text                      `json:"notes"`
 	Status             OperationsReservationStatus      `json:"status"`
+	StayPeriodEnvelope pgtype.Range[pgtype.Timestamptz] `json:"stay_period_envelope"`
 	Version            int32                            `json:"version"`
 	CreatedAt          pgtype.Timestamptz               `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz               `json:"updated_at"`
 	DeletedAt          pgtype.Timestamptz               `json:"deleted_at"`
-	Sequential         int64                            `json:"sequential"`
-	Code               string                           `json:"code"`
-	StayPeriodEnvelope pgtype.Range[pgtype.Timestamptz] `json:"stay_period_envelope"`
 	ExpiresAt          pgtype.Timestamptz               `json:"expires_at"`
-	CancellationIntent []byte                           `json:"cancellation_intent"`
-}
-
-type OperationsReservationGroup struct {
-	ID            uuid.UUID          `json:"id"`
-	PropertyID    uuid.UUID          `json:"property_id"`
-	MasterFolioID uuid.NullUUID      `json:"master_folio_id"`
-	Name          pgtype.Text        `json:"name"`
-	Notes         pgtype.Text        `json:"notes"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
-	Sequential    int64              `json:"sequential"`
-	Code          string             `json:"code"`
 }
 
 type OperationsReservationItem struct {
@@ -1115,24 +601,24 @@ type OperationsReservationItem struct {
 	GuestID          uuid.NullUUID                    `json:"guest_id"`
 	RatePlanID       uuid.NullUUID                    `json:"rate_plan_id"`
 	StayPeriod       pgtype.Range[pgtype.Timestamptz] `json:"stay_period"`
+	DoNotMove        bool                             `json:"do_not_move"`
 	BaseRatePence    int32                            `json:"base_rate_pence"`
 	AdultsCount      int32                            `json:"adults_count"`
 	ChildrenCount    int32                            `json:"children_count"`
 	Status           OperationsReservationItemStatus  `json:"status"`
+	Version          int32                            `json:"version"`
 	CreatedAt        pgtype.Timestamptz               `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz               `json:"updated_at"`
 	DeletedAt        pgtype.Timestamptz               `json:"deleted_at"`
-	Version          int32                            `json:"version"`
-	DoNotMove        bool                             `json:"do_not_move"`
 }
 
 type OperationsReservationSequence struct {
-	PropertyID uuid.UUID          `json:"property_id"`
-	EntityType string             `json:"entity_type"`
-	NextValue  int64              `json:"next_value"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
+	PropertyID uuid.UUID                           `json:"property_id"`
+	EntityType OperationsReservationSequenceEntity `json:"entity_type"`
+	NextValue  int64                               `json:"next_value"`
+	CreatedAt  pgtype.Timestamptz                  `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz                  `json:"updated_at"`
+	DeletedAt  pgtype.Timestamptz                  `json:"deleted_at"`
 }
 
 type PricingBaseRate struct {
@@ -1144,135 +630,21 @@ type PricingBaseRate struct {
 	BasePricePence    int32              `json:"base_price_pence"`
 	MinLosRestriction pgtype.Int4        `json:"min_los_restriction"`
 	MaxLosRestriction pgtype.Int4        `json:"max_los_restriction"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
 	MaxDailyCapacity  pgtype.Int4        `json:"max_daily_capacity"`
-}
-
-type PricingBookedDailyRate struct {
-	ID                         uuid.UUID          `json:"id"`
-	PropertyID                 uuid.UUID          `json:"property_id"`
-	ReservationItemID          uuid.UUID          `json:"reservation_item_id"`
-	CalendarDate               pgtype.Date        `json:"calendar_date"`
-	RatePlanID                 uuid.NullUUID      `json:"rate_plan_id"`
-	BasePricePence             int32              `json:"base_price_pence"`
-	Adjustment                 []byte             `json:"adjustment"`
-	AdjustmentApproved         bool               `json:"adjustment_approved"`
-	AdjustmentApprovedByUserID uuid.NullUUID      `json:"adjustment_approved_by_user_id"`
-	FinalPricePence            int32              `json:"final_price_pence"`
-	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt                  pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type PricingDailyPriceGrid struct {
-	ID                uuid.UUID          `json:"id"`
-	PropertyID        uuid.UUID          `json:"property_id"`
-	RoomTypeID        uuid.UUID          `json:"room_type_id"`
-	RatePlanID        uuid.UUID          `json:"rate_plan_id"`
-	CalendarDate      pgtype.Date        `json:"calendar_date"`
-	BasePricePence    int32              `json:"base_price_pence"`
-	MinLosRestriction int32              `json:"min_los_restriction"`
-	MaxLosRestriction int32              `json:"max_los_restriction"`
-	IsAvailable       bool               `json:"is_available"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
-	DailyRoomCapacity pgtype.Int4        `json:"daily_room_capacity"`
 }
 
 type PricingRatePlan struct {
-	ID               uuid.UUID          `json:"id"`
-	PropertyID       uuid.UUID          `json:"property_id"`
-	Name             string             `json:"name"`
-	Code             string             `json:"code"`
-	Description      pgtype.Text        `json:"description"`
-	ParentRatePlanID uuid.NullUUID      `json:"parent_rate_plan_id"`
-	DerivationRule   []byte             `json:"derivation_rule"`
-	IsActive         bool               `json:"is_active"`
-	CurrencyCode     string             `json:"currency_code"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type PricingSeasonalRate struct {
-	ID                uuid.UUID                        `json:"id"`
-	PropertyID        uuid.UUID                        `json:"property_id"`
-	RoomTypeID        uuid.UUID                        `json:"room_type_id"`
-	RatePlanID        uuid.UUID                        `json:"rate_plan_id"`
-	OverridePeriod    pgtype.Range[pgtype.Timestamptz] `json:"override_period"`
-	DayOfWeek         int32                            `json:"day_of_week"`
-	BasePricePence    int32                            `json:"base_price_pence"`
-	MinLosRestriction pgtype.Int4                      `json:"min_los_restriction"`
-	MaxLosRestriction pgtype.Int4                      `json:"max_los_restriction"`
-	CreatedAt         pgtype.Timestamptz               `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz               `json:"updated_at"`
-	DeletedAt         pgtype.Timestamptz               `json:"deleted_at"`
-	MaxDailyCapacity  pgtype.Int4                      `json:"max_daily_capacity"`
-}
-
-type RelationsPropertyAmenity struct {
-	PropertyID uuid.UUID          `json:"property_id"`
-	AmenityID  uuid.UUID          `json:"amenity_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type RelationsReservationItemGuest struct {
-	PropertyID        uuid.UUID                      `json:"property_id"`
-	ReservationItemID uuid.UUID                      `json:"reservation_item_id"`
-	GuestID           uuid.UUID                      `json:"guest_id"`
-	Role              OperationsReservationGuestRole `json:"role"`
-	CreatedAt         pgtype.Timestamptz             `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz             `json:"updated_at"`
-	DeletedAt         pgtype.Timestamptz             `json:"deleted_at"`
-}
-
-type RelationsRoomAmenity struct {
-	PropertyID uuid.UUID          `json:"property_id"`
-	RoomID     uuid.UUID          `json:"room_id"`
-	AmenityID  uuid.UUID          `json:"amenity_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type RelationsRoomTypeAmenity struct {
-	PropertyID uuid.UUID          `json:"property_id"`
-	RoomTypeID uuid.UUID          `json:"room_type_id"`
-	AmenityID  uuid.UUID          `json:"amenity_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type SalesLedgersAccount struct {
-	ID               uuid.UUID          `json:"id"`
-	PropertyID       uuid.UUID          `json:"property_id"`
-	CompanyProfileID uuid.NullUUID      `json:"company_profile_id"`
-	Name             string             `json:"name"`
-	Code             string             `json:"code"`
-	CreditLimitPence int32              `json:"credit_limit_pence"`
-	PaymentTermsDays int32              `json:"payment_terms_days"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-}
-
-type SalesLedgersTransaction struct {
-	ID              uuid.UUID                   `json:"id"`
-	PropertyID      uuid.UUID                   `json:"property_id"`
-	LedgerAccountID uuid.UUID                   `json:"ledger_account_id"`
-	SourceInvoiceID uuid.NullUUID               `json:"source_invoice_id"`
-	AmountPence     int32                       `json:"amount_pence"`
-	DueDate         pgtype.Timestamptz          `json:"due_date"`
-	PostedAt        pgtype.Timestamptz          `json:"posted_at"`
-	PostedByUserID  uuid.NullUUID               `json:"posted_by_user_id"`
-	Type            SalesLedgersTransactionType `json:"type"`
-	CreatedAt       pgtype.Timestamptz          `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz          `json:"updated_at"`
-	DeletedAt       pgtype.Timestamptz          `json:"deleted_at"`
+	ID           uuid.UUID          `json:"id"`
+	PropertyID   uuid.UUID          `json:"property_id"`
+	Name         string             `json:"name"`
+	Code         string             `json:"code"`
+	Description  pgtype.Text        `json:"description"`
+	IsActive     bool               `json:"is_active"`
+	CurrencyCode string             `json:"currency_code"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
 }
