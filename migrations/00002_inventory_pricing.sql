@@ -102,6 +102,7 @@ CREATE TABLE pricing.base_rates (
     base_price_pence INTEGER NOT NULL DEFAULT 0,
     min_los_restriction INT CHECK (min_los_restriction > 0),
     max_los_restriction INT CHECK (max_los_restriction > min_los_restriction),
+    max_daily_capacity INT CHECK (max_daily_capacity > 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
