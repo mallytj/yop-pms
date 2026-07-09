@@ -74,7 +74,7 @@ func TestDatabaseConventions(t *testing.T) {
 		}
 	})
 
-	t.Run("REQ-007 - All text columns must have a CHECK constraint enforcing length", func(t *testing.T) {
+	t.Run("REQ-007 - Text columns must have length CHECK or strict regex", func(t *testing.T) {
 		t.Parallel()
 
 		query := `

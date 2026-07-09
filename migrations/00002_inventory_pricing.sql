@@ -69,6 +69,7 @@ CREATE POLICY maint_isolation ON inventory.maintenance_blocks USING (property_id
 CREATE INDEX idx_maint_blocks_property ON inventory.maintenance_blocks (property_id) WHERE (deleted_at IS NULL);
 CREATE INDEX idx_maint_blocks_period ON inventory.maintenance_blocks USING GIST (property_id, block_period) WHERE (deleted_at IS NULL);
 CREATE INDEX idx_maint_blocks_room ON inventory.maintenance_blocks (room_id);
+CREATE INDEX idx_maint_blocks_created_by ON inventory.maintenance_blocks (created_by_user_id);
 
 
 CREATE TABLE pricing.rate_plans (

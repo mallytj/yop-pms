@@ -6,7 +6,7 @@
 | REQ-004 | Audit fields (created_at, updated_at, deleted_at) on all core tables                                                                           |
 | REQ-005 | Any indexes created on a table dependent on property must include the property_id                                                              |
 | REQ-006 | All foreign keys must have ON DELETE and ON UPDATE actions defined                                                                             |
-| REQ-007 | All text/varchar columns must have CHECK constraints enforcing length                                                                          |
+| REQ-007 | All text/varchar columns must have CHECK constraints enforcing length. Exception: columns with a strict regex constraint (e.g. `^[a-z0-9_]{1,20}$`) that already constrains input length do not need a separate length CHECK. |
 | REQ-008 | All tables must have a schema defined                                                                                                          |
 | REQ-009 | All timestamps must be stored as TIMESTAMPTZ (UTC).                                                                                            |
 | REQ-010 | High-concurrency tables must support Optimistic Locking (via a version column).                                                                |

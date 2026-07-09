@@ -16,7 +16,7 @@ We will adhere to the following technical requirements (derived from RTM REQ-001
 
 - **Financials (REQ-003):** All monetary values MUST be stored as `INTEGER` representing the smallest currency unit (e.g., pence/cents). No floating-point types.
 - **Timestamps (REQ-009):** Use `TIMESTAMPTZ` exclusively to ensure UTC consistency across different time zones.
-- **Constraints (REQ-007, REQ-012, REQ-015):** \* Every text column must have a length `CHECK` constraint.
+- **Constraints (REQ-007, REQ-012, REQ-015):** \* Every text column must have a length `CHECK` constraint or a strict regex pattern that constrains input length.
   - Booleans must have explicit defaults.
   - Constraint names must follow: `{table}_{column}_{suffix}`.
 
