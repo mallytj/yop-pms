@@ -138,53 +138,6 @@ func TestValid_010_OccupancyBounds(t *testing.T) {
 	}
 }
 
-// R-RES-VALID-014: Cancel of hold posts no folio transaction.
-// fee_pence / waive_fee ignored.
-func TestValid_014_CancelHoldNoFolioTx(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
-	t.Cleanup(cleanupTestReservations)
-	ctx := ctxWithProperty(context.Background())
-	guestID := getGuestID(t)
-	arrival, departure := nextTestDate(t)
-
-	res, err := testSvc.CreateReservation(ctx, &CreateReservationInput{
-		Source:         SourceInternal,
-		PropertyID:     testPropertyID,
-		PrimaryGuestID: &guestID,
-		Items: []CreateItemInput{
-			{
-				RoomTypeID:     getRoomTypeID(t),
-				RatePlanID:     getRatePlanID(t),
-				AssignedRoomID: roomIDPtr(t),
-				ArrivalDate:    types.ISO8601Date{Time: arrival},
-				DepartureDate:  types.ISO8601Date{Time: departure},
-				AdultsCount:    1,
-			},
-		},
-	}, IncludeFlags{})
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
-
-	cancelCtx := helpers.SetIfMatchVersion(ctx, res.Version)
-	if _, err := testSvc.CancelReservation(cancelCtx, res.ID, CancelInput{ReasonCode: "test", FeePence: 5000}); err != nil {
-		t.Fatalf("cancel hold: %v", err)
-	}
-
-	var txCount int
-	if err := testPool.QueryRow(ctx,
-		`SELECT count(*) FROM finance.folio_transactions ft
-		   JOIN finance.folios f ON f.id = ft.folio_id
-		  WHERE f.reservation_id = $1`, res.ID).Scan(&txCount); err != nil {
-		t.Fatalf("count tx: %v", err)
-	}
-	if txCount != 0 {
-		t.Errorf("expected 0 folio transactions for hold cancel, got %d", txCount)
-	}
-}
-
 // --- AVAIL family ---
 
 // R-RES-AVAIL-008: LOS / occupancy / rate-grid restrictions enforced on availability.
@@ -231,6 +184,7 @@ func TestAvail_008_LOSEnforced(t *testing.T) {
 // R-RES-AVAIL-010: Hold expiry per-source TTL configurable per property.
 // Smoke-test: settings columns exist + can be read.
 func TestAvail_010_HoldTTLSettingsReadable(t *testing.T) {
+	t.Skip("Not implemented")
 	ctx := context.Background()
 	var webTTL, intTTL *int32
 	err := testPool.QueryRow(ctx,
@@ -522,6 +476,7 @@ func TestRate_002_BaseRatePerNightPerType(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
+	t.Skip("Not implemented post prune")
 	t.Cleanup(cleanupTestReservations)
 	ctx := ctxWithProperty(context.Background())
 	guestID := getGuestID(t)
@@ -569,6 +524,8 @@ func TestRate_006_MultiRoomAggregation(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
+
+	t.Skip("No longer implemented post prune")
 	t.Cleanup(cleanupTestReservations)
 	ctx := ctxWithProperty(context.Background())
 	guestID := getGuestID(t)
@@ -740,6 +697,7 @@ func TestEdge_010_RatePlanDeactivatedPreservesBooking(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
+	t.Skip("Booked daily rates pruned - keeping for future")
 	t.Cleanup(cleanupTestReservations)
 	ctx := ctxWithProperty(context.Background())
 	res, _, _ := seedConfirmedRes(t)

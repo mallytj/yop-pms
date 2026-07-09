@@ -113,15 +113,6 @@ func runTests(m *testing.M) int {
 
 	testSvc = NewService(testPool, testQueries, testRedis, slog.Default())
 
-	// Add missing enum values for M18 audit trigger
-	for _, val := range []string{"reservation_item", "booked_daily_rate", "checkout_session"} {
-		if _, err := testPool.Exec(ctx,
-			fmt.Sprintf("ALTER TYPE auth.audit_log_entity ADD VALUE IF NOT EXISTS '%s'", val)); err != nil {
-			log.Printf("add enum value %s: %v", val, err)
-			return 1
-		}
-	}
-
 	if err := seedTestData(ctx); err != nil {
 		log.Printf("seed: %v", err)
 		return 1
@@ -146,11 +137,6 @@ func seedTestData(ctx context.Context) error {
 		return fmt.Errorf("seed property: %w", err)
 	}
 
-	if _, err := testPool.Exec(ctx,
-		`INSERT INTO operations.property_settings (property_id) VALUES ($1)`, testPropertyID); err != nil {
-		return fmt.Errorf("seed settings: %w", err)
-	}
-
 	var rtID uuid.UUID
 	if err := testPool.QueryRow(ctx,
 		`INSERT INTO inventory.room_types (property_id, name, code, std_occupancy, max_occupancy)
@@ -159,11 +145,22 @@ func seedTestData(ctx context.Context) error {
 		return fmt.Errorf("seed room type: %w", err)
 	}
 
-	if _, err := testPool.Exec(ctx,
+	var rpID uuid.UUID
+	if err := testPool.QueryRow(ctx,
 		`INSERT INTO pricing.rate_plans (property_id, name, code, currency_code)
-		 VALUES ($1,$2,$3,$4)`,
-		testPropertyID, "Standard Rate", "BAR", "GBP"); err != nil {
+		 VALUES ($1,$2,$3,$4) RETURNING id`,
+		testPropertyID, "Standard Rate", "BAR", "GBP").Scan(&rpID); err != nil {
 		return fmt.Errorf("seed rate plan: %w", err)
+	}
+
+	// Seed base rate for all days of week (£100.00 = 10000 pence).
+	for dow := 0; dow <= 6; dow++ {
+		if _, err := testPool.Exec(ctx,
+			`INSERT INTO pricing.base_rates (property_id, room_type_id, rate_plan_id, day_of_week, base_price_pence)
+			 VALUES ($1,$2,$3,$4,$5)`,
+			testPropertyID, rtID, rpID, dow, 10000); err != nil {
+			return fmt.Errorf("seed base rate dow=%d: %w", dow, err)
+		}
 	}
 
 	for _, name := range []string{"101", "102", "103"} {
