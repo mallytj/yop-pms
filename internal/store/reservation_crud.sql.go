@@ -15,19 +15,20 @@ import (
 const createReservation = `-- name: CreateReservation :one
 
 INSERT INTO operations.reservations (
-    property_id, primary_guest_id, source, notes, status, version, expires_at
+    property_id, primary_guest_id, stay_period_envelope, source, notes, status, version, expires_at
 ) VALUES (
-    $1, $2, $3, $4, $5, 1, $6
+    $1, $2, $3, $4, $5, $6, 1, $7
 ) RETURNING id, property_id, primary_guest_id, sequential, code, source, notes, status, stay_period_envelope, version, created_at, updated_at, deleted_at, expires_at
 `
 
 type CreateReservationParams struct {
-	PropertyID     uuid.UUID                   `json:"property_id"`
-	PrimaryGuestID uuid.UUID                   `json:"primary_guest_id"`
-	Source         OperationsReservationSource `json:"source"`
-	Notes          pgtype.Text                 `json:"notes"`
-	Status         OperationsReservationStatus `json:"status"`
-	ExpiresAt      pgtype.Timestamptz          `json:"expires_at"`
+	PropertyID         uuid.UUID                        `json:"property_id"`
+	PrimaryGuestID     uuid.UUID                        `json:"primary_guest_id"`
+	StayPeriodEnvelope pgtype.Range[pgtype.Timestamptz] `json:"stay_period_envelope"`
+	Source             OperationsReservationSource      `json:"source"`
+	Notes              pgtype.Text                      `json:"notes"`
+	Status             OperationsReservationStatus      `json:"status"`
+	ExpiresAt          pgtype.Timestamptz               `json:"expires_at"`
 }
 
 // Reservation CRUD queries
@@ -36,6 +37,7 @@ func (q *Queries) CreateReservation(ctx context.Context, arg *CreateReservationP
 	row := q.db.QueryRow(ctx, createReservation,
 		arg.PropertyID,
 		arg.PrimaryGuestID,
+		arg.StayPeriodEnvelope,
 		arg.Source,
 		arg.Notes,
 		arg.Status,

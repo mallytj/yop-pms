@@ -3,9 +3,9 @@
 
 -- name: CreateReservation :one
 INSERT INTO operations.reservations (
-    property_id, primary_guest_id, source, notes, status, version, expires_at
+    property_id, primary_guest_id, stay_period_envelope, source, notes, status, version, expires_at
 ) VALUES (
-    @property_id, @primary_guest_id, @source, @notes, @status, 1, @expires_at
+    @property_id, @primary_guest_id, @stay_period_envelope, @source, @notes, @status, 1, @expires_at
 ) RETURNING *;
 
 -- name: CreateReservationItem :one
