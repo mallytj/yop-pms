@@ -12,6 +12,35 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getBaseRate = `-- name: GetBaseRate :one
+SELECT base_price_pence FROM pricing.base_rates
+WHERE property_id = $1
+  AND room_type_id = $2
+  AND rate_plan_id = $3
+  AND day_of_week = $4
+  AND deleted_at IS NULL
+`
+
+type GetBaseRateParams struct {
+	PropertyID uuid.UUID `json:"property_id"`
+	RoomTypeID uuid.UUID `json:"room_type_id"`
+	RatePlanID uuid.UUID `json:"rate_plan_id"`
+	DayOfWeek  int32     `json:"day_of_week"`
+}
+
+// Lookup base nightly rate by day-of-week. No date overrides resolved.
+func (q *Queries) GetBaseRate(ctx context.Context, arg *GetBaseRateParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getBaseRate,
+		arg.PropertyID,
+		arg.RoomTypeID,
+		arg.RatePlanID,
+		arg.DayOfWeek,
+	)
+	var base_price_pence int32
+	err := row.Scan(&base_price_pence)
+	return base_price_pence, err
+}
+
 const getRatePlanCapacity = `-- name: GetRatePlanCapacity :one
 SELECT max_daily_capacity FROM pricing.base_rates 
 WHERE rate_plan_id = $1 
