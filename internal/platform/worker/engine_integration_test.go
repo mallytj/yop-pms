@@ -61,7 +61,7 @@ func applyMigration(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 
 	_, file, _, _ := runtime.Caller(0)
-	migPath := filepath.Join(filepath.Dir(file), "../../..", "migrations", "00006_outbox_worker.sql")
+	migPath := filepath.Join(filepath.Dir(file), "../../..", "migrations", "00004_outbox_worker.sql")
 
 	raw, err := os.ReadFile(migPath)
 	if err != nil {

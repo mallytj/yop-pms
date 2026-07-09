@@ -21,7 +21,7 @@ CREATE TABLE operations.reservations (
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     primary_guest_id UUID NOT NULL REFERENCES identity.guests (id) ON DELETE RESTRICT,
     sequential BIGINT NOT NULL,
-    code TEXT NOT NULL, 
+    code TEXT NOT NULL CONSTRAINT format_check CHECK (code ~ '^RES-\d{6}$'), 
     source operations.reservation_source NOT NULL DEFAULT 'internal',
     notes TEXT CHECK (char_length(notes) <= 2500),
     status operations.reservation_status NOT NULL DEFAULT 'hold',
