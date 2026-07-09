@@ -38,6 +38,8 @@ type Querier interface {
 	FindExpiredHolds(ctx context.Context) ([]OperationsReservation, error)
 	FindOverdueCheckins(ctx context.Context) ([]OperationsReservationItem, error)
 	FindOverstays(ctx context.Context) ([]OperationsReservationItem, error)
+	// Lookup base nightly rate by day-of-week. No date overrides resolved.
+	GetBaseRate(ctx context.Context, arg *GetBaseRateParams) (int32, error)
 	GetGuest(ctx context.Context, id uuid.UUID) (IdentityGuest, error)
 	GetPropertyTimezone(ctx context.Context, id uuid.UUID) (string, error)
 	// Single-date capacity lookup (0 = unlimited).
