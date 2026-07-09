@@ -159,15 +159,6 @@ func backdateForCheckin(ctx context.Context, reservationID uuid.UUID, hoursBefor
 		return err
 	}
 	if _, err := tx.Exec(ctx,
-		`UPDATE pricing.booked_daily_rates
-		    SET calendar_date = calendar_date + ($2::bigint || ' seconds')::interval
-		  WHERE reservation_item_id IN (
-		      SELECT id FROM operations.reservation_items WHERE reservation_id = $1
-		  )`, reservationID, deltaSeconds); err != nil {
-		return err
-	}
-
-	if _, err := tx.Exec(ctx,
 		`UPDATE operations.reservation_items
 		    SET stay_period = tstzrange(
 		            now() - ($2::bigint || ' seconds')::interval,
@@ -218,10 +209,7 @@ func cleanupTestReservations() {
 	}()
 
 	for _, tbl := range []string{
-		"finance.folio_transactions",
-		"pricing.booked_daily_rates",
 		"inventory.room_inventory_ledger",
-		"finance.folios",
 		"operations.reservation_items",
 		"operations.reservations",
 	} {

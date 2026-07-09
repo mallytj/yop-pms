@@ -25,8 +25,6 @@ func TestRouter_RoutesRegistered(t *testing.T) {
 		{http.MethodPost, "/reservations", "", http.StatusForbidden},                                                     // no permissions
 		{http.MethodGet, "/reservations/00000000-0000-0000-0000-000000000001", "reservations:read", http.StatusNotFound}, // no such reservation
 		{http.MethodGet, "/reservations/availability", "", http.StatusBadRequest},                                        // missing query params
-		{http.MethodGet, "/reservations/00000000-0000-0000-0000-000000000001/folios/00000000-0000-0000-0000-000000000001", "reservations:read", http.StatusNotImplemented},
-		{http.MethodGet, "/reservations/00000000-0000-0000-0000-000000000001/cancellation-quote", "reservations:read", http.StatusNotImplemented},
 		// Nonexistent route (bad UUID) returns 400 from ParseUUIDParam
 		{http.MethodGet, "/reservations/nonexistent", "reservations:read", http.StatusBadRequest},
 	}
