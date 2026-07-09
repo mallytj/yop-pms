@@ -83,13 +83,8 @@ func (s *Service) UpdateItem(ctx context.Context, itemID uuid.UUID, input Create
 		}
 
 		if datesChanged {
-			if err := qtx.SoftDeleteBookedRatesNotInPeriod(ctx, &store.SoftDeleteBookedRatesNotInPeriodParams{
-				ReservationItemID: itemID, PropertyID: propertyID,
-				Dates: util.DatesToPGDates(newNights),
-			}); err != nil {
-				return nil, fmt.Errorf("soft-delete removed rates: %w", err)
-			}
 
+			// TODO Add booked daily rates deletion when created
 			removedNights := util.RemovedDates(oldNights, newNights)
 			addedNights := util.AddedDates(oldNights, newNights)
 
@@ -101,7 +96,7 @@ func (s *Service) UpdateItem(ctx context.Context, itemID uuid.UUID, input Create
 				}); err != nil {
 					return nil, fmt.Errorf("delete all ledger: %w", err)
 				}
-				if err := insertItemLedgerAndRates(ctx, qtx, itemID, item.ReservationID, propertyID,
+				if err := insertItemLedger(ctx, qtx, itemID, item.ReservationID, propertyID,
 					newNights, effectiveRoomID, ratePlanID, item.BookedRoomTypeID); err != nil {
 					return nil, err
 				}
@@ -113,7 +108,7 @@ func (s *Service) UpdateItem(ctx context.Context, itemID uuid.UUID, input Create
 					return nil, fmt.Errorf("delete removed ledger: %w", err)
 				}
 			case len(addedNights) > 0:
-				if err := insertItemLedgerAndRates(ctx, qtx, itemID, item.ReservationID, propertyID,
+				if err := insertItemLedger(ctx, qtx, itemID, item.ReservationID, propertyID,
 					addedNights, effectiveRoomID, ratePlanID, item.BookedRoomTypeID); err != nil {
 					return nil, err
 				}
@@ -319,33 +314,11 @@ func (s *Service) UpdateItemRatePlan(ctx context.Context, itemID uuid.UUID, newR
 			}
 			return nil, fmt.Errorf("get item: %w", err)
 		}
+
 		if err := requirePostCheckinPermission(ctx, item); err != nil {
 			return nil, err
 		}
-		dates := util.NightsBetween(item.StayPeriod.Lower.Time, item.StayPeriod.Upper.Time)
-		if len(dates) > 0 {
-			for _, d := range dates {
-				maxCapacity, err := qtx.GetRatePlanCapacity(ctx, &store.GetRatePlanCapacityParams{
-					RatePlanID: newRatePlanID, CalendarDate: pgtype.Date{Time: d, Valid: true}, PropertyID: propertyID,
-				})
-				if err != nil {
-					return nil, fmt.Errorf("check rate plan capacity: %w", err)
-				}
-				if maxCapacity > 0 {
-					used, err := qtx.CountRatePlanUsage(ctx, &store.CountRatePlanUsageParams{
-						RatePlanID:   uuid.NullUUID{UUID: newRatePlanID, Valid: true},
-						CalendarDate: pgtype.Date{Time: d, Valid: true}, PropertyID: propertyID, ExcludeItemID: itemID,
-					})
-					if err != nil {
-						return nil, fmt.Errorf("count rate plan usage: %w", err)
-					}
-					if used >= maxCapacity {
-						return nil, ErrRatePlanCapacity.WithMessage(
-							fmt.Sprintf("rate plan capacity of %d exceeded on %s", maxCapacity, d.Format("2006-01-02")))
-					}
-				}
-			}
-		}
+
 		version := helpers.GetIfMatchVersion(ctx)
 		updated, err := qtx.UpdateReservationItem(ctx, &store.UpdateReservationItemParams{
 			ID: itemID, Version: version, BookedRoomTypeID: uuid.NullUUID{},

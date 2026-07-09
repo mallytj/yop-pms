@@ -13,7 +13,6 @@ import (
 	"github.com/lexxcode1/yop-pms/internal/platform/apierror"
 	"github.com/lexxcode1/yop-pms/internal/platform/db"
 	"github.com/lexxcode1/yop-pms/internal/platform/helpers"
-	"github.com/lexxcode1/yop-pms/internal/platform/util"
 	"github.com/lexxcode1/yop-pms/internal/store"
 )
 
@@ -67,7 +66,8 @@ func (s *Service) CancelReservation(ctx context.Context, id uuid.UUID, input Can
 		for _, item := range items {
 			if item.Status == store.OperationsReservationItemStatusCheckedIn {
 				return nil, apierror.ErrConflict.WithMessage(
-					fmt.Sprintf("cannot cancel reservation with checked-in items (item %s)", item.ID))
+					fmt.Sprintf("cannot cancel reservation with checked-in items (item %s)", item.ID),
+				)
 			}
 		}
 
@@ -487,17 +487,6 @@ func (s *Service) ReactivateReservation(ctx context.Context, id uuid.UUID) (*Res
 func (s *Service) ShortenStay(ctx context.Context, qtx *store.Queries, item store.OperationsReservationItem, newDeparture time.Time) error {
 	if !item.StayPeriod.Lower.Time.Before(newDeparture) {
 		return ErrInvalidDates.WithMessage("new departure must be after arrival")
-	}
-
-	newDates := util.NightsBetween(item.StayPeriod.Lower.Time, newDeparture)
-
-	// SoftDeleteBookedRatesNotInPeriod deletes rows whose date is NOT IN the provided
-	// list. Pass newDates (dates to KEEP) so removed dates are cleaned up.
-	keepDates := util.DatesToPGDates(newDates)
-	if err := qtx.SoftDeleteBookedRatesNotInPeriod(ctx, &store.SoftDeleteBookedRatesNotInPeriodParams{
-		ReservationItemID: item.ID, PropertyID: item.PropertyID, Dates: keepDates,
-	}); err != nil {
-		return fmt.Errorf("soft delete rates: %w", err)
 	}
 
 	if err := qtx.DeleteLedgerRowsByItemFromDate(ctx, &store.DeleteLedgerRowsByItemFromDateParams{

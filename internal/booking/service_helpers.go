@@ -21,9 +21,7 @@ func reservationToResponse(r *store.OperationsReservation) *ReservationResponse 
 		ID:                 r.ID,
 		PropertyID:         r.PropertyID,
 		PrimaryGuestID:     util.PtrToUUID(r.PrimaryGuestID),
-		GroupID:            util.NullUUIDToPtr(r.GroupID),
 		Source:             ReservationSource(r.Source),
-		TravelAgentID:      util.NullUUIDToPtr(r.TravelAgentID),
 		Notes:              util.NullText(r.Notes),
 		Status:             ReservationStatus(r.Status),
 		Version:            r.Version,
@@ -43,9 +41,7 @@ func reservationFromRow(r *store.GetReservationRow) *ReservationResponse {
 		ID:                 r.ID,
 		PropertyID:         r.PropertyID,
 		PrimaryGuestID:     util.PtrToUUID(r.PrimaryGuestID),
-		GroupID:            util.NullUUIDToPtr(r.GroupID),
 		Source:             ReservationSource(r.Source),
-		TravelAgentID:      util.NullUUIDToPtr(r.TravelAgentID),
 		Notes:              util.NullText(r.Notes),
 		Status:             ReservationStatus(r.Status),
 		Version:            r.Version,
@@ -94,9 +90,10 @@ func guestToResponse(g *store.IdentityGuest) *GuestResponse {
 	}
 }
 
-// insertItemLedgerAndRates bulk-inserts ledger rows and booked daily rates
-// for specific nights. Used by UpdateItem when a stay is lengthened.
-func insertItemLedgerAndRates(
+// insertItemLedger bulk-inserts ledger rows for specific nights.
+// Used by UpdateItem when a stay is lengthened.
+// TODO Add booked daily rates
+func insertItemLedger(
 	ctx context.Context,
 	qtx *store.Queries,
 	itemID uuid.UUID,
@@ -116,12 +113,11 @@ func insertItemLedgerAndRates(
 	if ratePlanID.Valid {
 		baseRatePences = make([]int32, n)
 		for j, d := range dates {
-			price, err := qtx.GetResolvedNightlyRate(ctx, &store.GetResolvedNightlyRateParams{
-				PropertyID:   propertyID,
-				RoomTypeID:   roomTypeID,
-				RatePlanID:   ratePlanID.UUID,
-				CalendarDate: pgtype.Date{Time: d, Valid: true},
-				DayOfWeek:    int32(d.Weekday()),
+			price, err := qtx.GetBaseRate(ctx, &store.GetBaseRateParams{
+				PropertyID: propertyID,
+				RoomTypeID: roomTypeID,
+				RatePlanID: ratePlanID.UUID,
+				DayOfWeek:  int32(d.Weekday()),
 			})
 			if err != nil {
 				return fmt.Errorf("resolve rate for %s: %w", d.Format("2006-01-02"), err)
@@ -162,30 +158,6 @@ func insertItemLedgerAndRates(
 		return fmt.Errorf("insert added ledger: %w", err)
 	}
 
-	if ratePlanID.Valid {
-		rateDates := make([]pgtype.Date, n)
-		ratePropIDs := make([]uuid.UUID, n)
-		rateItemIDs := make([]uuid.UUID, n)
-		ratePlanIDs := make([]uuid.UUID, n)
-		basePrices := make([]int32, n)
-		for j, d := range dates {
-			rateDates[j] = pgtype.Date{Time: d, Valid: true}
-			ratePropIDs[j] = propertyID
-			rateItemIDs[j] = itemID
-			ratePlanIDs[j] = ratePlanID.UUID
-			basePrices[j] = baseRatePences[j]
-		}
-		if err := qtx.BulkInsertBookedDailyRates(ctx, &store.BulkInsertBookedDailyRatesParams{
-			PropertyIds:        ratePropIDs,
-			ReservationItemIds: rateItemIDs,
-			CalendarDates:      rateDates,
-			RatePlanIds:        ratePlanIDs,
-			BasePricePences:    basePrices,
-		}); err != nil {
-			return fmt.Errorf("insert added rates: %w", err)
-		}
-	}
-
 	return nil
 }
 
@@ -217,7 +189,8 @@ func reactivateItemInventory(
 		}
 		if len(conflicts) > 0 {
 			return ErrRoomNotAvailable.WithMessage(
-				fmt.Sprintf("assigned room not available for reactivation on %d date(s)", len(conflicts)))
+				fmt.Sprintf("assigned room not available for reactivation on %d date(s)", len(conflicts)),
+			)
 		}
 		roomID = item.AssignedRoomID.UUID
 	} else {
@@ -236,15 +209,7 @@ func reactivateItemInventory(
 		roomID = pinned
 	}
 
-	if err := qtx.SoftDeleteBookedRatesNotInPeriod(ctx, &store.SoftDeleteBookedRatesNotInPeriodParams{
-		ReservationItemID: item.ID,
-		PropertyID:        propertyID,
-		Dates:             []pgtype.Date{},
-	}); err != nil {
-		return fmt.Errorf("soft-delete old rates before reactivation: %w", err)
-	}
-
-	return insertItemLedgerAndRates(ctx, qtx, item.ID, item.ReservationID,
+	return insertItemLedger(ctx, qtx, item.ID, item.ReservationID,
 		propertyID, dates, roomID, item.RatePlanID, item.BookedRoomTypeID)
 }
 

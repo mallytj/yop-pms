@@ -20,13 +20,8 @@ import (
 //   - Helpers: createReservationInTx, resolvePrimaryGuest, computeEnvelope, computeExpiresAt,
 //     insertAllItems, insertSingleItem, notifyReservationChange
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Service: CreateReservation
-// ─────────────────────────────────────────────────────────────────────────────
-
 // CreateReservation creates a new reservation with items, ledger rows,
-// booked daily rates, and a stub Folio A. The initial status depends on
-// source and walkin flag (see SourceToInitialStatus map).
+// The initial status depends on source and walkin flag (see SourceToInitialStatus map).
 //
 // Guest dedup by email is deferred to the guest-profile PR. Frontend will
 // use pg_trgm autocomplete against identity.guests for live search.
@@ -130,9 +125,7 @@ func (s *Service) createReservationInTx(
 	res, err := qtx.CreateReservation(ctx, &store.CreateReservationParams{
 		PropertyID:         propertyID,
 		PrimaryGuestID:     primaryGuestID.UUID,
-		GroupID:            uuid.NullUUID{UUID: util.PtrUUID(input.GroupID), Valid: input.GroupID != nil},
 		Source:             store.OperationsReservationSource(input.Source),
-		TravelAgentID:      uuid.NullUUID{UUID: util.PtrUUID(input.TravelAgentID), Valid: input.TravelAgentID != nil},
 		Notes:              pgtype.Text{String: input.Notes, Valid: input.Notes != ""},
 		Status:             store.OperationsReservationStatus(initial.ReservationStatus),
 		StayPeriodEnvelope: util.ToRange(envLower, envUpper),
@@ -145,13 +138,6 @@ func (s *Service) createReservationInTx(
 	itemResponses, err := insertAllItems(ctx, qtx, input, initial, propertyID, res.ID)
 	if err != nil {
 		return nil, err
-	}
-	if _, err := qtx.CreateFolio(ctx, &store.CreateFolioParams{
-		PropertyID:    propertyID,
-		ReservationID: uuid.NullUUID{UUID: res.ID, Valid: true},
-		FolioPart:     store.FinanceFolioPartA,
-	}); err != nil {
-		return nil, fmt.Errorf("create folio a: %w", err)
 	}
 
 	if err := notifyReservationChange(ctx, qtx, "created", res.ID); err != nil {
@@ -274,14 +260,6 @@ func computeExpiresAt(ctx context.Context, qtx *store.Queries, propertyID uuid.U
 	}
 
 	ttlSeconds := defaultTTL
-	settings, err := qtx.GetPropertySettings(ctx, propertyID)
-	if err == nil {
-		if source == SourceWebsite && settings.WebsiteHoldTtlSeconds > 0 {
-			ttlSeconds = settings.WebsiteHoldTtlSeconds
-		} else if source == SourceInternal && settings.InternalHoldTtlSeconds > 0 {
-			ttlSeconds = settings.InternalHoldTtlSeconds
-		}
-	}
 
 	return pgtype.Timestamptz{Time: now.Add(time.Duration(ttlSeconds) * time.Second), Valid: true}
 }
@@ -369,12 +347,11 @@ func insertSingleItem(
 	case item.RatePlanID != nil:
 		baseRatePences = make([]int32, n)
 		for j, d := range dates {
-			price, err := qtx.GetResolvedNightlyRate(ctx, &store.GetResolvedNightlyRateParams{
-				PropertyID:   propertyID,
-				RoomTypeID:   item.RoomTypeID,
-				RatePlanID:   *item.RatePlanID,
-				CalendarDate: pgtype.Date{Time: d, Valid: true},
-				DayOfWeek:    int32(d.Weekday()),
+			price, err := qtx.GetBaseRate(ctx, &store.GetBaseRateParams{
+				PropertyID: propertyID,
+				RoomTypeID: item.RoomTypeID,
+				RatePlanID: *item.RatePlanID,
+				DayOfWeek:  int32(d.Weekday()),
 			})
 			if err != nil {
 				return ItemResponse{}, fmt.Errorf("resolve rate for %s: %w", d.Format("2006-01-02"), err)
@@ -464,15 +441,6 @@ func insertSingleItem(
 			rateItemIDs[j] = ri.ID
 			ratePlanIDs[j] = *item.RatePlanID
 			basePrices[j] = baseRatePences[j]
-		}
-		if err := qtx.BulkInsertBookedDailyRates(ctx, &store.BulkInsertBookedDailyRatesParams{
-			PropertyIds:        ratePropIDs,
-			ReservationItemIds: rateItemIDs,
-			CalendarDates:      rateDates,
-			RatePlanIds:        ratePlanIDs,
-			BasePricePences:    basePrices,
-		}); err != nil {
-			return ItemResponse{}, fmt.Errorf("insert booked daily rates: %w", err)
 		}
 	}
 

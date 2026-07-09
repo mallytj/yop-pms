@@ -47,8 +47,6 @@ func Routes(svc *Service, ifMatch func(http.Handler) http.Handler) func(chi.Rout
 			r.With(ifMatch, yopMw.RequirePermission("reservations:reactivate")).Post("/reactivate", h.Reactivate)
 			r.With(yopMw.RequirePermission("reservations:checkin")).Patch("/checkin", h.CheckinReservation)
 			r.With(yopMw.RequirePermission("reservations:checkout")).Patch("/checkout", h.CheckoutReservation)
-			r.With(yopMw.RequirePermission("reservations:read")).Get("/cancellation-quote", h.CancellationQuote)
-			r.With(yopMw.RequirePermission("reservations:read")).Get("/folios/{folio_id}", h.GetFolio)
 			r.With(ifMatch, yopMw.RequirePermission("reservations:add_item")).Post("/items", h.AddItem)
 
 			r.Route("/items/{item_id}", func(r chi.Router) {
@@ -58,10 +56,6 @@ func Routes(svc *Service, ifMatch func(http.Handler) http.Handler) func(chi.Rout
 				r.With(ifMatch, yopMw.RequirePermission("reservations:assign_room")).Patch("/assign-room", h.AssignRoom)
 				r.With(ifMatch, yopMw.RequirePermission("reservations:mark_no_show")).Patch("/no-show", h.MarkNoShow)
 				r.With(ifMatch, yopMw.RequirePermission("reservations:cancel")).Post("/cancel", h.CancelItem)
-				r.With(ifMatch, yopMw.RequirePermission("reservations:rate_override")).Patch("/booked-rates", h.UpdateBookedRates)
-				r.With(yopMw.RequirePermission("reservations:read")).Get("/booked-rates", h.GetBookedRates)
-				r.With(ifMatch, yopMw.RequirePermission("reservations:rate_override")).Post("/booked-rates/approve", h.ApproveAdjustments)
-				r.With(ifMatch, yopMw.RequirePermission("reservations:rate_override")).Post("/adjust-rate", h.AdjustRate)
 			})
 		})
 	}
