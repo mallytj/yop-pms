@@ -349,14 +349,6 @@ func (w *Workers) archiveReservationTx(ctx context.Context, res store.Operations
 		return fmt.Errorf("archive items: %w", err)
 	}
 
-	// Soft-archive folios (R-RES-INTEG-008)
-	if err := qtx.ArchiveFolios(ctx, &store.ArchiveFoliosParams{
-		ReservationID: uuid.NullUUID{UUID: res.ID, Valid: true},
-		PropertyID:    res.PropertyID,
-	}); err != nil {
-		return fmt.Errorf("archive folios: %w", err)
-	}
-
 	// Soft-delete reservation
 	rows, err := qtx.UpdateReservationStatus(ctx, &store.UpdateReservationStatusParams{
 		ID:      res.ID,

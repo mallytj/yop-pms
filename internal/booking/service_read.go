@@ -85,7 +85,7 @@ func (s *Service) ListReservations(ctx context.Context, params ListParams) ([]Re
 }
 
 // UpdateMetadata applies partial updates to reservation-level metadata fields
-// (notes, travel_agent_id, group_id, primary_guest_id). Version check prevents
+// (notes, primary_guest_id). Version check prevents
 // concurrent overwrites (ErrVersionMismatch on mismatch).
 func (s *Service) UpdateMetadata(ctx context.Context, id uuid.UUID, input UpdateMetadataInput) (*ReservationResponse, error) {
 	version := helpers.GetIfMatchVersion(ctx)
@@ -98,12 +98,7 @@ func (s *Service) UpdateMetadata(ctx context.Context, id uuid.UUID, input Update
 		if input.Notes != nil {
 			pgParams.Notes = pgtype.Text{String: *input.Notes, Valid: true}
 		}
-		if input.TravelAgentID != nil {
-			pgParams.TravelAgentID = uuid.NullUUID{UUID: *input.TravelAgentID, Valid: true}
-		}
-		if input.GroupID != nil {
-			pgParams.GroupID = uuid.NullUUID{UUID: *input.GroupID, Valid: true}
-		}
+
 		if input.PrimaryGuestID != nil {
 			pgParams.PrimaryGuestID = *input.PrimaryGuestID
 		} else {
