@@ -83,8 +83,6 @@ func (s *Service) UpdateItem(ctx context.Context, itemID uuid.UUID, input Create
 		}
 
 		if datesChanged {
-
-			// TODO Add booked daily rates deletion when created
 			removedNights := util.RemovedDates(oldNights, newNights)
 			addedNights := util.AddedDates(oldNights, newNights)
 
