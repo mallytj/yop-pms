@@ -140,7 +140,7 @@ CREATE TABLE inventory.room_inventory_ledger (
     FOREIGN KEY (property_id, room_id) REFERENCES inventory.rooms (property_id, id),
     FOREIGN KEY (property_id, reservation_id) REFERENCES operations.reservations (property_id, id),
     CONSTRAINT inv_ledger_status_consistency CHECK (
-        (status = 'sold' AND reservation_id IS NOT NULL) OR
+        (status IN ('sold', 'on_hold') AND reservation_id IS NOT NULL) OR
         (status = 'maintenance' AND maintenance_block_id IS NOT NULL) OR
         status IN ('available', 'decommissioned')
     )
