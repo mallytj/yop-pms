@@ -115,7 +115,7 @@ func (s *Service) createReservationInTx(
 	now := time.Now()
 
 	envLower, envUpper := computeEnvelope(input.Items)
-	expiresAt := computeExpiresAt(ctx, qtx, propertyID, input.Source, initial.ReservationStatus, now)
+	expiresAt := computeExpiresAt(propertyID, input.Source, initial.ReservationStatus, now)
 
 	primaryGuestID, err := resolvePrimaryGuest(ctx, qtx, input, propertyID)
 	if err != nil {
@@ -249,7 +249,7 @@ func computeEnvelope(items []CreateItemInput) (time.Time, time.Time) {
 }
 
 // computeExpiresAt determines the hold expiration timestamp based on source and property settings.
-func computeExpiresAt(ctx context.Context, qtx *store.Queries, propertyID uuid.UUID, source ReservationSource, status ReservationStatus, now time.Time) pgtype.Timestamptz {
+func computeExpiresAt(source ReservationSource, status ReservationStatus, now time.Time) pgtype.Timestamptz {
 	if status != StatusHold {
 		return pgtype.Timestamptz{}
 	}
@@ -427,21 +427,6 @@ func insertSingleItem(
 		Statuses:           statuses,
 	}); err != nil {
 		return ItemResponse{}, fmt.Errorf("insert ledger rows: %w", err)
-	}
-
-	if item.RatePlanID != nil {
-		rateDates := make([]pgtype.Date, n)
-		ratePropIDs := make([]uuid.UUID, n)
-		rateItemIDs := make([]uuid.UUID, n)
-		ratePlanIDs := make([]uuid.UUID, n)
-		basePrices := make([]int32, n)
-		for j, d := range dates {
-			rateDates[j] = pgtype.Date{Time: d, Valid: true}
-			ratePropIDs[j] = propertyID
-			rateItemIDs[j] = ri.ID
-			ratePlanIDs[j] = *item.RatePlanID
-			basePrices[j] = baseRatePences[j]
-		}
 	}
 
 	return *itemToResponse(&ri), nil
