@@ -692,6 +692,93 @@ func TestEdge_008_MaintenanceOverlapSoldRejected(t *testing.T) {
 	}
 }
 
+// R-RES-EDGE-009: inv_ledger_status_consistency CHECK constraint enforces valid status/FK combos for sold, on_hold, maintenance.
+func TestEdge_009_LedgerStatusConsistency(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+	ctx := context.Background()
+	roomID := getRoomID(t)
+	day := time.Now().Truncate(24 * time.Hour).Add(400 * 24 * time.Hour)
+
+	// Seed a reservation for FK tests.
+	resID := uuid.New()
+	if _, err := testPool.Exec(ctx,
+		`INSERT INTO operations.reservations
+			(id, property_id, primary_guest_id, source, status, stay_period_envelope, expires_at)
+		 VALUES ($1, $2, $3, 'internal', 'hold', tstzrange($4, $5, '[)'), NOW() + INTERVAL '1 hour')`,
+		resID, testPropertyID, getGuestID(t), day, day.Add(24*time.Hour)); err != nil {
+		t.Fatalf("seed reservation: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = testPool.Exec(context.Background(), `DELETE FROM operations.reservations WHERE id = $1`, resID)
+	})
+
+	// Seed a maintenance block for FK tests.
+	blockID := uuid.New()
+	if _, err := testPool.Exec(ctx,
+		`INSERT INTO inventory.maintenance_blocks
+			(id, property_id, room_id, block_period, reason, type)
+		 VALUES ($1, $2, $3, tstzrange($4, $5, '[)'), 'test', 'repair')`,
+		blockID, testPropertyID, roomID, day.Add(48*time.Hour), day.Add(72*time.Hour)); err != nil {
+		t.Fatalf("seed maintenance block: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = testPool.Exec(context.Background(), `DELETE FROM inventory.maintenance_blocks WHERE id = $1`, blockID)
+	})
+
+	tests := []struct {
+		name    string
+		status  string
+		resID   *uuid.UUID
+		blockID *uuid.UUID
+		offset  int // days from base day, avoids UNIQUE (room_id, calendar_date) clash
+		wantErr bool
+	}{
+		{"sold without reservation_id rejected", "sold", nil, nil, 1, true},
+		{"on_hold without reservation_id rejected", "on_hold", nil, nil, 2, true},
+		{"maintenance without block_id rejected", "maintenance", nil, nil, 3, true},
+		{"available without FK allowed", "available", nil, nil, 4, false},
+		{"decommissioned without FK allowed", "decommissioned", nil, nil, 5, false},
+		{"sold with reservation_id allowed", "sold", &resID, nil, 6, false},
+		{"on_hold with reservation_id allowed", "on_hold", &resID, nil, 7, false},
+		{"maintenance with block_id allowed", "maintenance", nil, &blockID, 8, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testDay := day.Add(time.Duration(tt.offset) * 24 * time.Hour)
+			var resArg, blockArg interface{}
+			if tt.resID != nil {
+				resArg = *tt.resID
+			}
+			if tt.blockID != nil {
+				blockArg = *tt.blockID
+			}
+
+			_, err := testPool.Exec(ctx,
+				`INSERT INTO inventory.room_inventory_ledger
+					(id, property_id, room_id, calendar_date, status, reservation_id, maintenance_block_id)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+				uuid.New(), testPropertyID, roomID, testDay, tt.status, resArg, blockArg)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected CHECK constraint violation for status=%s, got nil", tt.status)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error for status=%s: %v", tt.status, err)
+				}
+			}
+
+			_, _ = testPool.Exec(context.Background(),
+				`DELETE FROM inventory.room_inventory_ledger
+				 WHERE room_id = $1 AND calendar_date = $2`, roomID, testDay)
+		})
+	}
+}
+
 // R-RES-EDGE-010: Rate plan deactivated mid-stay — existing booked_daily_rates snapshot preserved.
 func TestEdge_010_RatePlanDeactivatedPreservesBooking(t *testing.T) {
 	if testing.Short() {
