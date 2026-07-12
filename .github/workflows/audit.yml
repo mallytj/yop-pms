@@ -1,63 +1,32 @@
-name: PR Role Audit
-
-on:
-  pull_request:
-    types: [opened, synchronize, reopened, labeled]
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: 'PR number to audit'
-        required: true
-      agents:
-        description: 'Comma-separated agent list (default: cto,boutique,compliancy,ux)'
-        required: false
-        default: 'cto,boutique,compliancy,ux'
-
-permissions:
-  contents: read
-  pull-requests: write
+name: Audit
+on: [push, pull_request]
 
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
-      - name: Determine agents
-        id: agents
-        env:
-          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.8"
+          cache: true
+
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "25"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Dependencies
         run: |
-          AGENTS="cto,boutique,compliancy,ux"
+          go mod download
+          cd web && npm ci
 
-          # Auto-add ai-engineer for AI/ML labeled PRs
-          AI_LABELS=("ai" "ml" "mcp" "langgraph" "llm" "agent")
-          for label in $(echo "$PR_LABELS" | jq -r '.[]'); do
-            for ai_label in "${AI_LABELS[@]}"; do
-              if [[ "$label" == "$ai_label" ]]; then
-                AGENTS="$AGENTS,ai-engineer"
-                echo "🤖 AI label '$label' detected — adding AI/ML Engineer to audit"
-                break 2
-              fi
-            done
-          done
-
-          # Manual override
-          if [ -n "${{ github.event.inputs.agents }}" ]; then
-            AGENTS="${{ github.event.inputs.agents }}"
-          fi
-
-          echo "agents=$AGENTS" >> "$GITHUB_OUTPUT"
-          echo "Auditing with agents: $AGENTS"
-
-      - name: Run role audit
-        env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-          AUDIT_AGENTS: ${{ steps.agents.outputs.agents }}
-        run: |
-          chmod +x scripts/ci-audit.sh
-          ./scripts/ci-audit.sh
+      - name: Run Audit
+        run: make audit
