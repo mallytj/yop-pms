@@ -3,52 +3,33 @@ name: PR Role Audit
 on:
   pull_request:
     types: [opened, labeled]
-  issue_comment:
-    types: [created]
   workflow_dispatch:
     inputs:
       pr_number:
         description: 'PR number to audit'
         required: true
       agents:
-        description: 'Comma-separated agent list (default: cto,boutique,compliancy,ux)'
+        description: 'Comma-separated agents (default: cto,boutique,compliancy,ux)'
         required: false
         default: 'cto,boutique,compliancy,ux'
 
 permissions:
   contents: read
   pull-requests: write
-  issues: read
 
 jobs:
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: github.event_name != 'issue_comment' || contains(github.event.comment.body, '@role-audit')
     steps:
-      - name: React to @role-audit comment
-        if: github.event_name == 'issue_comment'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api --method POST \
-            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
-            -f content=eyes --silent 2>/dev/null || true
-
       - uses: actions/checkout@v4
 
       - name: Determine agents
         id: agents
         env:
           PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
           AGENTS="cto,boutique,compliancy,ux"
-
-          # Parse agents= from @role-audit comment (e.g. "@role-audit agents=cto,ux")
-          if [[ "$COMMENT_BODY" == *"agents="* ]]; then
-            AGENTS=$(echo "$COMMENT_BODY" | grep -oP 'agents=\K[\w,-]+' || echo "$AGENTS")
-          fi
 
           # Auto-add ai-engineer for AI/ML labeled PRs
           AI_LABELS=("ai" "ml" "mcp" "langgraph" "llm" "agent")
@@ -73,7 +54,7 @@ jobs:
       - name: Run role audit
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.issue.number || github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           AUDIT_AGENTS: ${{ steps.agents.outputs.agents }}
