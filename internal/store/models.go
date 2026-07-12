@@ -460,7 +460,7 @@ type AuthUser struct {
 	ID           uuid.UUID          `json:"id"`
 	LicenceID    uuid.UUID          `json:"licence_id"`
 	Username     string             `json:"username"`
-	Email        interface{}        `json:"email"`
+	Email        string             `json:"email"`
 	PasswordHash string             `json:"password_hash"`
 	FirstName    string             `json:"first_name"`
 	LastName     string             `json:"last_name"`
@@ -556,7 +556,7 @@ type OperationsLicence struct {
 	ID               uuid.UUID          `json:"id"`
 	LicenceKey       string             `json:"licence_key"`
 	OrganisationName string             `json:"organisation_name"`
-	ContactEmail     interface{}        `json:"contact_email"`
+	ContactEmail     string             `json:"contact_email"`
 	IsActive         bool               `json:"is_active"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
