@@ -17,3 +17,11 @@ sql:
           - db_type: "uuid"
             nullable: true
             go_type: "github.com/google/uuid.NullUUID"
+          - db_type: "email"
+            go_type: "string"
+          - db_type: "email"
+            nullable: true
+            go_type:
+              import: "github.com/jackc/pgx/v5/pgtype"
+              type: "Text"
+
