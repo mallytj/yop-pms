@@ -133,7 +133,6 @@ main() {
   fi
 
   # Truncate diff to ~15000 chars to stay within token limits
-  # Truncate diff to ~15000 chars to stay within token limits
   DIFF_TRUNCATED=$(printf "%s\n" "$DIFF" | head -c 15000)
   echo "Diff size: $(printf "%s\n" "$DIFF" | wc -c) bytes (truncated to 15000 for audit)"
   echo "::endgroup::"
@@ -194,9 +193,9 @@ $DIFF_TRUNCATED
 
     # Count severities (case-insensitive, count lines matching pattern)
     local blockers warnings obs icon
-    blockers=$(printf '%s' "$FINDINGS" | grep -ciE 'BLOCKER|Violation|blocker|violation' 2>/dev/null || echo 0)
-    warnings=$(printf '%s' "$FINDINGS" | grep -ciE 'WARNING|Risk|Friction|warning|risk|friction' 2>/dev/null || echo 0)
-    obs=$(printf '%s' "$FINDINGS" | grep -ciE 'OBSERVATION|Improvement|Polish|Nice-to-have|observation|improvement|polish|nice-to-have' 2>/dev/null || echo 0)
+    blockers=$(grep -ciE 'BLOCKER|Violation|blocker|violation' <<< "$FINDINGS" 2>/dev/null || echo 0)
+    warnings=$(grep -ciE 'WARNING|Risk|Friction|warning|risk|friction' <<< "$FINDINGS" 2>/dev/null || echo 0)
+    obs=$(grep -ciE 'OBSERVATION|Improvement|Polish|Nice-to-have|observation|improvement|polish|nice-to-have' <<< "$FINDINGS" 2>/dev/null || echo 0)
     # Ensure integer
     blockers=${blockers//[^0-9]/}
     warnings=${warnings//[^0-9]/}
