@@ -30,11 +30,10 @@ jobs:
         if: github.event_name == 'issue_comment'
         env:
           GH_TOKEN: ${{ github.token }}
-          COMMENT_ID: ${{ github.event.comment.id }}
         run: |
-          gh api \
-            repos/${{ github.repository }}/issues/comments/$COMMENT_ID/reactions \
-            -f content=eyes --silent
+          gh api --method POST \
+            "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -f content=eyes --silent 2>/dev/null || true
 
       - uses: actions/checkout@v4
 
