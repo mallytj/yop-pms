@@ -51,13 +51,18 @@ call_opencode() {
     return 1
   }
 
+  if ! printf "%s\n" "$response" | jq -e . >/dev/null 2>&1; then
+    echo "::warning::Invalid JSON response from API: $response"
+    return 1
+  fi
+
   # DeepSeek models put reasoning in reasoning_content, final answer in content.
   # Content may be empty if max_tokens consumed by reasoning; fall back gracefully.
   local content
-  content=$(echo "$response" | jq -r '.choices[0].message.content // ""')
+  content=$(printf "%s\n" "$response" | jq -r '.choices[0].message.content // ""')
   if [ -z "$content" ] || [ "$content" = "null" ]; then
     echo "::warning::Empty content from API — may need higher max_tokens or non-reasoning model"
-    echo "$response" | jq -r '.choices[0].message.reasoning_content // "No content returned"'
+    printf "%s\n" "$response" | jq -r '.choices[0].message.reasoning_content // "No content returned"'
     return 1
   fi
   echo "$content"
