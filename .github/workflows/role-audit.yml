@@ -26,6 +26,16 @@ jobs:
     timeout-minutes: 15
     if: github.event_name != 'issue_comment' || contains(github.event.comment.body, '@role-audit')
     steps:
+      - name: React to @role-audit comment
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          gh api \
+            repos/${{ github.repository }}/issues/comments/$COMMENT_ID/reactions \
+            -f content=eyes --silent
+
       - uses: actions/checkout@v4
 
       - name: Determine agents
