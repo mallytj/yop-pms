@@ -18,7 +18,7 @@ extract_prompt() {
   # Extract system prompt from agent file (everything after second ---).
   local file="$1"
   awk 'BEGIN { count=0 }
-       /^---$/ { count++; next }
+       /^---[[:space:]]*\r?$/ { count++; next }
        count >= 2 { print }' "$file"
 }
 
@@ -51,13 +51,18 @@ call_opencode() {
     return 1
   }
 
+  if ! printf "%s\n" "$response" | jq -e . >/dev/null 2>&1; then
+    echo "::warning::Invalid JSON response from API: $response"
+    return 1
+  fi
+
   # DeepSeek models put reasoning in reasoning_content, final answer in content.
   # Content may be empty if max_tokens consumed by reasoning; fall back gracefully.
   local content
-  content=$(echo "$response" | jq -r '.choices[0].message.content // ""')
+  content=$(printf "%s\n" "$response" | jq -r '.choices[0].message.content // ""')
   if [ -z "$content" ] || [ "$content" = "null" ]; then
     echo "::warning::Empty content from API — may need higher max_tokens or non-reasoning model"
-    echo "$response" | jq -r '.choices[0].message.reasoning_content // "No content returned"'
+    printf "%s\n" "$response" | jq -r '.choices[0].message.reasoning_content // "No content returned"'
     return 1
   fi
   echo "$content"
@@ -111,6 +116,11 @@ main() {
     exit 1
   fi
 
+  if [ -z "${GITHUB_REPOSITORY:-}" ]; then
+    echo "::error::GITHUB_REPOSITORY not set"
+    exit 1
+  fi
+
   echo "::group::Fetching PR diff"
   DIFF=$(gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" 2>&1) || {
     echo "::error::Failed to get PR diff: $DIFF"
@@ -123,8 +133,9 @@ main() {
   fi
 
   # Truncate diff to ~15000 chars to stay within token limits
-  DIFF_TRUNCATED=$(echo "$DIFF" | head -c 15000)
-  echo "Diff size: $(echo "$DIFF" | wc -c) bytes (truncated to 15000 for audit)"
+  # Truncate diff to ~15000 chars to stay within token limits
+  DIFF_TRUNCATED=$(printf "%s\n" "$DIFF" | head -c 15000)
+  echo "Diff size: $(printf "%s\n" "$DIFF" | wc -c) bytes (truncated to 15000 for audit)"
   echo "::endgroup::"
 
   # Agent list: env var AUDIT_AGENTS overrides default (cto,boutique,compliancy,ux).
@@ -247,7 +258,7 @@ $DETAILS
   # ── Post comment ───────────────────────────────────────────────────────
 
   echo "::group::Posting PR comment"
-  echo "$COMMENT" | gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file - 2>&1 || {
+  printf "%s\n" "$COMMENT" | gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file - 2>&1 || {
     echo "::error::Failed to post PR comment"
     exit 1
   }
