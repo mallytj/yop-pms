@@ -115,7 +115,7 @@ func (s *Service) createReservationInTx(
 	now := time.Now()
 
 	envLower, envUpper := computeEnvelope(input.Items)
-	expiresAt := computeExpiresAt(propertyID, input.Source, initial.ReservationStatus, now)
+	expiresAt := computeExpiresAt(input.Source, initial.ReservationStatus, now)
 
 	primaryGuestID, err := resolvePrimaryGuest(ctx, qtx, input, propertyID)
 	if err != nil {
