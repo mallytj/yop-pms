@@ -100,7 +100,7 @@ CREATE TABLE operations.properties (
 ALTER TABLE operations.properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE operations.properties FORCE ROW LEVEL SECURITY;
 CREATE POLICY property_licence_isolation_policy ON operations.properties 
-    USING (licence_id = current_setting('app.current_licence_id')::uuid, true);
+    USING (licence_id = current_setting('app.current_licence_id')::uuid);
 
 CREATE INDEX idx_properties_licence ON operations.properties (licence_id);
 CREATE UNIQUE INDEX idx_properties_addr_active ON operations.properties (licence_id, address) WHERE (deleted_at IS NULL);
