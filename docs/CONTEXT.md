@@ -99,6 +99,31 @@ config/                 generated constraints + runtime config
 
 ## Domain Terms
 
+### Tape Chart (Live Booking Grid)
+
+**Block** — A coloured bar spanning date columns in the grid. Each block represents one `reservation_item` (solid) or one `maintenance_block` (striped/diagonal). One row (room) × N date columns (stay period). Items from the same reservation share a colour accent for visual grouping.
+
+**Hold** — A reservation with `status=hold`. Unconfirmed; TTL-bound (`website_hold_ttl_seconds`, `internal_hold_ttl_seconds` in `property_settings`). Drawn as a dashed/outline block to distinguish from `confirmed`.
+
+**Room status (housekeeping)** — `clean → dirty → in_progress → inspected`. Also `out_of_service`, `linen_change`. Only visible on the housekeeping tape chart view — NOT on the reception planner. Determines room-row colour/icon in housekeeping mode.
+
+**Room condition** — `occupied | vacant | reserved | out_of_service | checked_out`. Cross-role view of whether a slot is usable. Drives basic cell affordance (empty cell clickable for create drag only if condition permits).
+
+**Drag modes** — Three interaction modes:
+  - **Create drag**: Drag down/right from empty cell → creates a new `reservation_item` with `status=hold`. Optimistic local update, server-validated on save.
+  - **Move drag**: Drag block body → changes room assignment or dates. For `status=checked_in` items this triggers the room-move flow (§2.3 of reservations flow); DNM check applies. Shortens/stretches stay as a single operation on the item (no split).
+  - **Resize drag**: Drag block edge → extends or shortens stay. Shorten = one operation on existing item, no split.
+
+**Conflict** — Validated on save. Three types:
+  - **Double-book**: Two reservation blocks same room/date
+  - **Maintenance overlap**: Reservation block × maintenance block same room/date. Maintenance is exclusive — someone should not be in a room during a maintenance period.
+  - **Status-locked**: Room condition blocks write (checked_in guest, out_of_service, past-night).
+  Conflict resolution: hold-expiry race is handled bidirectionally — local optimistic UI update, server validation on save, and SSE push from other sessions that overrides stale local state.
+
+**Today column** — Grid date column representing current date at property local time. Advances at midnight local time. Virtual scroll works both directions (past and future) — today is not locked to left edge.
+
+### Common (pre-existing)
+
 **Item (ReservationItem)** — A single room's stay within a reservation. Carries its own `stay_period` (TSTZRANGE), room assignment, occupancy (`adults_count`, `children_count`), rate plan, and status. Multiple items = multiple rooms. One item = one capacity consumption unit per night. The reservation's `stay_period_envelope` is the union of its items' periods (ADR-013).
 _Avoid_: Line item, room booking, sub-reservation
 
