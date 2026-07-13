@@ -38,7 +38,9 @@
   <!--toc:end-->
 
 > Sources: `docs/flows/reservations.md` (sequence diagrams),
-> `docs/requirements/reservations.md` (RTM), `docs/adr/*`, `AGENTS.md`.
+> `docs/requirements/reservations.md` (RTM — legacy, superseded by
+> [Agentic Engineering Workflow](../../docs/agentic-engineering-workflow.md)),
+> `docs/adr/*`, `AGENTS.md`.
 
 PR scope: full reservation API in **one PR** — CRUD + mutations + actions +
 rates + availability + workers + SSE scaffold. Payment auth, folios beyond stub,

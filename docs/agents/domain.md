@@ -4,7 +4,7 @@ How the engineering skills should consume this repo's domain documentation when 
 
 ## Before exploring, read these
 
-- **`CONTEXT.md`** at the repo root.
+- **`docs/CONTEXT.md`** — domain terms, doc tree, cheat sheet.
 - **`docs/adr/`** — read ADRs that touch the area you're about to work in.
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront.
@@ -15,7 +15,7 @@ Single-context repo:
 
 ```
 /
-├── CONTEXT.md
+├── docs/CONTEXT.md
 ├── docs/adr/
 │   ├── 0001-schema-first-api.md
 │   └── ...

@@ -8,23 +8,23 @@ the root `README.md`; agents read this.
 
 Go 1.23 (Chi) + SvelteKit 5 (Runes) + PostgreSQL 18 + Redis 7. SQLC for DB.
 Schema-first API: Swagger comments → OpenAPI 3 → TS types. Pure CSS
-frontend. Goose migrations. See `CLAUDE.md` (root) for commands.
+frontend. Goose migrations. See `AGENTS.md` (root) for commands.
 
 ## Doc tree
 
 ```
 docs/
-├── README.md              human entry point
-├── CONTEXT.md             this file
-├── TODO.md                outstanding structure changes (reservation API sprint)
-├── DEPLOYMENT.md          prod deploy / scaling
-├── adr/                   architecture decision records
-├── guides/                how-tos (constraints, testing, platform)
-├── requirements/          domain RTMs
-├── flows/                 sequence diagrams per flow
-├── database/              schema notes
-├── operations/            ops runbooks
-└── ideas/                 spike notes / unblessed proposals
+├── CONTEXT.md                   this file
+├── agentic-engineering-workflow.md
+├── adr/                         architecture decision records
+├── agents/                      agent skills hub (domain, issue-tracker, triage-labels)
+├── guides/                      how-tos (api-contracts, openapi-ts-usage)
+├── requirements/                legacy RTMs (superseded by agentic-engineering-workflow.md)
+├── flows/                       sequence diagrams per flow
+├── conventions/                 DB conventions, ERD
+├── pruned/                      deferred decisions (e.g. payment authorization)
+├── role-specs/                  role job spec templates
+└── loom-placeholder.*           screenshot placeholders for loom
 ```
 
 ## ADRs (`docs/adr/`)
@@ -43,13 +43,18 @@ Each is a hard, recorded decision. Read before contradicting.
 
 Pruned: 019 Payment authorization model (deferred to finance PR; see `docs/pruned/`).
 
-## Requirements (`docs/requirements/`)
+## Requirements — Legacy RTMs (`docs/requirements/`)
 
-- `reservations.md` — reservation API RTM (canonical for current sprint)
-- `reservation-groups.md` — groups (deferred)
-- `ota-channels.md` — OTA inbound (deferred; v1 pins enum + dead-letter)
-- `folios.md` — folio model (placeholder; finance PR)
-- `authorization.md` — role + permission resolution
+> **⚠️ SUPERSEDED** by [Agentic Engineering Workflow](agentic-engineering-workflow.md).
+> New requirements go in Linear Job Specs (Stage 4: to-spec).
+> These files exist as historical reference for implemented code.
+
+- `reservations.md` — reservation API RTM (legacy)
+- `reservation-groups.md` — groups (legacy, deferred)
+- `ota-channels.md` — OTA inbound (legacy, deferred)
+- `folios.md` — folio model (legacy, placeholder)
+- `authorization.md` — role + permission resolution (legacy, placeholder)
+- `db.md` — DB-level requirements (legacy)
 
 ## Flows (`docs/flows/`)
 
@@ -59,7 +64,6 @@ Pruned: 019 Payment authorization model (deferred to finance PR; see `docs/prune
 
 - `api-contracts.md` — response shapes, error codes, idempotency
 - `openapi-ts-usage.md` — generated TS types in frontend
-- `testing.md` — test patterns, mocks, testcontainers
 
 Platform packages self-document via Go package comments in `internal/platform/*`.
 
@@ -147,11 +151,11 @@ _Avoid_: Event log, activity feed, change history
 
 | Need to | Look at |
 | ------- | ------- |
-| understand a domain rule | `requirements/<domain>.md` §relevant |
+| understand a domain rule | `agentic-engineering-workflow.md` (new) or legacy `requirements/<domain>.md` |
 | see how a flow runs end-to-end | `flows/<domain>.md` |
 | know why something is the way it is | `adr/NNN-*.md` |
 | add a DB constraint | migration + `make gen-constraints` |
 | add an endpoint | handler + Swagger comment + `make gen` |
 | add a SQL query | `internal/store/queries/*.sql` + `make sqlc` |
-| know commands | root `CLAUDE.md` or `Makefile` |
-| see open work | `docs/TODO.md` |
+| know commands | root `AGENTS.md` or `Makefile` |
+| see ADR index | `docs/adr/README.md` |
