@@ -29,3 +29,4 @@ assets/
 /rtmcheck
 *.test
 /coverage.out
+skills-lock.json
