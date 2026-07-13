@@ -16,3 +16,4 @@ gha-creds-*.json
 /sync-constraints
 /rtmcheck
 *.test
+/coverage.out
