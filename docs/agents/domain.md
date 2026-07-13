@@ -17,7 +17,7 @@ Single-context repo:
 /
 ├── CONTEXT.md
 ├── docs/adr/
-│   ├── 001-schema-first-api.md
+│   ├── 0001-schema-first-api.md
 │   └── ...
 └── src/
 ```
