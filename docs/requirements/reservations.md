@@ -1,12 +1,18 @@
 # Reservation API RTM
 
+> **⚠️ SUPERSEDED** — This RTM format is legacy.
+>
+> Requirements now follow the [Agentic Engineering Workflow](../agentic-engineering-workflow.md):
+> Role Job Specs → Research → Domain Modeling → Feature Job Spec (role-grouped
+> requirements in Linear) → tickets → implement.
+>
+> This file exists purely as a reference for implemented code. New work must
+> not add requirements here — use Linear Job Specs per the workflow doc.
+>
 > Foundation requirements for the reservation domain. Edge cases live in section
 > 8 - every edge case maps to a test. `>` prepending a requirement ID indicates
 > that the requirement has been deferred, either because of the prune or
 > currently out of scope.
->
-> **NOTE** this approach to requirements has been changed to being done in
-> Linear based on Job specs instead of low level technical requirements.
 
 ## 1. Core CRUD
 

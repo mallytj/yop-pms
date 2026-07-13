@@ -3,6 +3,11 @@
 // internal/booking/. Deferred IDs are loaded from
 // docs/requirements/reservations.deferred.txt and skipped.
 //
+// **DEPRECATED** — RTM format superseded by Agentic Engineering Workflow
+// (docs/agentic-engineering-workflow.md). Existing IDs maintained for
+// historical traceability of implemented code. New work uses Linear Job
+// Specs; do not add new IDs to the RTM.
+//
 // Usage:
 //
 //	go run ./cmd/tools/rtmcheck            # warn-only, exit 0
