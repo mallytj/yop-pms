@@ -31,10 +31,12 @@ this role need from the system?"
 - Run `/grill-with-docs` per role to interview against the domain model
 - Use the Role Job Spec format: Who, Goals, Tasks, Data, Pain Points,
   Constraints, Draft Requirements
+- Write to `docs/role-specs/<feature>/<role>.md` so to-spec can pick them up
+  across sessions
 - **Gate:** `/run-audit full "Role Job Spec: <Role>"` — advisory agents review
   draft for blind spots (GDPR, scale, ops, UX)
 - Feed into Stage 4 (to-spec) — a Feature Job Spec draws from multiple Role Job
-  Specs
+  Specs in `docs/role-specs/<feature>/`
 
 ### Stage 2: Research (Pocock)
 

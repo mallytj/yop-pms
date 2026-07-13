@@ -4,6 +4,19 @@ Yop PMS uses a 6-stage agentic workflow from idea to shipped feature. Each stage
 
 Use `/ask-yop` at any point for guidance on which skill or stage to invoke next.
 
+## Before the pipeline: Wayfinder
+
+When a feature idea is too ambiguous for a Linear project draft, start with `/wayfinder`. It produces a map of decision tickets — work through them to clarify unknowns, then feed the answers into the Linear project draft.
+
+```mermaid
+flowchart LR
+    W["/wayfinder"] --> M[decision map]
+    M --> D[draft Linear project]
+    D -.->|prerequisite| P[pipeline]
+```
+
+Skip wayfinder when roles are clear and you have enough domain knowledge — go straight to the Linear project draft.
+
 ## Pipeline Overview
 
 Prerequisite: a draft Linear project with the roles this feature affects. Roles determine which Role Job Specs to create.
@@ -25,6 +38,8 @@ flowchart LR
 ## Stage 1: Role Job Spec
 
 Start from the Linear project draft — it defines which roles this feature affects. Those roles determine what to research and write specs for. Capture domain knowledge per role before feature planning. If no knowledge exists for a role, research first — then interview against the domain model. Advisory review catches blind spots after the draft.
+
+Output: `docs/role-specs/<feature>/<role>.md` — one file per role, git-tracked, readable by to-spec across sessions.
 
 ```mermaid
 flowchart TD

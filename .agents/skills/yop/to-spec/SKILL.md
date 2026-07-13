@@ -14,7 +14,7 @@ The issue tracker and triage labels are configured. Templates live in Linear.
 
 1. Explore the repo to understand current codebase state. Use the project's domain glossary vocabulary and respect ADRs in the area.
 
-2. Identify the Role Job Specs that feed into this feature. A Feature Job Spec draws from one or more Role Job Specs. Reference them in the Inputs section.
+2. Identify the Role Job Specs that feed into this feature. A Feature Job Spec draws from one or more Role Job Specs. They live under `docs/role-specs/<feature>/<role>.md`. Reference them in the Inputs section.
 
 3. Sketch testing seams — highest seam possible, prefer existing seams. Check with the user that seams match expectations.
 
