@@ -26,7 +26,7 @@ type Querier interface {
 	CreateGuest(ctx context.Context, arg *CreateGuestParams) (IdentityGuest, error)
 	CreateOutboxEvent(ctx context.Context, arg *CreateOutboxEventParams) (uuid.UUID, error)
 	// Reservation CRUD queries
-	// See ADR-015 for state machine, ADR-020 for stay_period_envelope
+	// See ADR-009 for state machine, ADR-013 for stay_period_envelope
 	CreateReservation(ctx context.Context, arg *CreateReservationParams) (OperationsReservation, error)
 	CreateReservationItem(ctx context.Context, arg *CreateReservationItemParams) (OperationsReservationItem, error)
 	DeleteLedgerForReservation(ctx context.Context, arg *DeleteLedgerForReservationParams) error
@@ -49,16 +49,16 @@ type Querier interface {
 	GetReservationItems(ctx context.Context, arg *GetReservationItemsParams) ([]OperationsReservationItem, error)
 	GetRoomTypeOccupancy(ctx context.Context, arg *GetRoomTypeOccupancyParams) (GetRoomTypeOccupancyRow, error)
 	InsertLedgerRow(ctx context.Context, arg *InsertLedgerRowParams) error
-	// Cursor pagination per ADR-014
+	// Cursor pagination per ADR-008
 	ListReservations(ctx context.Context, arg *ListReservationsParams) ([]OperationsReservation, error)
 	NotifyChannel(ctx context.Context, arg *NotifyChannelParams) error
 	ReactivateReservationItems(ctx context.Context, arg *ReactivateReservationItemsParams) error
 	// Reservation items queries
-	// See ADR-015 for rollup rule, ADR-013 for locking & availability
-	// ADR-015 rollup: item status changes drive reservation status
+	// See ADR-009 for rollup rule, ADR-007 for locking & availability
+	// ADR-009 rollup: item status changes drive reservation status
 	// Returns new_status TEXT (NULL = unchanged)
 	RollupReservationStatus(ctx context.Context, reservationID uuid.UUID) (string, error)
-	// ADR-013: Auto-pin lowest available room of requested type
+	// ADR-007: Auto-pin lowest available room of requested type
 	// Uses LEFT JOIN with FOR UPDATE on the rooms side, not the outer join.
 	SelectRoomForAutoPin(ctx context.Context, arg *SelectRoomForAutoPinParams) (uuid.UUID, error)
 	// Cross-cutting queries used by ExecuteTx and notification infrastructure.

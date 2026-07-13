@@ -33,7 +33,7 @@ All code, documentation, and infrastructure lives in one repository. A single
 Swagger annotations in Go handlers are the single source of truth. `make gen`
 produces `/api/openapi.json` and generates `/web/src/lib/types/api.d.ts` — the
 frontend never defines its own API types. See
-[ADR-003](./docs/adr/003-schema_first_api.md).
+[ADR-001](./docs/adr/001-schema-first-api.md).
 
 ### Three-Layer Backend
 
@@ -82,8 +82,8 @@ primary freshness mechanism. See
 - **Soft deletes** — `deleted_at TIMESTAMPTZ`; uniqueness indexes use
   `WHERE (deleted_at IS NULL)`
 
-See [ADR-004](./docs/adr/004-core_db_principles.md) and
-[Database Conventions](./docs/conventions/database.md).
+See [ADR-002](./docs/adr/002-core-db-principles.md) and
+[Database Conventions](./docs/database/conventions.md).
 
 ## Getting Started
 

@@ -32,7 +32,7 @@ type CreateReservationParams struct {
 }
 
 // Reservation CRUD queries
-// See ADR-015 for state machine, ADR-020 for stay_period_envelope
+// See ADR-009 for state machine, ADR-013 for stay_period_envelope
 func (q *Queries) CreateReservation(ctx context.Context, arg *CreateReservationParams) (OperationsReservation, error) {
 	row := q.db.QueryRow(ctx, createReservation,
 		arg.PropertyID,
@@ -221,7 +221,7 @@ type ListReservationsParams struct {
 	Limit      int32              `json:"limit"`
 }
 
-// Cursor pagination per ADR-014
+// Cursor pagination per ADR-008
 func (q *Queries) ListReservations(ctx context.Context, arg *ListReservationsParams) ([]OperationsReservation, error) {
 	rows, err := q.db.Query(ctx, listReservations,
 		arg.PropertyID,

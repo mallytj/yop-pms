@@ -1,7 +1,7 @@
 // Package realtime provides a Server-Sent Events hub that fans out PostgreSQL
 // LISTEN/NOTIFY events to connected browser clients via HTTP.
 //
-// Core Requirements: [R-RES-INTEG-003], [ADR-017]
+// Core Requirements: [R-RES-INTEG-003], [ADR-011]
 //
 // The Hub registers as a handler on internal/platform/events.Listener (no own
 // pgx connection). It uses a simple mutex to guard the client map — no select

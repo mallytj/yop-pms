@@ -1,6 +1,6 @@
 package booking
 
-// Availability edge-case tests: R-RES-AVAIL-001, R-RES-AVAIL-002, R-RES-AVAIL-003, ADR-013.
+// Availability edge-case tests: R-RES-AVAIL-001, R-RES-AVAIL-002, R-RES-AVAIL-003, ADR-007.
 
 import (
 	"context"

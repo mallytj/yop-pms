@@ -52,7 +52,7 @@
   `reservations:rate_override`
 - R-RES-CRUD-017: `POST /reservations/{id}/items` - add item to non-terminal
   reservation. Triggers availability check, ledger pin, booked_daily_rates
-  insert, envelope recompute (ADR-020), version bump. 409 if terminal.
+  insert, envelope recompute (ADR-013), version bump. 409 if terminal.
   Permission: `reservations:add_item`
 - R-RES-CRUD-018: `POST /reservations/{id}/confirm` - hold→confirmed (staff
   path). Idempotent on confirmed. Requires guest attached. Permission:
@@ -66,8 +66,8 @@
 - R-RES-AVAIL-003: Per-room overlap: DB EXCLUDE on reservation_items + ledger
   UNIQUE(room_id, calendar_date). Per-type overlap: app-level available count.
   Auto-pin at hold converts type-race → room-race → DB resolves
-- R-RES-AVAIL-004: Concurrent attempts for same room/date serialised per ADR-013
-- R-RES-AVAIL-005: ~~housekeeping_buffer_minutes~~ superseded by ADR-018.
+- R-RES-AVAIL-004: Concurrent attempts for same room/date serialised per ADR-007
+- R-RES-AVAIL-005: ~~housekeeping_buffer_minutes~~ superseded by ADR-012.
   Same-day turnover from gap between default_checkout_time and
   default_checkin_time. Buffer advisory only
 - R-RES-AVAIL-006: Rejected overlap reports specific conflicting dates
@@ -117,7 +117,7 @@
 - R-RES-VALID-002: lower(stay_period) not before today (UTC, tz-aware). Except:
   `reservations:retroactive_create` or is_walkin=true
 - R-RES-VALID-003: Stay period ≤ max stay length (property setting)
-- R-RES-VALID-004: All mutations require `Idempotency-Key` header (ADR-007)
+- R-RES-VALID-004: All mutations require `Idempotency-Key` header (ADR-004)
 - R-RES-VALID-005: Idempotency-Key with different body → 409
 - R-RES-VALID-006: Status transitions follow state machine (§7)
 - R-RES-VALID-007: Cancelled reservation not mutable except via reactivation —
@@ -134,7 +134,7 @@
 - R-RES-VALID-014: Cancel of `hold` → no folio tx. fee_pence/waive_fee ignored.
   Worker-driven expiry likewise posts no fee
 - R-RES-VALID-015: Body accepts arrival/departure as DATE; server composes
-  TSTZRANGE with property check-in/out times (ADR-018). Explicit timestamps
+  TSTZRANGE with property check-in/out times (ADR-012). Explicit timestamps
   require `reservations:override_restrictions`
 
 ## 6. Integration Points
@@ -153,7 +153,7 @@
 - R-RES-INTEG-007: Hold-expiry worker: cancels holds past source TTL
   (per-source, per-property, M4). Deletes ledger rows, marks checkout_session
   expired, NOTIFY. Multi-tier TTL for guest-attached vs anonymous internal holds
-  (ADR-016)
+  (ADR-010)
 - R-RES-INTEG-008: Archival worker: terminal reservations older than
   `reservation_archive_after_days` (M4, default 365) → `archived`, soft-archive
   items + folios. Excluded from default list; opt-in via
@@ -191,7 +191,7 @@ via `app.current_property_id`. See companion
 ## 7. State Machines
 
 Reservation and item have separate state machines. Item transitions drive
-reservation rollup (see ADR-015).
+reservation rollup (see ADR-009).
 
 ### 7.1 Reservation status (`operations.reservation_status`)
 
@@ -252,7 +252,7 @@ stateDiagram-v2
 - ≥1 item `checked_in` AND no items `booked` → reservation `checked_in`
 - Otherwise reservation status unchanged
 
-Captured in ADR-015.
+Captured in ADR-009.
 
 ### 7.4 Action endpoint idempotency
 
@@ -301,7 +301,7 @@ graph TD
 | R-RES-EDGE-003 | Reactivating when original dates now conflicted                          | R-RES-CRUD-006 re-checks. 409 with conflict dates                                                               |
 | R-RES-EDGE-004 | Reservation spanning rate plan boundary                                  | Each night resolved against rate plan in force on that calendar date (R-RES-RATE-001)                           |
 | R-RES-EDGE-005 | Cancelling one item in multi-room reservation                            | Item-level cancel via PATCH item; rollup unchanged unless all items terminal                                    |
-| R-RES-EDGE-006 | Idempotency key retry with identical body                                | ADR-007: cached response returned                                                                               |
+| R-RES-EDGE-006 | Idempotency key retry with identical body                                | ADR-004: cached response returned                                                                               |
 | R-RES-EDGE-007 | Booking against room in maintenance block                                | R-RES-AVAIL-012: ledger UNIQUE rejects. 409 with maintenance block dates                                        |
 | R-RES-EDGE-008 | Maintenance required during active stay                                  | Maintenance block creation rejected if overlapping sold ledger rows. Staff must reassign first                  |
 | R-RES-EDGE-009 | Guest has open folio balance at cancellation                             | Cancel proceeds; folio balance preserved. Refund per `refund_action` in R-RES-CRUD-005                          |
@@ -339,7 +339,7 @@ graph TD
 | R-RES-EDGE-041 | Reactivation attempted on past reservation                               | 409 if `lower(stay_period) < today` (unless `reservations:retroactive_create`)                                  |
 | R-RES-EDGE-042 | Reservation cancelled and reactivated multiple times                     | Allowed; each cycle audited                                                                                     |
 | R-RES-EDGE-043 | Server crash after lock acquired but before reservation committed        | R-RES-INTEG-007 recovers stale holds                                                                            |
-| R-RES-EDGE-044 | Same Idempotency-Key arrives in parallel                                 | ADR-007: atomic Redis SET NX; second request waits or 409s                                                      |
+| R-RES-EDGE-044 | Same Idempotency-Key arrives in parallel                                 | ADR-004: atomic Redis SET NX; second request waits or 409s                                                      |
 | R-RES-EDGE-045 | Concurrent update and cancel for same reservation                        | R-RES-VALID-012 (If-Match) — second mutation 412                                                                |
 | R-RES-EDGE-046 | Server crash during reservation creation                                 | Tx rolled back. Idempotency-Key replay completes the create                                                     |
 | R-RES-EDGE-047 | Room available at check time, unavailable at booking time                | Auto-pin at hold (R-RES-AVAIL-009) resolves to per-room DB conflict                                             |
@@ -363,7 +363,7 @@ graph TD
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | `POST`   | `/api/v1/reservations`                                                                                                                                                           | Create reservation (source-aware)                  |
 | `GET`    | `/api/v1/reservations/{id}`                                                                                                                                                      | Get reservation by ID                              |
-| `GET`    | `/api/v1/reservations?property_id=&date_from=&date_to=&status[]=&source[]=&group_id=&travel_agent_id=&assigned_room_id=&room_type_id=&q=&sort=&cursor=&limit=&include_archived=` | List reservations (cursor pagination, see ADR-014) |
+| `GET`    | `/api/v1/reservations?property_id=&date_from=&date_to=&status[]=&source[]=&group_id=&travel_agent_id=&assigned_room_id=&room_type_id=&q=&sort=&cursor=&limit=&include_archived=` | List reservations (cursor pagination, see ADR-008) |
 | `PATCH`  | `/api/v1/reservations/{id}`                                                                                                                                                      | Update reservation metadata (R-RES-CRUD-004a)      |
 | `PATCH`  | `/api/v1/reservations/{id}/items/{item_id}`                                                                                                                                      | Update reservation item (R-RES-CRUD-004b)          |
 | `POST`   | `/api/v1/reservations/{id}/cancel`                                                                                                                                               | Cancel reservation (R-RES-CRUD-005)                |
@@ -400,7 +400,7 @@ graph TD
 | R-RES-WORKER-002 | Archival          | Daily                                 | See R-RES-INTEG-008                                                                                                                             |
 | R-RES-WORKER-003 | No-show sweep     | Daily after configured no-show grace  | Mark un-checked-in items past `lower(stay_period) + no_show_grace_minutes` as `no_show`                                                         |
 | R-RES-WORKER-004 | Outbox dispatcher | Continuous (existing platform/worker) | Emails per R-RES-INTEG-004                                                                                                                      |
-| R-RES-WORKER-005 | Overstay sweep    | Every N minutes                       | Select `checked_in` items where `now() > upper(stay_period) + late_checkout_grace_minutes`; transition to `overstay`. Notify dashboard. ADR-018 |
+| R-RES-WORKER-005 | Overstay sweep    | Every N minutes                       | Select `checked_in` items where `now() > upper(stay_period) + late_checkout_grace_minutes`; transition to `overstay`. Notify dashboard. ADR-012 |
 
 ## 11. Schema Migrations Required
 
@@ -415,26 +415,26 @@ graph TD
 | M3  | Add `'maintenance'` to `inventory.inventory_status` enum + nullable `maintenance_block_id UUID` FK on ledger; relax CHECK to allow maintenance rows                                                                                                                                                  |
 | M4  | Property settings: `website_hold_ttl_seconds`, `internal_hold_ttl_seconds`, `reservation_archive_after_days`, `housekeeping_buffer_minutes`, `no_show_grace_minutes`                                                                                                                                 |
 | M5  | `operations.ota_inbound_messages (channel_id, channel_message_id, processed_at, response_jsonb, action)`. Prerequisite: `CREATE TYPE operations.ota_action AS ENUM ('create','modify','cancel')`. Schema details for OTA cancel-target lookup deferred to ota-channels.md                            |
-| M6  | `operations.reservations.stay_period_envelope TSTZRANGE NOT NULL`. GIST index on `(property_id, stay_period_envelope)`. (ADR-020)                                                                                                                                                                    |
+| M6  | `operations.reservations.stay_period_envelope TSTZRANGE NOT NULL`. GIST index on `(property_id, stay_period_envelope)`. (ADR-013)                                                                                                                                                                    |
 | M7  | Extend `operations.reservation_item_status` with `'overstay'`. Add transitions per §7.2                                                                                                                                                                                                              |
 | M8  | Rename `operations.checkout_sessions` → `operations.payment_authorizations`. Add `provider`, `auth_id`, `expires_at`, `captured_at`, `voided_at`. (ADR-019 — deferred to finance PR)                                                                                                                 |
-| M9! | **DESTRUCTIVE — single transaction.** Rewrites every `operations.reservations.stay_period` row to property-time bounds (`default_checkin_time`, `default_checkout_time`). Irreversible without migration log. Bang suffix marks atomicity requirement. (ADR-018)                                     |
+| M9! | **DESTRUCTIVE — single transaction.** Rewrites every `operations.reservations.stay_period` row to property-time bounds (`default_checkin_time`, `default_checkout_time`). Irreversible without migration log. Bang suffix marks atomicity requirement. (ADR-012)                                     |
 | M10 | Fix `pricing.booked_daily_rates` unique constraint: drop `UNIQUE (reservation_item_id, calendar_date)`, replace with partial `UNIQUE (reservation_item_id, calendar_date) WHERE (deleted_at IS NULL)`. Required for soft-delete + re-insert pattern (§2.6, §3.4, §2.1). Per convention in CLAUDE.md. |
 | M12 | Add `daily_room_capacity INT CHECK (daily_room_capacity > 0)` (nullable = unlimited) to `pricing.daily_price_grid`. Rate plan capacity per calendar date. Override requires `reservations:override_rate_plan_capacity`.                                                                              |
 | M11 | Add `'pending_cancellation'` to `operations.reservation_status` enum. Sits between cancel-initiation and terminal `cancelled`. Finance PR owns the `pending_cancellation → cancelled` transition (fee collection gate).                                                                              |
 
 ## 12. Related ADRs
 
-- ADR-007: Idempotency-Key enforcement
+- ADR-004: Idempotency-Key enforcement
 - ADR-008: Redis caching layer
 - ADR-010: Reactive cache invalidation
-- ADR-012: Transactional outbox worker
-- ADR-013: Locking + availability strategy
-- ADR-014: Cursor pagination convention
-- ADR-015: State machine rollup rule
-- ADR-016: Guest-aware hold TTLs
-- ADR-017: Real-time frontend updates via SSE
-- ADR-018: `stay_period` time semantics
+- ADR-006: Transactional outbox worker
+- ADR-007: Locking + availability strategy
+- ADR-008: Cursor pagination convention
+- ADR-009: State machine rollup rule
+- ADR-010: Guest-aware hold TTLs
+- ADR-011: Real-time frontend updates via SSE
+- ADR-012: `stay_period` time semantics
 - ADR-019: Payment authorization model (deferred impl)
-- ADR-020: `stay_period_envelope` materialised column
-- ADR-022: Response depth control via `?include=` query parameter
+- ADR-013: `stay_period_envelope` materialised column
+- ADR-015: Response depth control via `?include=` query parameter

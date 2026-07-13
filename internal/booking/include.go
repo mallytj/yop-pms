@@ -1,6 +1,6 @@
 package booking
 
-// Satisfies ADR-022
+// Satisfies ADR-015
 
 import (
 	"context"

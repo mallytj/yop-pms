@@ -1,6 +1,6 @@
 package booking
 
-// Core Requirements: R-RES-CRUD-004, R-RES-CRUD-005, R-RES-CRUD-006, R-RES-LIFECYCLE-001, ADR-015
+// Core Requirements: R-RES-CRUD-004, R-RES-CRUD-005, R-RES-CRUD-006, R-RES-LIFECYCLE-001, ADR-009
 
 // lifecycle.go — Reservation lifecycle handlers:
 //   - HTTP handlers: Confirm, Cancel, Reactivate, CheckinReservation, CheckinItem,

@@ -1,5 +1,5 @@
 -- Reservation CRUD queries
--- See ADR-015 for state machine, ADR-020 for stay_period_envelope
+-- See ADR-009 for state machine, ADR-013 for stay_period_envelope
 
 -- name: CreateReservation :one
 INSERT INTO operations.reservations (
@@ -46,7 +46,7 @@ LEFT JOIN operations.reservation_items i ON r.id = i.reservation_id AND i.delete
 WHERE r.id = @id AND r.deleted_at IS NULL
 GROUP BY r.id;
 
--- Cursor pagination per ADR-014
+-- Cursor pagination per ADR-008
 -- name: ListReservations :many
 SELECT r.* 
 FROM operations.reservations r

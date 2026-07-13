@@ -8,7 +8,7 @@ wiill become heavily timeconsuming.
 Use `openapi` combined with `swagger` for contract generation Use
 `openapi-fetch` for the requests
 
-See [ADR-003](../adr/003-schema_first_api.md)
+See [ADR-001](../adr/001-schema-first-api.md)
 
 ## Setup
 

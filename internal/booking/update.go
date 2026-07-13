@@ -1,7 +1,7 @@
 package booking
 
 // Core Requirements: R-RES-CRUD-003, R-RES-CRUD-010, R-RES-CRUD-011, R-RES-CRUD-012,
-// R-RES-RATE-001, R-RES-RATE-002, R-RES-RATE-003, ADR-021
+// R-RES-RATE-001, R-RES-RATE-002, R-RES-RATE-003, ADR-014
 
 // update.go — Reservation mutation and miscellaneous handlers:
 //   - HTTP handlers: UpdateMetadata, AddItem, UpdateItem, AssignRoom,

@@ -1,7 +1,7 @@
 /**
  * Realtime SSE stream — Svelte 5 Rune-based EventSource wrapper.
  *
- * Core Requirements: [R-RES-INTEG-003], [ADR-017]
+ * Core Requirements: [R-RES-INTEG-003], [ADR-011]
  *
  * Usage:
  *   // In root +layout.svelte (once per tab)

@@ -41,7 +41,7 @@ func (s *Service) GetReservation(ctx context.Context, id uuid.UUID, include Incl
 }
 
 // ListReservations returns a cursor-paginated list of reservations for the property
-// in context (ADR-014). Default limit is 50; max is 200.
+// in context (ADR-008). Default limit is 50; max is 200.
 func (s *Service) ListReservations(ctx context.Context, params ListParams) ([]ReservationResponse, error) {
 	propertyID := helpers.GetPropertyIDFromCtx(ctx)
 	if propertyID == uuid.Nil {
