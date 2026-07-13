@@ -425,16 +425,19 @@ graph TD
 
 ## 12. Related ADRs
 
-- ADR-004: Idempotency-Key enforcement
-- ADR-008: Redis caching layer
-- ADR-010: Reactive cache invalidation
-- ADR-006: Transactional outbox worker
-- ADR-007: Locking + availability strategy
-- ADR-008: Cursor pagination convention
-- ADR-009: State machine rollup rule
-- ADR-010: Guest-aware hold TTLs
-- ADR-011: Real-time frontend updates via SSE
-- ADR-012: `stay_period` time semantics
-- ADR-019: Payment authorization model (deferred impl)
-- ADR-013: `stay_period_envelope` materialised column
-- ADR-015: Response depth control via `?include=` query parameter
+- ADR-001: Schema-First API
+- ADR-002: Core DB Principles
+- ADR-003: Error Handling
+- ADR-004: Idempotency-Key
+- ADR-005: Check-Constraint Consistency
+- ADR-006: Transactional Outbox
+- ADR-007: Locking & Availability
+- ADR-008: Cursor Pagination
+- ADR-009: State Machine Rollup
+- ADR-010: Guest-Aware Hold TTLs
+- ADR-011: Real-Time Frontend via SSE
+- ADR-012: `stay_period` Time Semantics
+- ADR-013: `stay_period_envelope` Materialised Column
+- ADR-014: Audit Logs via DB Trigger
+- ADR-015: Response Depth via `?include=`
+- ADR-019 (pruned): Payment Authorization Model (deferred to finance PR)

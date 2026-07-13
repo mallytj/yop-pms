@@ -23,7 +23,7 @@ Cache decision
 > **Per-reservation Redis cache.** Individual reservation objects are NOT cached
 > by ID. Availability cache (`cache:availability:*`) and idempotency keys remain
 > in Redis. All mutations emit `NOTIFY reservation_changes` for reactive
-> frontend updates (ADR-010, ADR-011).
+> frontend updates (ADR-011).
 
 Defer
 
@@ -810,7 +810,7 @@ sequenceDiagram
     API->>DB: COMMIT
     API-->>Staff: 200 {item, status=checked_in}
 
-    Note over DB: Reservation stays confirmed until ALL items leave booked state (ADR-010 rollup)
+    Note over DB: Reservation stays confirmed until ALL items leave booked state (ADR-009 rollup)
 
     Staff->>API: PATCH /reservations/{id}/items/{item_b}/checkin If-Match: {item_version}
     API->>API: Check permission reservations:update
@@ -1304,7 +1304,7 @@ sequenceDiagram
         API->>DB: Check LOS restrictions from price grid (min_los, max_los, occupancy)
         API->>DB: Check housekeeping buffer (property_settings.housekeeping_buffer_minutes)
         DB-->>API: {total: 4, blocked_per_date: {2026-06-01: 1, 2026-06-02: 2}}
-        API->>Redis: SET cache:availability:... (long TTL - safety net, invalidated via NOTIFY per ADR-010)
+        API->>Redis: SET cache:availability:... (long TTL - safety net; invalidation by NOTIFY planned for YOP-39 follow-up)
         API-->>Client: 200 {available: true, remaining_count: 2, per_date: {...}}
     end
 ```

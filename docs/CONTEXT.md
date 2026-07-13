@@ -99,12 +99,12 @@ config/                 generated constraints + runtime config
 
 ## Domain Terms
 
-**Item (ReservationItem)** — A single room's stay within a reservation. Carries its own `stay_period` (TSTZRANGE), room assignment, occupancy (`adults_count`, `children_count`), rate plan, and status. Multiple items = multiple rooms. One item = one capacity consumption unit per night. The reservation's `stay_period_envelope` is the union of its items' periods (ADR-007).
+**Item (ReservationItem)** — A single room's stay within a reservation. Carries its own `stay_period` (TSTZRANGE), room assignment, occupancy (`adults_count`, `children_count`), rate plan, and status. Multiple items = multiple rooms. One item = one capacity consumption unit per night. The reservation's `stay_period_envelope` is the union of its items' periods (ADR-013).
 _Avoid_: Line item, room booking, sub-reservation
 
 **Property Settings** — Per-property operational configuration stored as columns on `operations.property_settings`. Includes hold TTLs (`website_hold_ttl_seconds`, `internal_hold_ttl_seconds`), checkout grace periods (`late_checkout_grace_minutes`), archive thresholds (`reservation_archive_after_days`), and no-show grace (`no_show_grace_minutes`). Read on every hold-create and every worker tick.
 
-**Audit Log** — Immutable record in `auth.audit_logs` of every INSERT/UPDATE/DELETE on `reservations` and `reservation_items`. Written automatically by database trigger (ADR-008), never by application code. Records `user_id`, `action`, `entity`, `entity_id`, and a `changes JSONB` diff.
+**Audit Log** — Immutable record in `auth.audit_logs` of every INSERT/UPDATE/DELETE on `reservations` and `reservation_items`. Written automatically by database trigger (ADR-014), never by application code. Records `user_id`, `action`, `entity`, `entity_id`, and a `changes JSONB` diff.
 _Avoid_: Event log, activity feed, change history
 
 **Admin/Tab Room** — A house reservation kept permanently in `checked_in` used as a holding account for outstanding balances. When a guest's folio cannot be settled at checkout (e.g. corporate billing, disputed charge), staff transfers the balance to the Admin/Tab Room folio before checking the guest out. Folio transfer is a finance PR concern. Checkout hard-blocks on `balance > 0` — this is the standard resolution path.
