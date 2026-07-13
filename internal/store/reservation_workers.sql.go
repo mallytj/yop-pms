@@ -18,7 +18,7 @@ FROM
   operations.reservations
 WHERE
   status IN ('checked_out', 'cancelled')
-  AND updated_at < NOW() - (365 || ' days') ::INTERVAL
+  AND updated_at < NOW() - '365 days'::INTERVAL
 ORDER BY
   updated_at ASC
 LIMIT 500 FOR UPDATE SKIP LOCKED
@@ -117,7 +117,7 @@ FROM
   operations.reservation_items
 WHERE
   status = 'booked'
-  AND LOWER(stay_period) + (100 || ' minutes') ::INTERVAL < NOW()
+  AND LOWER(stay_period) + '10 minutes'::INTERVAL < NOW()
 `
 
 func (q *Queries) FindOverdueCheckins(ctx context.Context) ([]OperationsReservationItem, error) {
@@ -165,7 +165,7 @@ FROM
   operations.reservation_items
 WHERE
   status = 'checked_in'
-  AND NOW() > UPPER(stay_period) + (100 || ' minutes') ::INTERVAL
+  AND NOW() > UPPER(stay_period) + '100 minutes'::INTERVAL
 ORDER BY
   updated_at ASC
 LIMIT 100 FOR UPDATE SKIP LOCKED

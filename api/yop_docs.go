@@ -423,42 +423,6 @@ const docTemplateyop = `{
                 }
             }
         },
-        "/v1/reservations/{id}/cancellation-quote": {
-            "get": {
-                "description": "Estimate cancellation fees before committing to cancel.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Reservations"
-                ],
-                "summary": "Get cancellation quote",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Property UUID",
-                        "name": "X-Property-ID",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Reservation UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "501": {
-                        "description": "Not implemented",
-                        "schema": {
-                            "$ref": "#/definitions/internal_booking.CancellationQuoteResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/reservations/{id}/checkin": {
             "patch": {
                 "description": "Batch check-in all items on a reservation. Returns per-item results.",
@@ -634,49 +598,6 @@ const docTemplateyop = `{
                 }
             }
         },
-        "/v1/reservations/{id}/folios/{folio_id}": {
-            "get": {
-                "description": "Fetch folio details for a reservation.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Reservations"
-                ],
-                "summary": "Get reservation folio",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Property UUID",
-                        "name": "X-Property-ID",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Reservation UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Folio UUID",
-                        "name": "folio_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "501": {
-                        "description": "Not implemented",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/reservations/{id}/items": {
             "post": {
                 "description": "Add a new room item to an existing reservation.",
@@ -842,86 +763,6 @@ const docTemplateyop = `{
                 }
             }
         },
-        "/v1/reservations/{id}/items/{item_id}/adjust-rate": {
-            "post": {
-                "description": "Apply percentage or fixed discount/surcharge to a nightly rate.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Reservations"
-                ],
-                "summary": "Adjust nightly rate",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Property UUID",
-                        "name": "X-Property-ID",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Reservation UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Item UUID",
-                        "name": "item_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Version for optimistic concurrency",
-                        "name": "If-Match",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "description": "Adjustment payload",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_booking.RateAdjustInput"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_booking.ReservationResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid ID or X-Property-ID",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
-                        }
-                    },
-                    "404": {
-                        "description": "Item not found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
-                        }
-                    },
-                    "422": {
-                        "description": "Validation failed",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
-                        }
-                    }
-                }
-            }
-        },
         "/v1/reservations/{id}/items/{item_id}/assign-room": {
             "patch": {
                 "description": "Assign or reassign a physical room to a reservation item.",
@@ -1001,207 +842,6 @@ const docTemplateyop = `{
                     },
                     "422": {
                         "description": "Validation failed",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/reservations/{id}/items/{item_id}/booked-rates": {
-            "get": {
-                "description": "Fetch booked daily rates for a reservation item.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Reservations"
-                ],
-                "summary": "Get booked daily rates",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Property UUID",
-                        "name": "X-Property-ID",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Reservation UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Item UUID",
-                        "name": "item_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid ID",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
-                        }
-                    },
-                    "404": {
-                        "description": "Item not found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "description": "Override base rates for a reservation item.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Reservations"
-                ],
-                "summary": "Update booked daily rates",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Property UUID",
-                        "name": "X-Property-ID",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Reservation UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Item UUID",
-                        "name": "item_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Version for optimistic concurrency",
-                        "name": "If-Match",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "description": "Rate override payload",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_booking.RateAdjustInput"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_booking.ReservationResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid ID or X-Property-ID",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
-                        }
-                    },
-                    "404": {
-                        "description": "Item not found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
-                        }
-                    },
-                    "422": {
-                        "description": "Validation failed",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/reservations/{id}/items/{item_id}/booked-rates/approve": {
-            "post": {
-                "description": "Approve pending rate adjustments for a reservation item.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Reservations"
-                ],
-                "summary": "Approve rate adjustments",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Property UUID",
-                        "name": "X-Property-ID",
-                        "in": "header",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Reservation UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Item UUID",
-                        "name": "item_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Version for optimistic concurrency",
-                        "name": "If-Match",
-                        "in": "header",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_booking.ReservationResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid ID or X-Property-ID",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
-                        }
-                    },
-                    "404": {
-                        "description": "Item not found",
                         "schema": {
                             "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
                         }
@@ -1690,66 +1330,8 @@ const docTemplateyop = `{
                 }
             }
         },
-        "github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate": {
-            "type": "object",
-            "properties": {
-                "adjustment": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "adjustment_approved": {
-                    "type": "boolean"
-                },
-                "adjustment_approved_by_user_id": {
-                    "$ref": "#/definitions/uuid.NullUUID"
-                },
-                "base_price_pence": {
-                    "type": "integer"
-                },
-                "calendar_date": {
-                    "$ref": "#/definitions/pgtype.Date"
-                },
-                "created_at": {
-                    "$ref": "#/definitions/pgtype.Timestamptz"
-                },
-                "deleted_at": {
-                    "$ref": "#/definitions/pgtype.Timestamptz"
-                },
-                "final_price_pence": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "property_id": {
-                    "type": "string"
-                },
-                "rate_plan_id": {
-                    "$ref": "#/definitions/uuid.NullUUID"
-                },
-                "reservation_item_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "$ref": "#/definitions/pgtype.Timestamptz"
-                }
-            }
-        },
         "internal_booking.AddItemInput": {
             "type": "object"
-        },
-        "internal_booking.AdjustmentType": {
-            "type": "string",
-            "enum": [
-                "percentage",
-                "fixed"
-            ],
-            "x-enum-varnames": [
-                "AdjustmentPercent",
-                "AdjustmentFixed"
-            ]
         },
         "internal_booking.AssignRoomInput": {
             "type": "object",
@@ -1871,17 +1453,6 @@ const docTemplateyop = `{
                 "waive_fee": {
                     "type": "boolean",
                     "example": false
-                }
-            }
-        },
-        "internal_booking.CancellationQuoteResponse": {
-            "type": "object",
-            "properties": {
-                "fee_pence": {
-                    "type": "integer"
-                },
-                "status": {
-                    "type": "string"
                 }
             }
         },
@@ -2060,42 +1631,6 @@ const docTemplateyop = `{
                 "ItemStatusArchived"
             ]
         },
-        "internal_booking.RateAdjustInput": {
-            "type": "object",
-            "properties": {
-                "adjustments": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/internal_booking.RateAdjustment"
-                    }
-                }
-            }
-        },
-        "internal_booking.RateAdjustment": {
-            "type": "object",
-            "properties": {
-                "calendar_date": {
-                    "type": "string",
-                    "example": "2026-06-01"
-                },
-                "reason": {
-                    "type": "string",
-                    "example": "Corp Rate"
-                },
-                "type": {
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/internal_booking.AdjustmentType"
-                        }
-                    ],
-                    "example": "percentage"
-                },
-                "value": {
-                    "type": "integer",
-                    "example": 10000
-                }
-            }
-        },
         "internal_booking.RefundAction": {
             "type": "string",
             "enum": [
@@ -2245,60 +1780,6 @@ const docTemplateyop = `{
                 "travel_agent_id": {
                     "type": "string",
                     "example": "00000000-0000-0000-0000-000000000000"
-                }
-            }
-        },
-        "pgtype.Date": {
-            "type": "object",
-            "properties": {
-                "infinityModifier": {
-                    "$ref": "#/definitions/pgtype.InfinityModifier"
-                },
-                "time": {
-                    "type": "string"
-                },
-                "valid": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "pgtype.InfinityModifier": {
-            "type": "integer",
-            "format": "int32",
-            "enum": [
-                1,
-                0,
-                -1
-            ],
-            "x-enum-varnames": [
-                "Infinity",
-                "Finite",
-                "NegativeInfinity"
-            ]
-        },
-        "pgtype.Timestamptz": {
-            "type": "object",
-            "properties": {
-                "infinityModifier": {
-                    "$ref": "#/definitions/pgtype.InfinityModifier"
-                },
-                "time": {
-                    "type": "string"
-                },
-                "valid": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "uuid.NullUUID": {
-            "type": "object",
-            "properties": {
-                "uuid": {
-                    "type": "string"
-                },
-                "valid": {
-                    "description": "Valid is true if UUID is not NULL",
-                    "type": "boolean"
                 }
             }
         }
