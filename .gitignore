@@ -11,6 +11,18 @@ gha-creds-*.json
 # Tool caches
 .lean-ctx/
 
+# QA review artifacts (playwright-capture)
+.qa-review/
+
+# Teach workspace (user-specific learning)
+MISSION.md
+RESOURCES.md
+NOTES.md
+reference/
+learning-records/
+lessons/
+assets/
+
 # Binaries
 /server
 /sync-constraints
