@@ -171,7 +171,6 @@ make reset-db     # Full DB teardown and restart
 | ------------------------------------------------------------- | ---------------------------------------------------------- |
 | [Architecture Decision Records](./docs/adr/)                  | Why every major decision was made                          |
 | [API Contracts](./docs/guides/api-contracts.md)               | API design conventions and contract generation             |
-| [Testing Guide](./docs/guides/testing.md)                     | Testing strategy and patterns                              |
 | [Deployment](./docs/DEPLOYMENT.md)                            | Deployment procedures and infrastructure                   |
 | [Database ERD](./docs/conventions/yop-pms-erd.md)             | Entity-relationship diagram                                |
 | [Database Conventions](./docs/conventions/database.md)        | Schema design rules                                        |
