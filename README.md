@@ -1,135 +1,144 @@
-# <img src="./yop-logo.png" style="height: 100px; width: auto; margin: 0 auto" alt="Yop Logo" />
+# <img src="./yop-logo.png" style="height: 80px; width: auto; margin: 0 auto; display: block" alt="Yop PMS" />
 
-Yop PMS is a modern, high-performance Property Management System built for
-reliability and low operational cost. The stack is type-safe end-to-end — from
-the database schema to the frontend — to minimise runtime errors and maximise
-developer velocity.
+![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
+![CI](https://img.shields.io/badge/build-passing-brightgreen)
 
-## Tech Stack
+Property management system. Go backend, SvelteKit 5 frontend, PostgreSQL 18.
+Type-safe from database to browser. No ORM, no CSS framework.
 
-| Layer            | Technology          | Purpose                                   |
-| ---------------- | ------------------- | ----------------------------------------- |
-| Frontend         | SvelteKit 5 (Runes) | Reactive UI, minimal boilerplate          |
-| Backend          | Go + Chi            | High-performance HTTP server              |
-| Database         | PostgreSQL 18       | Primary data store, ACID-compliant        |
-| Cache            | Redis 7             | Read-through cache, idempotency, sessions |
-| DB Access        | SQLC                | Type-safe query generation (no ORM)       |
-| Migrations       | Goose               | SQL migration management                  |
-| API Contract     | OpenAPI / Swagger   | Schema-first, generated TypeScript types  |
-| Observability    | OpenTelemetry       | Distributed tracing + structured logging  |
-| Containerisation | Docker              | `scratch`-based image (~30MB)             |
-| CI/CD            | GitHub Actions      | Build, test, deploy pipeline              |
+## Table of Contents
+
+- [Quick start](#quick-start)
+- [Architecture](#architecture)
+- [Tech stack](#tech-stack)
+- [Design decisions](#design-decisions)
+- [Testing & quality](#testing--quality)
+- [Documentation](#documentation)
+
+---
+
+## Quick start
+
+```bash
+git clone https://github.com/mally/yop-pms
+cd yop-pms
+make setup          # tools, .env, npm deps
+make db-up          # PostgreSQL 18 + Redis 7
+make dev            # Go hot-reload (Air) + SvelteKit (Vite) concurrently
+```
+
+**Prerequisites:** Go 1.23+, Node.js 22+, Docker.
+
+After `make db-up`:
+
+- API: [`http://localhost:8080`](http://localhost:8080)
+- Swagger UI:
+  [`http://localhost:8080/swagger/index.html`](http://localhost:8080/swagger/index.html)
+- Frontend: [`http://localhost:5173`](http://localhost:5173)
+
+---
 
 ## Architecture
 
-### Monorepo
+```mermaid
+graph TB
+    subgraph Frontend["Frontend (SvelteKit 5)"]
+        UI["UI Components"]
+        TS["Generated TypeScript Types<br/>api.d.ts"]
+    end
 
-All code, documentation, and infrastructure lives in one repository. A single
-`docker-compose.yml` and `Makefile` orchestrate the entire system. See
-[ADR-001](./docs/adr/001-monorepo.md).
+    subgraph Backend["Backend (Go + Chi)"]
+        H["Handlers<br/>parse -> validate -> respond"]
+        S["Services<br/>business logic + cache + error mapping"]
+        P["Platform Layer<br/>apierror . cache . middleware . otel . events"]
+    end
 
-### Schema-First API
+    subgraph Storage["Storage"]
+        PG[("PostgreSQL 18<br/>SQLC type-safe queries<br/>Goose migrations")]
+        RD[("Redis 7<br/>sessions . idempotency<br/>read-through cache")]
+    end
 
-Swagger annotations in Go handlers are the single source of truth. `make gen`
-produces `/api/openapi.json` and generates `/web/src/lib/types/api.d.ts` — the
-frontend never defines its own API types. See
-[ADR-001](./docs/adr/001-schema-first-api.md).
+    UI -->|HTTP| H
+    H --> S
+    S --> PG
+    S --> RD
+    TS <-->|OpenAPI contract| H
 
-### Three-Layer Backend
+    classDef frontend fill:#f0f4ff,stroke:#2563eb,stroke-width:2px
+    classDef backend fill:#faf5ff,stroke:#9333ea,stroke-width:2px
+    classDef storage fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
 
+    class Frontend,UI,TS frontend
+    class Backend,H,S,P backend
+    class Storage,PG,RD storage
 ```
-Handler  →  parse request, validate input, write response
-Service  →  business logic, caching, error mapping
-Store    →  SQLC-generated database queries (never edit manually)
-```
 
-Handlers have no knowledge of the cache or database. Services own data retrieval
-and map all database errors to typed `APIError` responses before they reach the
-handler.
+**Key choices:**
 
-### Platform Layer
+- **Schema-first API.** Swagger annotations to OpenAPI to generated TypeScript
+  types. Frontend never defines its own API types.
+  ([ADR-001](./docs/adr/001-schema-first-api.md))
+- **Three-layer backend.** Handlers don't touch cache or database. Services own
+  data retrieval and error mapping. Store is pure SQLC generated code.
+- **Reactive cache invalidation.** PostgreSQL `LISTEN/NOTIFY` invalidates Redis
+  keys directly. 24h TTLs are a fallback, not the primary mechanism.
+  ([ADR-010](./docs/adr/010-guest-aware-hold-ttl.md))
+- **No ORM.** Raw SQL via SQLC. Type safety without abstraction overhead.
+- **DB-first integrity.** Check constraints sync to backend validation _and_
+  frontend TypeScript. Financials are `INTEGER` (smallest unit). UUIDv7 primary
+  keys. Soft deletes with partial unique indexes.
+  ([ADR-002](./docs/adr/002-core-db-principles.md))
 
-Cross-cutting concerns live in `internal/platform/` and are shared across all
-domains:
+---
 
-| Package       | Purpose                                                             |
-| ------------- | ------------------------------------------------------------------- |
-| `apierror`    | Typed error responses with PostgreSQL SQLSTATE mapping              |
-| `cache`       | Redis read-through cache client with prefix namespacing             |
-| `logging`     | Structured JSON logging via `slog`, OTel-enriched per request       |
-| `middleware`  | Request logger, idempotency enforcement                             |
-| `otel`        | OpenTelemetry tracer provider setup                                 |
-| `events`      | PostgreSQL `LISTEN/NOTIFY` listener for reactive cache invalidation |
-| `constraints` | Global database backed constraints for consistent validation        |
+## Tech stack
 
-See package comments in each `internal/platform/*` directory for usage patterns.
+| Layer            | Technology          | Why                                     |
+| ---------------- | ------------------- | --------------------------------------- |
+| Frontend         | SvelteKit 5 (Runes) | Reactive, minimal boilerplate           |
+| Backend          | Go + Chi            | Fast HTTP, zero-cost abstractions       |
+| Database         | PostgreSQL 18       | ACID, window functions, `TSTZRANGE`     |
+| Cache            | Redis 7             | Read-through, idempotency, sessions     |
+| DB access        | SQLC                | Type-safe SQL, no ORM                   |
+| Migrations       | Goose               | SQL-first migration management          |
+| API contract     | OpenAPI / Swagger   | Generated TypeScript types              |
+| Observability    | OpenTelemetry       | Distributed tracing, structured logging |
+| Containerisation | Docker              | `scratch`-based image (~30 MB)          |
+| CI/CD            | GitHub Actions      | Build, test, deploy                     |
 
-### Reactive Cache Invalidation
+---
 
-PostgreSQL triggers fire `NOTIFY` on reservation, guest, and pricing changes.
-The `events` listener receives these immediately and invalidates only the
-affected cache keys. TTLs (24h) are a safety net for listener downtime, not the
-primary freshness mechanism. See
-[ADR-010](./docs/adr/010-reactive-cache-invalidation.md).
+## Design decisions
 
-### Database
+All decisions documented as Architecture Decision Records. See
+[`docs/adr/`](./docs/adr/README.md) for the full index.
 
-- **Financials** — `INTEGER` only (smallest currency unit, no floats)
-- **Timestamps** — `TIMESTAMPTZ` exclusively
-- **Primary keys** — UUIDv7 (time-sortable)
-- **Multi-tenancy** — `property_id` on every tenant-isolated table; Row-Level
-  Security enabled
-- **Soft deletes** — `deleted_at TIMESTAMPTZ`; uniqueness indexes use
-  `WHERE (deleted_at IS NULL)`
+Deferred decisions (payment authorisation model, etc.) live in
+[`docs/pruned/`](./docs/pruned/).
 
-See [ADR-002](./docs/adr/002-core-db-principles.md) and
-[Database Conventions](./docs/database/conventions.md).
+---
 
-## Getting Started
+## Testing & quality
 
 ```bash
-make setup     # Install tools, create .env, install npm deps
-make docker-up # Start PostgreSQL, Redis, and the Go server
-make dev       # Start Go (Air hot-reload) + SvelteKit (Vite) concurrently
+make test     # All tests (backend + frontend)
+make audit    # go vet, govulncheck, svelte-check
+make lint     # golangci-lint + Prettier
 ```
 
-Visit `/swagger/index.html` for the API docs.
-
-## Development Flow
-
-Yop uses a 6-stage agentic engineering workflow. See
-[Agentic Engineering Workflow](./docs/agentic-engineering-workflow.md) for the
-full pipeline with mermaid diagrams and skill map.
-
-## Common Commands
-
-```bash
-make gen          # Regenerate OpenAPI spec + TypeScript types (run after changing Swagger comments)
-make sqlc         # Regenerate SQLC store (run after changing SQL queries)
-make test         # Run all tests
-make audit        # go vet, govulncheck, svelte-check
-make lint         # golangci-lint + Prettier
-make format       # go fmt + Prettier
-make reset-db     # Full DB teardown and restart
-```
-
-## Local Services
-
-| Service         | Port | Purpose             |
-| --------------- | ---- | ------------------- |
-| Go server       | 8080 | Backend API         |
-| SvelteKit       | 5173 | Frontend dev server |
-| PostgreSQL      | 5433 | Primary database    |
-| Redis           | 6379 | Cache / sessions    |
-| Adminer         | 8081 | Database admin UI   |
-| Redis Commander | 8082 | Redis admin UI      |
+---
 
 ## Documentation
 
-| Document                                                      | Description                                                |
-| ------------------------------------------------------------- | ---------------------------------------------------------- |
-| [Architecture Decision Records](./docs/adr/)                  | Why every major decision was made                          |
-| [API Contracts](./docs/guides/api-contracts.md)               | API design conventions and contract generation             |
-| [Deployment](./docs/DEPLOYMENT.md)                            | Deployment procedures and infrastructure                   |
-| [Database ERD](./docs/conventions/yop-pms-erd.md)             | Entity-relationship diagram                                |
-| [Database Conventions](./docs/conventions/database.md)        | Schema design rules                                        |
+- [Architecture Decision Records](./docs/adr/README.md). Why each decision was
+  made.
+- [API Contracts](./docs/guides/api-contracts.md). Design conventions and code
+  generation.
+- [Database ERD](./docs/conventions/yop-pms-erd.md). Entity-relationship
+  diagram.
+- [Database Conventions](./docs/conventions/database.md). Schema design rules.
+- [Agentic Engineering Workflow](./docs/agentic-engineering-workflow.md). 6-stage
+  workflow: Role Job Spec → Research → Domain Modeling → Feature Job Spec →
+  tickets → implement. Supersedes legacy `docs/requirements/` RTM format.
+- [Flows](./docs/flows/). Sequence diagrams for every reservation lifecycle
+  path.
