@@ -1,3 +1,6 @@
+// Package logging provides per-request structured loggers injected by the
+// RequestLogger middleware. FromContext never returns nil (falls back to
+// slog.Default). Logs auto-include request_id, trace_id, span_id. See ADR-006.
 package logging
 
 import (

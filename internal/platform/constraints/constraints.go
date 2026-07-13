@@ -1,3 +1,7 @@
+// Package constraints loads DB check constraints from
+// config/constraints.g.yml (embedded at compile time). Use Table(key) to
+// fetch per-table rules and MatchPattern for regex validation. Re-run
+// `make gen-constraints` after schema changes. See ADR-011.
 package constraints
 
 import (

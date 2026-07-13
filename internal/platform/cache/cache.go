@@ -1,3 +1,7 @@
+// Package cache provides a Redis-backed cache client with hierarchical keys
+// (colon-separated, e.g. "yop:planner:<property>:<date>") and pattern
+// invalidation via "yop:foo:*" wildcards. Cache lives in the service layer —
+// handlers stay cache-unaware. See ADR-008 and ADR-010.
 package cache
 
 import (

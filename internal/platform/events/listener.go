@@ -1,3 +1,7 @@
+// Package events subscribes to PostgreSQL LISTEN/NOTIFY and dispatches each
+// notification to registered handlers. One dedicated connection (LISTEN
+// blocks), automatic reconnect with exponential backoff, multiple handlers
+// per channel. Register handlers at startup in main.go. See ADR-010, ADR-017.
 package events
 
 import (

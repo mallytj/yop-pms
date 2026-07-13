@@ -1,3 +1,7 @@
+// Package apierror provides sentinel errors and PostgreSQL error mapping for
+// consistent API responses. Handlers return errors via json.WriteError — any
+// *APIError passes through unchanged, any pgx error is mapped automatically
+// by SQLSTATE (23505→409, 23503→400, 23514→422, P0001→422). See ADR-005.
 package apierror
 
 import (

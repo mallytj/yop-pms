@@ -89,7 +89,8 @@ DB check constraints synced to two generated files — **never edit manually**:
 - `web/src/lib/types/constraints.g.ts` — TypeScript types (frontend validation)
 
 Run `make gen-constraints` (requires live DB) to regenerate. See
-`docs/guides/backend-constraints.md` and `docs/guides/frontend-constraints.md`.
+the package comment in
+`internal/platform/constraints/`.
 
 ### Frontend (`web/`)
 
@@ -207,7 +208,9 @@ DB check constraints synced to two generated files — **never edit manually**:
 - `config/constraints.g.yml` — machine-readable constraint metadata (backend validation)
 - `web/src/lib/types/constraints.g.ts` — TypeScript types (frontend validation)
 
-Run `make gen-constraints` (requires live DB) to regenerate. See `docs/guides/backend-constraints.md` and `docs/guides/frontend-constraints.md`.
+Run `make gen-constraints` (requires live DB) to regenerate. See
+the package comment in
+`internal/platform/constraints/`.
 
 ### Frontend (`web/`)
 - SvelteKit 5 with **Runes** (`$state`, `$derived`, `$effect` — not legacy stores where possible)

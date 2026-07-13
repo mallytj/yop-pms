@@ -84,7 +84,8 @@ DB check constraints synced to two generated files — **never edit manually**:
 - `config/constraints.g.yml` — machine-readable constraint metadata (backend validation)
 - `web/src/lib/types/constraints.g.ts` — TypeScript types (frontend validation)
 
-Run `make gen-constraints` (requires live DB) to regenerate. See `docs/guides/backend-constraints.md` and `docs/guides/frontend-constraints.md`.
+Run `make gen-constraints` (requires live DB) to regenerate. See the package
+comment in `internal/platform/constraints/`.
 
 ### Database Conventions (enforced in migrations)
 
