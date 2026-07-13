@@ -98,9 +98,8 @@ Exhausted events emit `pg_notify('outbox_dead_lettered', {...})`. The event list
 
 ## References
 
-- `internal/platform/worker/` — Worker engine implementation
+- `internal/platform/worker/` — Worker engine implementation (see package comment for usage)
 - `internal/store/queries/worker.sql` — SQLC enqueue query
 - `migrations/00006_outbox_worker.sql` — Schema: `internal.outbox_events`
-- `docs/guides/platform-layer.md#outbox-worker` — Usage guide for domain developers
 - ADR-008: Redis Caching Layer (why Redis is not used for queuing)
 - ADR-010: Reactive Cache Invalidation (the `LISTEN/NOTIFY` infrastructure reused by dead-letter signalling)

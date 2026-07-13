@@ -2,7 +2,7 @@
 
 Compressed pointer map for AI agents. **No content here** — just routes
 into the docs tree. Update when adding/removing files. Humans read
-`docs/README.md`; agents read this.
+the root `README.md`; agents read this.
 
 ## Stack
 
@@ -57,11 +57,11 @@ Each is a hard, recorded decision. Read before contradicting.
 
 ## Guides (`docs/guides/`)
 
-- `platform-layer.md` — logging, errors, caching, JSON helpers
-- `backend-constraints.md` · `frontend-constraints.md` — generated validation
 - `api-contracts.md` — response shapes, error codes, idempotency
-- `openapi-sveltekit.md` — generated TS types in frontend
-- `testing.md` · `configuration.md`
+- `openapi-ts-usage.md` — generated TS types in frontend
+- `testing.md` — test patterns, mocks, testcontainers
+
+Platform packages self-document via Go package comments in `internal/platform/*`.
 
 ## Code layout
 

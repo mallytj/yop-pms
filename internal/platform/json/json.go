@@ -1,3 +1,6 @@
+// Package json wraps net/http with response helpers: WriteJSON for success,
+// WriteError for failures (auto-maps pg errors via apierror), ReadJSON for
+// request bodies. All errors flow through the apierror pipeline.
 package json
 
 import (

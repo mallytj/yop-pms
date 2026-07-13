@@ -44,6 +44,6 @@ added through the database.
 ## References
 
 - [The Script](../../cmd/tools/sync-constraints/main.go)
-- [Backend Usage Documentation](../guides/backend-constraints.md)
-- [Frontend Usage Documentation](../guides/frontend-constraints.md)
+- [Backend Usage Documentation](../../internal/platform/constraints/constraints.go) (see package comment)
+- Generated TypeScript: `web/src/lib/types/constraints.g.ts`
   `
