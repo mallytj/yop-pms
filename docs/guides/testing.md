@@ -596,3 +596,160 @@ t.Logf("error: %v", err)
 3. **Global state in tests** — Isolate each test; don't share data
 4. **Flaky timing tests** — Avoid `time.Sleep()`; use synchronization primitives
 5. **Not testing error cases** — Test both happy path and error scenarios
+
+---
+
+## Layered Architecture Example
+
+The architecture has three layers. Each layer has one responsibility:
+
+| Layer       | Responsibility                                            |
+| ----------- | --------------------------------------------------------- |
+| **Handler** | HTTP only — parse request, validate input, write response |
+| **Service** | Business logic + caching                                  |
+| **Store**   | Raw database queries (SQLC-generated)                     |
+
+```go
+package booking
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/lexxcode1/yop-pms/internal/platform/apierror"
+	"github.com/lexxcode1/yop-pms/internal/platform/cache"
+	"github.com/lexxcode1/yop-pms/internal/platform/logging"
+	yopjson "github.com/lexxcode1/yop-pms/internal/platform/json"
+	"github.com/lexxcode1/yop-pms/internal/platform/worker"
+	"github.com/lexxcode1/yop-pms/internal/store"
+)
+
+type Service struct {
+	store *store.Queries
+	cache *cache.Client
+}
+
+func NewService(store *store.Queries, cache *cache.Client) *Service {
+	return &Service{store: store, cache: cache}
+}
+
+func (s *Service) CreateReservation(ctx context.Context, req CreateReservationRequest) (Reservation, error) {
+	reservation, err := s.store.CreateReservation(ctx, req.PropertyID, req.GuestID, req.CheckIn, req.CheckOut)
+	if err != nil {
+		return Reservation{}, apierror.MapPostgresError(err)
+	}
+	s.cache.Invalidate(ctx, fmt.Sprintf("yop:availability:%s:*", req.PropertyID))
+	_ = worker.Enqueue(ctx, s.store, worker.EventConfirmationEmail, worker.ConfirmationEmailPayload{
+		ReservationID: reservation.ID.String(),
+		GuestEmail:    req.GuestEmail,
+		GuestName:     req.GuestName,
+		PropertyName:  req.PropertyName,
+	})
+	return reservation, nil
+}
+
+func (s *Service) GetReservation(ctx context.Context, id string) (Reservation, error) {
+	var reservation Reservation
+	err := s.cache.GetOrSet(
+		ctx,
+		fmt.Sprintf("yop:reservation:%s", id),
+		&reservation,
+		24*time.Hour,
+		func(ctx context.Context) (any, error) {
+			r, err := s.store.GetReservation(ctx, id)
+			if err != nil {
+				return Reservation{}, apierror.MapStoreError(err)
+			}
+			return r, nil
+		},
+	)
+	return reservation, err
+}
+
+type Handler struct {
+	service *Service
+}
+
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
+}
+
+func (h *Handler) CreateReservation(w http.ResponseWriter, r *http.Request) {
+	logger := logging.FromContext(r.Context())
+	var req CreateReservationRequest
+	if err := yopjson.ReadJSON(r, &req); err != nil {
+		yopjson.WriteError(w, r, err)
+		return
+	}
+	if req.PropertyID == "" || req.GuestID == "" {
+		yopjson.WriteError(w, r, apierror.ErrBadRequest.WithMessage("property_id and guest_id are required"))
+		return
+	}
+	reservation, err := h.service.CreateReservation(r.Context(), req)
+	if err != nil {
+		yopjson.WriteError(w, r, err)
+		return
+	}
+	logger.Info("reservation created", "reservation_id", reservation.ID)
+	yopjson.WriteJSON(w, http.StatusCreated, reservation)
+}
+
+func (h *Handler) GetReservation(w http.ResponseWriter, r *http.Request) {
+	reservation, err := h.service.GetReservation(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		yopjson.WriteError(w, r, err)
+		return
+	}
+	yopjson.WriteJSON(w, http.StatusOK, reservation)
+}
+
+func (h *Handler) Routes() chi.Router {
+	r := chi.NewRouter()
+	r.Post("/", h.CreateReservation)
+	r.Get("/{id}", h.GetReservation)
+	return r
+}
+```
+
+Wiring at the router level:
+
+```go
+store := bookingstore.New(app.db)
+service := booking.NewService(store, app.cache)
+handler := booking.NewHandler(service)
+r.Mount("/v1/reservations", handler.Routes())
+```
+
+---
+
+## Per-Layer Testing
+
+Test each layer in isolation — handlers don't touch the cache, so handler tests need no cache mocks.
+
+Handler test (no service or store):
+
+```go
+func TestCreateReservation_MissingFields(t *testing.T) {
+	handler := NewHandler(&mockService{})
+	req := httptest.NewRequest("POST", "/", bytes.NewReader([]byte(`{}`)))
+	ctx := logging.WithContext(req.Context(), logging.NewLogger("dev"))
+	req = req.WithContext(ctx)
+	w := httptest.NewRecorder()
+	handler.CreateReservation(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+```
+
+Service test (cache-aware):
+
+```go
+func TestGetReservation_CacheHit(t *testing.T) {
+	service := NewService(&mockStore{}, mockCacheClient)
+	reservation, err := service.GetReservation(context.Background(), "res-1")
+}
+```
