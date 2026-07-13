@@ -254,3 +254,17 @@ Swagger UI: `http://localhost:8080/swagger/index.html`
 - **Workflow**: Use the \`doc-driven-development\` skill to map implementation plans to diagram steps.
 - **Traceability**: Core requirements and ADRs MUST be cited in file headers: \`// Core Requirements: [R-RES-XXX], [ADR-XXX]\`.
 - **Constraints-driven validation**: Use `validation.Struct(input, "schema.table")` from `internal/platform/validation/` for struct validation against DB constraints. Add `constraints:"schema.table"` tag on nested slice fields.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in Linear (`linear` CLI v2.0.0, workspace `yopp`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles mapped to Linear labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
