@@ -26,7 +26,7 @@
 ## Open questions for the future group PR
 
 - Allotment status: new ledger enum (`allotted`) vs reuse `on_hold`?
-  (Reusing `on_hold` collides with single-reservation TTL semantics in ADR-016 —
+  (Reusing `on_hold` collides with single-reservation TTL semantics in ADR-010 —
   likely needs a new enum or a `hold_kind` discriminator column.)
 - Group rate vs rate-plan precedence.
 - Spillover policy when allotment exhausted (allowed / rejected / per-group flag).

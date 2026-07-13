@@ -3,7 +3,7 @@
 Sequence diagrams for every significant reservation lifecycle path. Each diagram
 maps to one or more edge cases in `docs/requirements/reservations.md §8`.
 
-> **`stay_period` time semantics (ADR-018).** Bounds are TSTZRANGE values pinned
+> **`stay_period` time semantics (ADR-012).** Bounds are TSTZRANGE values pinned
 > to property `default_checkin_time` (lower) and `default_checkout_time` (upper)
 > — **not** midnight. API request bodies accept `arrival_date`/`departure_date`
 > as DATE; server composes the range. Same-day turnover protection emerges from
@@ -23,7 +23,7 @@ Cache decision
 > **Per-reservation Redis cache.** Individual reservation objects are NOT cached
 > by ID. Availability cache (`cache:availability:*`) and idempotency keys remain
 > in Redis. All mutations emit `NOTIFY reservation_changes` for reactive
-> frontend updates (ADR-010, ADR-017).
+> frontend updates (ADR-010, ADR-011).
 
 Defer
 
@@ -682,7 +682,7 @@ sequenceDiagram
             API->>DB: INSERT reservation_item (status=booked)
             API->>DB: INSERT ledger rows (status=sold)
             API->>DB: INSERT booked_daily_rates (one per night)
-            API->>DB: SELECT stay_period_envelope — recompute only if new item dates extend beyond current envelope (ADR-020)
+            API->>DB: SELECT stay_period_envelope — recompute only if new item dates extend beyond current envelope (ADR-013)
             API->>DB: UPDATE reservation SET stay_period_envelope=…, version=version+1
             API->>DB: NOTIFY reservation_changes
             API->>DB: COMMIT
@@ -810,7 +810,7 @@ sequenceDiagram
     API->>DB: COMMIT
     API-->>Staff: 200 {item, status=checked_in}
 
-    Note over DB: Reservation stays confirmed until ALL items leave booked state (ADR-016 rollup)
+    Note over DB: Reservation stays confirmed until ALL items leave booked state (ADR-010 rollup)
 
     Staff->>API: PATCH /reservations/{id}/items/{item_b}/checkin If-Match: {item_version}
     API->>API: Check permission reservations:update

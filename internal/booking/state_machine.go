@@ -1,6 +1,6 @@
 package booking
 
-// Core Requirements: R-RES-CRUD-005, R-RES-CRUD-006, R-RES-VALID-006, R-RES-VALID-007, ADR-015, §7.4
+// Core Requirements: R-RES-CRUD-005, R-RES-CRUD-006, R-RES-VALID-006, R-RES-VALID-007, ADR-009, §7.4
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 // These are direct transitions set by business actions.
 // Statuses derived from item rollup (checked_in, checked_out) are NOT listed here
-// — they are computed by ADR-015 rollup.
+// — they are computed by ADR-009 rollup.
 
 var reservationTransitions = map[ReservationStatus]map[ReservationStatus]bool{
 	StatusHold: {
@@ -18,7 +18,7 @@ var reservationTransitions = map[ReservationStatus]map[ReservationStatus]bool{
 	StatusConfirmed: {
 		StatusCancelled: true,
 	},
-	// checked_in→checked_out is rollup-driven (ADR-015), not a direct transition.
+	// checked_in→checked_out is rollup-driven (ADR-009), not a direct transition.
 	// Cancel of a checked_in reservation is forbidden (R-RES-VALID-013).
 	StatusCheckedIn: {},
 	StatusCheckedOut: {
@@ -87,7 +87,7 @@ func ValidateItemTransition(from, to ItemStatus) error {
 }
 
 // RollupReservationStatus computes the derived reservation status from item statuses.
-// Per ADR-015: first match wins.
+// Per ADR-009: first match wins.
 //
 //	All items cancelled → cancelled
 //	All items terminal AND >=1 checked_out → checked_out

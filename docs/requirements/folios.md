@@ -31,7 +31,7 @@
 | R-FOLIO-003 | Folio cannot be deleted if **any** transaction has ever been posted against it (audit). Independent of balance |
 | R-FOLIO-004 | Folio cannot be deleted while balance ≠ 0 OR while linked to non-terminal reservation       |
 | R-FOLIO-005 | Folio close = invoice generation (see `finance.invoices`); closed folios are read-only      |
-| R-FOLIO-006 | Concurrency control will be optimistic (`version` column per ADR-013 conventions). Exact contract deferred to finance PR |
+| R-FOLIO-006 | Concurrency control will be optimistic (`version` column per ADR-007 conventions). Exact contract deferred to finance PR |
 
 ## 3. Currency
 
@@ -85,7 +85,7 @@
 ## 8. Endpoints (deferred)
 
 > The Folio HTTP API ships in a later PR. Endpoint shapes will follow the OpenAPI
-> contract pattern (see `docs/adr/003-schema_first_api.md`). The reservation-flow PR
+> contract pattern (see `docs/adr/001-schema-first-api.md`). The reservation-flow PR
 > only depends on internal folio creation (auto on reservation create) and the
 > folio model described in §1–§6.
 

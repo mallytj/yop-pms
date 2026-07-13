@@ -7,9 +7,9 @@ package booking
 //   - R-RES-CRUD-001: Create reservation with primary guest, >=1 items
 //   - R-RES-CRUD-007: Reservation code RES-XXXXXX per property
 //   - R-RES-CRUD-013: Lifecycle status per source rules
-//   - ADR-015: State machine rollup rule
-//   - ADR-018: Stay period time semantics (property check-in/out times)
-//   - ADR-020: stay_period_envelope on reservations
+//   - ADR-009: State machine rollup rule
+//   - ADR-012: Stay period time semantics (property check-in/out times)
+//   - ADR-013: stay_period_envelope on reservations
 
 import (
 	"time"
@@ -32,7 +32,7 @@ const (
 )
 
 // ReservationStatus represents the lifecycle of a reservation as a whole.
-// Per ADR-015, some statuses are derived from item statuses via rollup,
+// Per ADR-009, some statuses are derived from item statuses via rollup,
 // while others are set directly by business actions.
 type ReservationStatus string
 
@@ -66,7 +66,7 @@ const (
 	// — the hold/confirmed distinction is a property of the booking commitment, not the room.
 	// This is deliberate: a multi-item reservation (e.g. two rooms for one party at the same
 	// time) may have all items in "booked" while the reservation-level status reflects hold
-	// (pending payment) or confirmed (settled). ADR-015 rollup provides a safety net for
+	// (pending payment) or confirmed (settled). ADR-009 rollup provides a safety net for
 	// deriving reservation status from item statuses, but the item status itself stays stable.
 	ItemStatusBooked ItemStatus = "booked"
 	// ItemStatusCheckedIn is for checked in items
@@ -80,7 +80,7 @@ const (
 	// before the expected departure date (with grace period)
 	ItemStatusOverstay ItemStatus = "overstay"
 	// ItemStatusCancelled is for cancelled items.
-	// Item-level cancel does not imply reservation-level cancel — ADR-015 rollup
+	// Item-level cancel does not imply reservation-level cancel — ADR-009 rollup
 	// only promotes to StatusCancelled when ALL items are cancelled.
 	// pending_cancellation is reservation-level only (fee settlement gate),
 	// not item-level. See state_machine.go for item cancel transitions.
@@ -233,7 +233,7 @@ type AddItemInput struct {
 }
 
 // ListParams controls pagination and filtering for GET /reservations.
-// Cursor pagination per ADR-014: clients pass cursor_date + cursor_id from the last result.
+// Cursor pagination per ADR-008: clients pass cursor_date + cursor_id from the last result.
 type ListParams struct {
 	PropertyID      uuid.UUID  `json:"property_id" example:"00000000-0000-0000-0000-000000000000"`
 	Status          *string    `json:"status,omitempty" example:"confirmed"`
@@ -264,7 +264,7 @@ type BatchResult struct {
 	Results []BatchResultItem `json:"results"`
 }
 
-// RollupResult is the result of the ADR-015 rollup computation.
+// RollupResult is the result of the ADR-009 rollup computation.
 type RollupResult struct {
 	Status  ReservationStatus
 	Changed bool

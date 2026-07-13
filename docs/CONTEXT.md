@@ -31,17 +31,17 @@ docs/
 
 Each is a hard, recorded decision. Read before contradicting.
 
-- 001 Monorepo · 002 Techstack · 003 Schema-first API · 004 Core DB principles
-- 005 Error handling · 006 Structured logging · 007 Idempotency-Key
-- 008 Redis caching · 009 OpenTelemetry · 010 Reactive cache invalidation
-- 011 Check-constraint consistency · 012 Transactional outbox
-- 013 Locking & availability (hold-as-lock, auto-pin, ledger-as-truth)
-- 014 Cursor pagination · 015 State-machine rollup
-- 016 Guest-aware hold TTLs · 017 SSE for real-time frontend
-- 018 `stay_period` time semantics (TSTZ bounds = property check-in/out)
-- 019 Payment authorization model (deferred impl)
-- 020 Reservation `stay_period_envelope` materialised column
-- 021 Audit logs via database trigger (reservations + items → `auth.audit_logs`)
+- 001 Schema-first API · 002 Core DB principles
+- 003 Error handling · 004 Idempotency-Key · 005 Check-constraint consistency
+- 006 Transactional outbox · 007 Locking & availability (hold-as-lock, auto-pin, ledger-as-truth)
+- 008 Cursor pagination · 009 State-machine rollup
+- 010 Guest-aware hold TTLs · 011 SSE for real-time frontend
+- 012 `stay_period` time semantics (TSTZ bounds = property check-in/out)
+- 013 Reservation `stay_period_envelope` materialised column
+- 014 Audit logs via database trigger (reservations + items → `auth.audit_logs`)
+- 015 Response depth via `?include=`
+
+Pruned: 019 Payment authorization model (deferred to finance PR; see `docs/pruned/`).
 
 ## Requirements (`docs/requirements/`)
 
@@ -99,12 +99,12 @@ config/                 generated constraints + runtime config
 
 ## Domain Terms
 
-**Item (ReservationItem)** — A single room's stay within a reservation. Carries its own `stay_period` (TSTZRANGE), room assignment, occupancy (`adults_count`, `children_count`), rate plan, and status. Multiple items = multiple rooms. One item = one capacity consumption unit per night. The reservation's `stay_period_envelope` is the union of its items' periods (ADR-020).
+**Item (ReservationItem)** — A single room's stay within a reservation. Carries its own `stay_period` (TSTZRANGE), room assignment, occupancy (`adults_count`, `children_count`), rate plan, and status. Multiple items = multiple rooms. One item = one capacity consumption unit per night. The reservation's `stay_period_envelope` is the union of its items' periods (ADR-007).
 _Avoid_: Line item, room booking, sub-reservation
 
 **Property Settings** — Per-property operational configuration stored as columns on `operations.property_settings`. Includes hold TTLs (`website_hold_ttl_seconds`, `internal_hold_ttl_seconds`), checkout grace periods (`late_checkout_grace_minutes`), archive thresholds (`reservation_archive_after_days`), and no-show grace (`no_show_grace_minutes`). Read on every hold-create and every worker tick.
 
-**Audit Log** — Immutable record in `auth.audit_logs` of every INSERT/UPDATE/DELETE on `reservations` and `reservation_items`. Written automatically by database trigger (ADR-021), never by application code. Records `user_id`, `action`, `entity`, `entity_id`, and a `changes JSONB` diff.
+**Audit Log** — Immutable record in `auth.audit_logs` of every INSERT/UPDATE/DELETE on `reservations` and `reservation_items`. Written automatically by database trigger (ADR-008), never by application code. Records `user_id`, `action`, `entity`, `entity_id`, and a `changes JSONB` diff.
 _Avoid_: Event log, activity feed, change history
 
 **Admin/Tab Room** — A house reservation kept permanently in `checked_in` used as a holding account for outstanding balances. When a guest's folio cannot be settled at checkout (e.g. corporate billing, disputed charge), staff transfers the balance to the Admin/Tab Room folio before checking the guest out. Folio transfer is a finance PR concern. Checkout hard-blocks on `balance > 0` — this is the standard resolution path.

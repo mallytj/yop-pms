@@ -53,7 +53,7 @@ internal/booking/
 ├── types.go                  enums, I/O structs (no DomainError — use apierror)
 ├── include.go                IncludeFlags, ParseIncludeFlags (unexported type, no functions in types.go)
 ├── errors.go                 *apierror.APIError sentinels for domain errors
-├── state_machine.go          transitions, rollup (ADR-015), ActionIdempotency (§7.4)
+├── state_machine.go          transitions, rollup (ADR-009), ActionIdempotency (§7.4)
 ├── availability.go           CheckAvailability, AutoPinRoom, ConflictCheck
 ├── service.go                Service struct + NewService + CreateReservation + ConfirmReservation
 │                             (foundational CRUD; lifecycle/actions/mutations/rates split below)
@@ -136,8 +136,8 @@ inheritance or interface-hiding.
 
 | ID  | Change                                                                                                                                                                                                                                                                                                                                                                                                      |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M9! | **DESTRUCTIVE — single tx.** Rewrite every `operations.reservations.stay_period` row to property-time bounds (`default_checkin_time`, `default_checkout_time`). ADR-018. Run **first** so envelope backfill below sees correct bounds. Backup checkpoint in `-- +goose Up`. `-- +goose Down` raises exception (irreversible). **Note:** no data in dev; migration kept to prove the pattern before prod.    |
-| M6  | `stay_period_envelope TSTZRANGE NOT NULL` on `operations.reservations` + GIST index on `(property_id, stay_period_envelope)`. ADR-020. Backfill from items **(n/a — no data yet)**.                                                                                                                                                                                                                         |
+| M9! | **DESTRUCTIVE — single tx.** Rewrite every `operations.reservations.stay_period` row to property-time bounds (`default_checkin_time`, `default_checkout_time`). ADR-012. Run **first** so envelope backfill below sees correct bounds. Backup checkpoint in `-- +goose Up`. `-- +goose Down` raises exception (irreversible). **Note:** no data in dev; migration kept to prove the pattern before prod.    |
+| M6  | `stay_period_envelope TSTZRANGE NOT NULL` on `operations.reservations` + GIST index on `(property_id, stay_period_envelope)`. ADR-013. Backfill from items **(n/a — no data yet)**.                                                                                                                                                                                                                         |
 | M7  | Add `'overstay'` value to `operations.reservation_item_status` enum.                                                                                                                                                                                                                                                                                                                                        |
 | M10 | `pricing.booked_daily_rates` — drop existing `UNIQUE (reservation_item_id, calendar_date)`, replace with partial `UNIQUE (...) WHERE deleted_at IS NULL`. Required for soft-delete + re-insert.                                                                                                                                                                                                             |
 | M11 | Add `'pending_cancellation'` value to `operations.reservation_status` enum. **No code path emits it** this PR — forward-compat for finance PR.                                                                                                                                                                                                                                                              |
@@ -146,8 +146,8 @@ inheritance or interface-hiding.
 | M14 | `do_not_move BOOLEAN NOT NULL DEFAULT false` on `operations.reservation_items`.                                                                                                                                                                                                                                                                                                                             |
 | M15 | `late_checkout_grace_minutes INT` on `operations.property_settings`. Per-property overstay tolerance.                                                                                                                                                                                                                                                                                                       |
 | M16 | `reservation_item_id UUID` column on `inventory.room_inventory_ledger` (verify absent first; FK to reservation_items, `ON DELETE RESTRICT`) + index `idx_inv_ledger_reservation_item ON inventory.room_inventory_ledger (reservation_item_id)`. `checkout_session_id` FK retained (renamed in finance PR per ADR-019).                                                                                      |
-| M17 | `expires_at TIMESTAMPTZ` on `operations.reservations`. Populated on INSERT for `hold` status by service layer: pick `property_settings.{source}_hold_ttl_seconds` and apply ADR-016 guest-presence tier (anonymous vs guest-attached). Worker only compares `expires_at < now()`. NULL'd on Confirm transition. Add CHECK constraint: `(status = 'hold' AND expires_at IS NOT NULL) OR (status <> 'hold')`. |
-| M18 | Audit log trigger: `AFTER INSERT OR UPDATE OR DELETE ON operations.reservations` + `...ON operations.reservation_items` writes to `auth.audit_logs`. Requires `SET LOCAL app.current_user_id` from auth middleware context. ADR-021.                                                                                                                                                                        |
+| M17 | `expires_at TIMESTAMPTZ` on `operations.reservations`. Populated on INSERT for `hold` status by service layer: pick `property_settings.{source}_hold_ttl_seconds` and apply ADR-010 guest-presence tier (anonymous vs guest-attached). Worker only compares `expires_at < now()`. NULL'd on Confirm transition. Add CHECK constraint: `(status = 'hold' AND expires_at IS NOT NULL) OR (status <> 'hold')`. |
+| M18 | Audit log trigger: `AFTER INSERT OR UPDATE OR DELETE ON operations.reservations` + `...ON operations.reservation_items` writes to `auth.audit_logs`. Requires `SET LOCAL app.current_user_id` from auth middleware context. ADR-014.                                                                                                                                                                        |
 | M19 | `cancellation_intent JSONB` on `operations.reservations` (NULL default). Written in same tx before status flip on cancel; M18 trigger captures via row delta. Shape: `{ reason_code, fee_pence, waive_fee, fee_override_reason, refund_action, cancelled_by_user_id }`. Finance PR replays from this column for fee reconciliation.                                                                         |
 | M4  | Property settings TTL/grace cols: `website_hold_ttl_seconds`, `internal_hold_ttl_seconds`, `reservation_archive_after_days`, `no_show_grace_minutes` — add only those not already present.                                                                                                                                                                                                                  |
 
@@ -185,7 +185,7 @@ CreateReservationItem          :one     INSERT INTO operations.reservation_items
 CreateFolio                    :one     stub Folio A (balance_pence=0) — finance PR fills in
 GetReservation                 :one     joined items array
 GetReservationItems            :many
-ListReservations               :many    cursor pagination (ADR-014)
+ListReservations               :many    cursor pagination (ADR-008)
 UpdateReservationMetadata      :one     notes, travel_agent, group_id, primary_guest_id
 UpdateReservationItem          :one     fields + version bump
 NextReservationSequence        :one     trigger-populated; just validate
@@ -194,7 +194,7 @@ NextReservationSequence        :one     trigger-populated; just validate
 **`internal/store/queries/reservation_items.sql`**
 
 ```text
-RollupReservationStatus        :one     calls PL/pgSQL function (ADR-015) — never set status directly
+RollupReservationStatus        :one     calls PL/pgSQL function (ADR-009) — never set status directly
 AvailabilityByType             :many    ledger aggregate per room type per date
 SelectRoomForAutoPin           :one     FOR UPDATE SKIP LOCKED on RIL, deterministic lowest room number
 ConflictCheckOnLedger          :one     booking assertion: SELECT COUNT WHERE room_id + dates overlap
@@ -365,7 +365,7 @@ Pure functions, no imports beyond `booking` itself.
 func ValidateReservationTransition(from, to ReservationStatus) error
 func ValidateItemTransition(from, to ItemStatus) error
 
-// ADR-015
+// ADR-009
 func RollupReservationStatus(current ReservationStatus, items []ItemStatus) RollupResult
 
 // §7.4 — Action-level idempotency for mutating endpoints.
@@ -449,12 +449,12 @@ Validate (struct + domain) → Resolve guest → ExecuteTx[Reservation](db, q, c
     Check availability (assigned_room_id path OR auto-pin via SelectRoomForAutoPin)
     Resolve expires_at (hold only):
       ttl_seconds = property_settings.{input.Source}_hold_ttl_seconds
-      if guest unattached → apply ADR-016 anonymous-tier override
+      if guest unattached → apply ADR-010 anonymous-tier override
       expires_at = now() + ttl_seconds
     INSERT reservation (status per source rules below, expires_at if hold) → version=1
     INSERT items + ledger + booked_daily_rates + folio A (stub)
     NotifyChannel('reservation_changes', payload)
-    -- audit trail written automatically by M18 trigger (ADR-021)
+    -- audit trail written automatically by M18 trigger (ADR-014)
     return reservation
 })
 ```
@@ -806,7 +806,7 @@ r.Route("/v1", func(r chi.Router) {
 
 ## Phase 9: SSE — Real-Time Frontend Updates
 
-Uses PostgreSQL triggers + Go Hub + SvelteKit EventSource (ADR-017).
+Uses PostgreSQL triggers + Go Hub + SvelteKit EventSource (ADR-011).
 
 ### Architecture overview
 
@@ -1026,7 +1026,7 @@ foreach:
     UPDATE reservation_items SET status=cancelled
     DELETE ledger rows for reservation_id
     NOTIFY reservation_changes
-    -- audit log written by M18 trigger (ADR-021); outbox for async work only
+    -- audit log written by M18 trigger (ADR-014); outbox for async work only
   COMMIT
 ```
 
@@ -1078,7 +1078,7 @@ as "availability queries" — RTM line to be updated.
 15. Full test pass + make audit
      - NotifyChannel query retained but deprecated — triggers cover all paths
 14. Booking tests (`internal/booking/*_test.go`):
-      - state_machine_test.go: transition matrix (reservation + item), rollup (ADR-015), invalid transitions
+      - state_machine_test.go: transition matrix (reservation + item), rollup (ADR-009), invalid transitions
       - action_idempotency_test.go: §7.4 lookup table coverage
       - setup_test.go: TestMain spins up PostgreSQL 18 + Redis containers,
         runs goose migrations, seeds property/room_type/rate_plan test data
@@ -1116,11 +1116,11 @@ as "availability queries" — RTM line to be updated.
 - `ExecuteTx` pulls `property_id` from ctx — handler must early-return 400 if
   missing. `StubAuth` already enforces this header.
 - `RollupReservationStatus` must accept all current non-archived item statuses —
-  pull cancelled too so snapshot is deterministic (ADR-015).
+  pull cancelled too so snapshot is deterministic (ADR-009).
 - Existing idempotency MW at `internal/platform/middleware/idempotency.go` keys
-  on `Idempotency-Key` per ADR-007 — applied at `/v1` group level.
+  on `Idempotency-Key` per ADR-004 — applied at `/v1` group level.
 - `pricing.booked_daily_rates.deleted_at` must exist before M10 partial unique.
   Verify in migration.
 - M18 audit trigger depends on `app.current_user_id` session variable —
   `ExecuteTx` must call `qtx.SetCurrentUserID(ctx, userID)` before mutations
-  (ADR-021).
+  (ADR-014).

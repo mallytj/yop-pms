@@ -232,7 +232,7 @@ func (s *Service) ConfirmReservation(ctx context.Context, id uuid.UUID, include 
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-// computeEnvelope finds the min arrival and max departure across all items (ADR-020).
+// computeEnvelope finds the min arrival and max departure across all items (ADR-013).
 func computeEnvelope(items []CreateItemInput) (time.Time, time.Time) {
 	var envelopeLower, envelopeUpper time.Time
 	for i, item := range items {

@@ -4,7 +4,7 @@ This directory contains architecture decision records for Yop PMS. Each ADR docu
 
 ## Format
 
-Each ADR follows this structure:
+Each ADR follows the short form (per ADR-015):
 
 ```
 # ADR NNN: Title
@@ -13,59 +13,64 @@ Each ADR follows this structure:
 
 **Accepted** | **Proposed** | **Deprecated** | **Superseded by ADR-NNN**
 
-2-3 sentences on what was decided and why.
+One paragraph stating the decision and why.
 
-Alternatives and why not them.
+Alternatives considered (one line each, with rejection reason).
 
 ---
 
 See: references to code, migrations, other ADRs
 ```
 
-The format prioritises concision. A decision should fit in a paragraph. Alternatives get one line each. Consequences are implicit in the choice of one alternative over another. Old ADRs may use a more verbose format — new ADRs should use this short form.
-
-## ADRs
+## Active ADRs
 
 ### Foundation & Architecture
 
-| #                                | Title              | Status   |
-| -------------------------------- | ------------------ | -------- |
-| [001](001-monorepo.md)           | Monorepo           | Accepted |
-| [002](002-techstack.md)          | Tech Stack         | Accepted |
-| [003](003-schema_first_api.md)   | Schema-First API   | Accepted |
-| [004](004-core_db_principles.md) | Core DB Principles | Accepted |
+| #                                            | Title              | Status   |
+| -------------------------------------------- | ------------------ | -------- |
+| [001](001-schema-first-api.md)               | Schema-First API   | Accepted |
+| [002](002-core-db-principles.md)             | Core DB Principles | Accepted |
 
 ### Platform Layer & Infrastructure
 
-| #                                          | Title                        | Status   |
-| ------------------------------------------ | ---------------------------- | -------- |
-| [005](005-error-handling-strategy.md)      | Error Handling Strategy      | Accepted |
-| [006](006-structured-logging-approach.md)  | Structured Logging           | Accepted |
-| [007](007-idempotency-key-enforcement.md)  | Idempotency Key Enforcement  | Accepted |
-| [008](008-redis-caching-layer.md)          | Redis Caching Layer          | Accepted |
-| [009](009-opentelemetry-observability.md)  | OpenTelemetry Observability  | Accepted |
-| [010](010-reactive-cache-invalidation.md)  | Reactive Cache Invalidation  | Accepted |
-| [011](011-check-constraint-consistency.md) | Check Constraint Consistency | Accepted |
-| [012](012-transactional-outbox-worker.md)  | Transactional Outbox Worker  | Accepted |
-| [014](014-cursor-pagination.md)            | Cursor Pagination            | Accepted |
+| #                                            | Title                        | Status   |
+| -------------------------------------------- | ---------------------------- | -------- |
+| [003](003-error-handling.md)                 | Error Handling               | Accepted |
+| [004](004-idempotency-key.md)                | Idempotency Key              | Accepted |
+| [005](005-check-constraint-consistency.md)   | Check-Constraint Consistency | Accepted |
+| [006](006-transactional-outbox.md)           | Transactional Outbox         | Accepted |
+| [008](008-cursor-pagination.md)              | Cursor Pagination            | Accepted |
 
 ### Reservations Domain
 
-| #                                           | Title                            | Status   |
-| ------------------------------------------- | -------------------------------- | -------- |
-| [013](013-locking-availability-strategy.md) | Locking & Availability Strategy  | Accepted |
-| [015](015-state-machine-rollup.md)          | Reservation State Machine Rollup | Accepted |
-| [016](016-guest-aware-hold-ttl.md)          | Guest-Aware Hold TTLs            | Accepted |
-| [018](018-stay-period-time-semantics.md)    | `stay_period` Time Semantics     | Proposed |
-| [019](019-payment-authorization-model.md)   | Payment Authorization for Holds  | Proposed |
-| [020](020-reservation-envelope.md)          | Reservation Envelope Column      | Proposed |
-| [021](021-audit-logs-via-trigger.md)        | Audit Logs via Database Trigger  | Proposed |
-| [022](022-response-depth-include.md)        | Response Depth via `?include=`   | Accepted |
+| #                                            | Title                            | Status   |
+| -------------------------------------------- | -------------------------------- | -------- |
+| [007](007-locking-availability.md)           | Locking & Availability           | Accepted |
+| [009](009-state-machine-rollup.md)           | State Machine Rollup            | Accepted |
+| [010](010-guest-aware-hold-ttl.md)           | Guest-Aware Hold TTLs            | Accepted |
+| [012](012-stay-period-semantics.md)          | Stay Period Time Semantics       | Accepted |
+| [013](013-reservation-envelope.md)           | Reservation Envelope             | Accepted |
+| [014](014-audit-logs-trigger.md)             | Audit Logs via DB Trigger        | Accepted |
+| [015](015-response-depth-include.md)         | Response Depth via `?include=`   | Accepted |
+
+### Frontend / Transport
+
+| #                                            | Title                        | Status   |
+| -------------------------------------------- | ---------------------------- | -------- |
+| [011](011-sse-realtime.md)                   | Real-Time Frontend via SSE   | Accepted |
+
+## Pruned
+
+ADRs deferred to a later milestone. Kept for historical context; not in force.
+
+| #                                                                  | Title                          | Reason                       |
+| ------------------------------------------------------------------ | ------------------------------ | ---------------------------- |
+| [019](../pruned/019-payment-authorization-model.md)                | Payment Authorization for Holds | Deferred to finance PR        |
 
 ## How to Create a New ADR
 
 1. **Identify the decision** — What are we deciding? Why now?
-2. **Write the ADR** — Follow the template below
+2. **Write the ADR** — Follow the short-form template above
 3. **Get feedback** — Code review + architecture discussion
 4. **Accept or reject** — Update Status field
 5. **Reference in code** — Link ADRs from related code via comments
@@ -79,9 +84,9 @@ The format prioritises concision. A decision should fit in a paragraph. Alternat
 
 **Accepted** | **Proposed**
 
-2-3 sentences on what was decided and why.
+One paragraph stating the decision and why.
 
-Alternatives and why not them.
+Alternatives considered (one line each, with rejection reason).
 
 ---
 
@@ -110,55 +115,32 @@ If we decide to use a different approach:
 2. In old ADR, change Status to Superseded by ADR-XXXX
 3. Update references in code to point to new ADR
 
+### Pruning
+
+If a decision is **deferred** to a later milestone (not rejected, just out of scope):
+
+1. Move the ADR file to `docs/pruned/NNNN-title.md`
+2. Add YAML frontmatter: `status: pruned`, `pruned_date`, `pruned_by`, `reason`
+3. Add an entry in the `## Pruned` table above
+4. The file body is preserved as-is for historical context
+
 ## Querying ADRs
 
-Find ADRs by topic:
-
-### Foundation
-
-- [ADR-001](001-monorepo.md) — Monorepo architecture
-- [ADR-002](002-techstack.md) — Tech stack selection
-
-### API & Database
-
-- [ADR-003](003-schema_first_api.md) — Schema-first API design
-- [ADR-004](004-core_db_principles.md) — Database conventions (financials, timestamps, uniqueness)
-
-### Error Handling
-
-- [ADR-005](005-error-handling-strategy.md) — Centralized APIError with SQLSTATE mapping
-
-### Observability & Logging
-
-- [ADR-006](006-structured-logging-approach.md) — Structured JSON logging with slog
-- [ADR-009](009-opentelemetry-observability.md) — Distributed tracing with OpenTelemetry
-
-### Data & Caching
-
-- [ADR-007](007-idempotency-key-enforcement.md) — Idempotency via Redis + Idempotency-Key header
-- [ADR-008](008-redis-caching-layer.md) — Simple prefix-namespaced Redis cache client
-- [ADR-010](010-reactive-cache-invalidation.md) — PostgreSQL LISTEN/NOTIFY drives cache invalidation; TTLs are safety net
-- [ADR-011](011-check-constraint-consistency.md) — DB check constraints synced to backend YAML and frontend TypeScript
-- [ADR-014](014-cursor-pagination.md) — Cursor pagination convention for list endpoints
-
-### Background Work
-
-- [ADR-012](012-transactional-outbox-worker.md) — Transactional outbox pattern for emails, audit, deferred work
-
-### Reservations Domain
-
-- [ADR-013](013-locking-availability-strategy.md) — Hold-as-lock + auto-pin + ledger-as-truth
-- [ADR-015](015-state-machine-rollup.md) — Item state changes drive reservation status via deterministic rollup
-- [ADR-016](016-guest-aware-hold-ttl.md) — Multi-tiered hold expiry based on source and guest presence
-- [ADR-018](018-stay-period-time-semantics.md) — `stay_period` TSTZRANGE bounds carry property check-in/out times
-- [ADR-019](019-payment-authorization-model.md) — Card auth at hold time for website source
-- [ADR-020](020-reservation-envelope.md) — Materialised `stay_period_envelope` column on reservations
-- [ADR-022](022-response-depth-include.md) — Response depth control via `?include=` query parameter
-- [ADR-021](021-audit-logs-via-trigger.md) — Audit logs written by database trigger, not application code
-
-### Frontend / Transport
-
-- [ADR-017](017-realtime-frontend-sse.md) — SSE push for real-time frontend updates
+- 001 Schema-First API
+- 002 Core DB Principles
+- 003 Error Handling
+- 004 Idempotency Key
+- 005 Check-Constraint Consistency
+- 006 Transactional Outbox
+- 007 Locking & Availability
+- 008 Cursor Pagination
+- 009 State Machine Rollup
+- 010 Guest-Aware Hold TTLs
+- 011 Real-Time Frontend via SSE
+- 012 Stay Period Time Semantics
+- 013 Reservation Envelope
+- 014 Audit Logs via DB Trigger
+- 015 Response Depth via `?include=`
 
 ## Principles
 

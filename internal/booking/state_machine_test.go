@@ -110,7 +110,7 @@ func TestValidateItemTransition_Invalid(t *testing.T) {
 	}
 }
 
-// --- Rollup tests (ADR-015) ---
+// --- Rollup tests (ADR-009) ---
 
 func TestRollupReservationStatus_EmptyItems(t *testing.T) {
 	result := RollupReservationStatus(StatusConfirmed, nil)

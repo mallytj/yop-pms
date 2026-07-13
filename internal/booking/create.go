@@ -1,7 +1,7 @@
 package booking
 
 // Core Requirements: R-RES-CRUD-001, R-RES-CRUD-002, R-RES-CRUD-003, R-RES-CRUD-007,
-// R-RES-CRUD-010, R-RES-CRUD-013, R-RES-CRUD-014, R-RES-CRUD-018, ADR-015, ADR-018, ADR-020
+// R-RES-CRUD-010, R-RES-CRUD-013, R-RES-CRUD-014, R-RES-CRUD-018, ADR-009, ADR-012, ADR-013
 
 // create.go — Reservation CRUD handlers:
 //   - HTTP handlers: Create, Get, List

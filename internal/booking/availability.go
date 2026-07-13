@@ -1,6 +1,6 @@
 package booking
 
-// Core Requirements: R-RES-AVAIL-001, R-RES-AVAIL-002, R-RES-AVAIL-003, ADR-013
+// Core Requirements: R-RES-AVAIL-001, R-RES-AVAIL-002, R-RES-AVAIL-003, ADR-007
 
 import (
 	"context"

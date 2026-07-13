@@ -397,8 +397,8 @@ WHERE reservation_id = $1 AND deleted_at IS NULL
 `
 
 // Reservation items queries
-// See ADR-015 for rollup rule, ADR-013 for locking & availability
-// ADR-015 rollup: item status changes drive reservation status
+// See ADR-009 for rollup rule, ADR-007 for locking & availability
+// ADR-009 rollup: item status changes drive reservation status
 // Returns new_status TEXT (NULL = unchanged)
 func (q *Queries) RollupReservationStatus(ctx context.Context, reservationID uuid.UUID) (string, error) {
 	row := q.db.QueryRow(ctx, rollupReservationStatus, reservationID)
@@ -428,7 +428,7 @@ type SelectRoomForAutoPinParams struct {
 	Dates      []pgtype.Date `json:"dates"`
 }
 
-// ADR-013: Auto-pin lowest available room of requested type
+// ADR-007: Auto-pin lowest available room of requested type
 // Uses LEFT JOIN with FOR UPDATE on the rooms side, not the outer join.
 func (q *Queries) SelectRoomForAutoPin(ctx context.Context, arg *SelectRoomForAutoPinParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, selectRoomForAutoPin, arg.PropertyID, arg.RoomTypeID, arg.Dates)

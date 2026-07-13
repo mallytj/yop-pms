@@ -499,7 +499,7 @@ func (s *Service) ShortenStay(ctx context.Context, qtx *store.Queries, item stor
 	return nil
 }
 
-// rollupAndNotify runs ADR-015 rollup and emits reservation_changes notification.
+// rollupAndNotify runs ADR-009 rollup and emits reservation_changes notification.
 func rollupAndNotify(ctx context.Context, qtx *store.Queries, reservationID, propertyID uuid.UUID) (string, error) {
 	return "", nil
 }

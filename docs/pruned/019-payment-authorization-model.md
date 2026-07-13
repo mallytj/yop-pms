@@ -1,4 +1,11 @@
-# ADR 018: Payment Authorization Model for Holds
+---
+status: pruned
+pruned_date: 2026-07-13
+pruned_by: YOP-16
+reason: deferred-to-finance-pr
+---
+
+# ADR 019: Payment Authorization Model for Holds
 
 ## Status
 
@@ -6,7 +13,7 @@
 
 ## Context
 
-The "Hold-as-Scaffold" pattern (ADR-013) immediately locks a physical room via
+The "Hold-as-Scaffold" pattern (ADR-007) immediately locks a physical room via
 the inventory ledger when a `hold` reservation is created. For website-source
 holds, no payment was previously required at hold time — only at confirm,
 via the checkout session.
@@ -73,7 +80,7 @@ shapes don't shift later.
 
 ## References
 
-- ADR-013 — Locking & availability strategy
-- ADR-016 — Guest-aware hold TTLs
+- ADR-007 — Locking & availability strategy
+- ADR-010 — Guest-aware hold TTLs
 - `/docs/requirements/reservations.md` §1, §6 (integration), §10 (OTA)
 - `/docs/CONTEXT.md` — Payment authorization

@@ -1,7 +1,7 @@
 -- Reservation items queries
--- See ADR-015 for rollup rule, ADR-013 for locking & availability
+-- See ADR-009 for rollup rule, ADR-007 for locking & availability
 
--- ADR-015 rollup: item status changes drive reservation status
+-- ADR-009 rollup: item status changes drive reservation status
 -- Returns new_status TEXT (NULL = unchanged)
 -- name: RollupReservationStatus :one
 SELECT 
@@ -36,7 +36,7 @@ WHERE r.property_id = @property_id
 GROUP BY ril.calendar_date
 ORDER BY ril.calendar_date;
 
--- ADR-013: Auto-pin lowest available room of requested type
+-- ADR-007: Auto-pin lowest available room of requested type
 -- Uses LEFT JOIN with FOR UPDATE on the rooms side, not the outer join.
 -- name: SelectRoomForAutoPin :one
 SELECT r.id FROM inventory.rooms r

@@ -1,6 +1,6 @@
 package booking
 
-// Core Requirements: R-RES-WORKER-001, R-RES-WORKER-002, R-RES-WORKER-003, R-RES-WORKER-004, ADR-016
+// Core Requirements: R-RES-WORKER-001, R-RES-WORKER-002, R-RES-WORKER-003, R-RES-WORKER-004, ADR-010
 // Workers run background sweeps (hold expiry, no-show, overstay, archival).
 // Single file in booking package is appropriate for this scale.
 

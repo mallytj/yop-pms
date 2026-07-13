@@ -7,7 +7,7 @@ import (
 )
 
 // ISO8601Date is a date in YYYY-MM-DD format for JSON serialization.
-// Handlers compose TSTZRANGE from property check-in/out times (ADR-018).
+// Handlers compose TSTZRANGE from property check-in/out times (ADR-012).
 type ISO8601Date struct {
 	time.Time
 }
