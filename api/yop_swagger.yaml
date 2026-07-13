@@ -49,47 +49,8 @@ definitions:
       time.Time:
         type: string
     type: object
-  github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate:
-    properties:
-      adjustment:
-        items:
-          type: integer
-        type: array
-      adjustment_approved:
-        type: boolean
-      adjustment_approved_by_user_id:
-        $ref: '#/definitions/uuid.NullUUID'
-      base_price_pence:
-        type: integer
-      calendar_date:
-        $ref: '#/definitions/pgtype.Date'
-      created_at:
-        $ref: '#/definitions/pgtype.Timestamptz'
-      deleted_at:
-        $ref: '#/definitions/pgtype.Timestamptz'
-      final_price_pence:
-        type: integer
-      id:
-        type: string
-      property_id:
-        type: string
-      rate_plan_id:
-        $ref: '#/definitions/uuid.NullUUID'
-      reservation_item_id:
-        type: string
-      updated_at:
-        $ref: '#/definitions/pgtype.Timestamptz'
-    type: object
   internal_booking.AddItemInput:
     type: object
-  internal_booking.AdjustmentType:
-    enum:
-    - percentage
-    - fixed
-    type: string
-    x-enum-varnames:
-    - AdjustmentPercent
-    - AdjustmentFixed
   internal_booking.AssignRoomInput:
     properties:
       override_dnm_reason:
@@ -172,13 +133,6 @@ definitions:
       waive_fee:
         example: false
         type: boolean
-    type: object
-  internal_booking.CancellationQuoteResponse:
-    properties:
-      fee_pence:
-        type: integer
-      status:
-        type: string
     type: object
   internal_booking.CreateItemInput:
     type: object
@@ -308,29 +262,6 @@ definitions:
     - ItemStatusOverstay
     - ItemStatusCancelled
     - ItemStatusArchived
-  internal_booking.RateAdjustInput:
-    properties:
-      adjustments:
-        items:
-          $ref: '#/definitions/internal_booking.RateAdjustment'
-        type: array
-    type: object
-  internal_booking.RateAdjustment:
-    properties:
-      calendar_date:
-        example: "2026-06-01"
-        type: string
-      reason:
-        example: Corp Rate
-        type: string
-      type:
-        allOf:
-        - $ref: '#/definitions/internal_booking.AdjustmentType'
-        example: percentage
-      value:
-        example: 10000
-        type: integer
-    type: object
   internal_booking.RefundAction:
     enum:
     - none
@@ -439,43 +370,6 @@ definitions:
       travel_agent_id:
         example: 00000000-0000-0000-0000-000000000000
         type: string
-    type: object
-  pgtype.Date:
-    properties:
-      infinityModifier:
-        $ref: '#/definitions/pgtype.InfinityModifier'
-      time:
-        type: string
-      valid:
-        type: boolean
-    type: object
-  pgtype.InfinityModifier:
-    enum:
-    - 1
-    - 0
-    - -1
-    format: int32
-    type: integer
-    x-enum-varnames:
-    - Infinity
-    - Finite
-    - NegativeInfinity
-  pgtype.Timestamptz:
-    properties:
-      infinityModifier:
-        $ref: '#/definitions/pgtype.InfinityModifier'
-      time:
-        type: string
-      valid:
-        type: boolean
-    type: object
-  uuid.NullUUID:
-    properties:
-      uuid:
-        type: string
-      valid:
-        description: Valid is true if UUID is not NULL
-        type: boolean
     type: object
 host: localhost:8080
 info:
@@ -719,30 +613,6 @@ paths:
       summary: Cancel reservation
       tags:
       - Reservations
-  /v1/reservations/{id}/cancellation-quote:
-    get:
-      description: Estimate cancellation fees before committing to cancel.
-      parameters:
-      - description: Property UUID
-        in: header
-        name: X-Property-ID
-        required: true
-        type: string
-      - description: Reservation UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "501":
-          description: Not implemented
-          schema:
-            $ref: '#/definitions/internal_booking.CancellationQuoteResponse'
-      summary: Get cancellation quote
-      tags:
-      - Reservations
   /v1/reservations/{id}/checkin:
     patch:
       description: Batch check-in all items on a reservation. Returns per-item results.
@@ -861,35 +731,6 @@ paths:
       summary: Confirm reservation
       tags:
       - Reservations
-  /v1/reservations/{id}/folios/{folio_id}:
-    get:
-      description: Fetch folio details for a reservation.
-      parameters:
-      - description: Property UUID
-        in: header
-        name: X-Property-ID
-        required: true
-        type: string
-      - description: Reservation UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Folio UUID
-        in: path
-        name: folio_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "501":
-          description: Not implemented
-          schema:
-            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
-      summary: Get reservation folio
-      tags:
-      - Reservations
   /v1/reservations/{id}/items:
     post:
       consumes:
@@ -1002,60 +843,6 @@ paths:
       summary: Update reservation item
       tags:
       - Reservations
-  /v1/reservations/{id}/items/{item_id}/adjust-rate:
-    post:
-      consumes:
-      - application/json
-      description: Apply percentage or fixed discount/surcharge to a nightly rate.
-      parameters:
-      - description: Property UUID
-        in: header
-        name: X-Property-ID
-        required: true
-        type: string
-      - description: Reservation UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Item UUID
-        in: path
-        name: item_id
-        required: true
-        type: string
-      - description: Version for optimistic concurrency
-        in: header
-        name: If-Match
-        required: true
-        type: string
-      - description: Adjustment payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/internal_booking.RateAdjustInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/internal_booking.ReservationResponse'
-        "400":
-          description: Invalid ID or X-Property-ID
-          schema:
-            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
-        "404":
-          description: Item not found
-          schema:
-            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
-        "422":
-          description: Validation failed
-          schema:
-            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
-      summary: Adjust nightly rate
-      tags:
-      - Reservations
   /v1/reservations/{id}/items/{item_id}/assign-room:
     patch:
       consumes:
@@ -1112,142 +899,6 @@ paths:
           schema:
             $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
       summary: Assign room to item
-      tags:
-      - Reservations
-  /v1/reservations/{id}/items/{item_id}/booked-rates:
-    get:
-      description: Fetch booked daily rates for a reservation item.
-      parameters:
-      - description: Property UUID
-        in: header
-        name: X-Property-ID
-        required: true
-        type: string
-      - description: Reservation UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Item UUID
-        in: path
-        name: item_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate'
-            type: array
-        "400":
-          description: Invalid ID
-          schema:
-            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
-        "404":
-          description: Item not found
-          schema:
-            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
-      summary: Get booked daily rates
-      tags:
-      - Reservations
-    patch:
-      consumes:
-      - application/json
-      description: Override base rates for a reservation item.
-      parameters:
-      - description: Property UUID
-        in: header
-        name: X-Property-ID
-        required: true
-        type: string
-      - description: Reservation UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Item UUID
-        in: path
-        name: item_id
-        required: true
-        type: string
-      - description: Version for optimistic concurrency
-        in: header
-        name: If-Match
-        required: true
-        type: string
-      - description: Rate override payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/internal_booking.RateAdjustInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/internal_booking.ReservationResponse'
-        "400":
-          description: Invalid ID or X-Property-ID
-          schema:
-            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
-        "404":
-          description: Item not found
-          schema:
-            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
-        "422":
-          description: Validation failed
-          schema:
-            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
-      summary: Update booked daily rates
-      tags:
-      - Reservations
-  /v1/reservations/{id}/items/{item_id}/booked-rates/approve:
-    post:
-      consumes:
-      - application/json
-      description: Approve pending rate adjustments for a reservation item.
-      parameters:
-      - description: Property UUID
-        in: header
-        name: X-Property-ID
-        required: true
-        type: string
-      - description: Reservation UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Item UUID
-        in: path
-        name: item_id
-        required: true
-        type: string
-      - description: Version for optimistic concurrency
-        in: header
-        name: If-Match
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/internal_booking.ReservationResponse'
-        "400":
-          description: Invalid ID or X-Property-ID
-          schema:
-            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
-        "404":
-          description: Item not found
-          schema:
-            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
-      summary: Approve rate adjustments
       tags:
       - Reservations
   /v1/reservations/{id}/items/{item_id}/cancel:

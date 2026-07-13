@@ -133,8 +133,8 @@ main() {
   fi
 
   # Truncate diff to ~15000 chars to stay within token limits
-  DIFF_TRUNCATED=$(printf "%s\n" "$DIFF" | head -c 15000)
-  echo "Diff size: $(printf "%s\n" "$DIFF" | wc -c) bytes (truncated to 15000 for audit)"
+  DIFF_TRUNCATED=$(head -c 15000 <<< "$DIFF")
+  echo "Diff size: $(wc -c <<< "$DIFF") bytes (truncated to 15000 for audit)"
   echo "::endgroup::"
 
   # Agent list: env var AUDIT_AGENTS overrides default (cto,boutique,compliancy,ux).

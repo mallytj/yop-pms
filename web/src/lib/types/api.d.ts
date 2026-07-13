@@ -454,51 +454,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/reservations/{id}/cancellation-quote": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get cancellation quote
-         * @description Estimate cancellation fees before committing to cancel.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header: {
-                    /** @description Property UUID */
-                    "X-Property-ID": string;
-                };
-                path: {
-                    /** @description Reservation UUID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Not implemented */
-                501: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["internal_booking.CancellationQuoteResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/reservations/{id}/checkin": {
         parameters: {
             query?: never;
@@ -720,53 +675,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/reservations/{id}/folios/{folio_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get reservation folio
-         * @description Fetch folio details for a reservation.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header: {
-                    /** @description Property UUID */
-                    "X-Property-ID": string;
-                };
-                path: {
-                    /** @description Reservation UUID */
-                    id: string;
-                    /** @description Folio UUID */
-                    folio_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Not implemented */
-                501: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/reservations/{id}/items": {
         parameters: {
             query?: never;
@@ -945,87 +853,6 @@ export interface paths {
         };
         trace?: never;
     };
-    "/v1/reservations/{id}/items/{item_id}/adjust-rate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Adjust nightly rate
-         * @description Apply percentage or fixed discount/surcharge to a nightly rate.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header: {
-                    /** @description Property UUID */
-                    "X-Property-ID": string;
-                    /** @description Version for optimistic concurrency */
-                    "If-Match": string;
-                };
-                path: {
-                    /** @description Reservation UUID */
-                    id: string;
-                    /** @description Item UUID */
-                    item_id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Adjustment payload */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["internal_booking.RateAdjustInput"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
-                    };
-                };
-                /** @description Invalid ID or X-Property-ID */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
-                    };
-                };
-                /** @description Item not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
-                    };
-                };
-                /** @description Validation failed */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/reservations/{id}/items/{item_id}/assign-room": {
         parameters: {
             query?: never;
@@ -1114,203 +941,6 @@ export interface paths {
                 };
             };
         };
-        trace?: never;
-    };
-    "/v1/reservations/{id}/items/{item_id}/booked-rates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get booked daily rates
-         * @description Fetch booked daily rates for a reservation item.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header: {
-                    /** @description Property UUID */
-                    "X-Property-ID": string;
-                };
-                path: {
-                    /** @description Reservation UUID */
-                    id: string;
-                    /** @description Item UUID */
-                    item_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate"][];
-                    };
-                };
-                /** @description Invalid ID */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
-                    };
-                };
-                /** @description Item not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update booked daily rates
-         * @description Override base rates for a reservation item.
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header: {
-                    /** @description Property UUID */
-                    "X-Property-ID": string;
-                    /** @description Version for optimistic concurrency */
-                    "If-Match": string;
-                };
-                path: {
-                    /** @description Reservation UUID */
-                    id: string;
-                    /** @description Item UUID */
-                    item_id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Rate override payload */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["internal_booking.RateAdjustInput"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
-                    };
-                };
-                /** @description Invalid ID or X-Property-ID */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
-                    };
-                };
-                /** @description Item not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
-                    };
-                };
-                /** @description Validation failed */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
-    "/v1/reservations/{id}/items/{item_id}/booked-rates/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Approve rate adjustments
-         * @description Approve pending rate adjustments for a reservation item.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header: {
-                    /** @description Property UUID */
-                    "X-Property-ID": string;
-                    /** @description Version for optimistic concurrency */
-                    "If-Match": string;
-                };
-                path: {
-                    /** @description Reservation UUID */
-                    id: string;
-                    /** @description Item UUID */
-                    item_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["internal_booking.ReservationResponse"];
-                    };
-                };
-                /** @description Invalid ID or X-Property-ID */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
-                    };
-                };
-                /** @description Item not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/v1/reservations/{id}/items/{item_id}/cancel": {
@@ -1810,24 +1440,7 @@ export interface components {
         "github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date": {
             "time.Time"?: string;
         };
-        "github_com_lexxcode1_yop-pms_internal_store.PricingBookedDailyRate": {
-            adjustment?: number[];
-            adjustment_approved?: boolean;
-            adjustment_approved_by_user_id?: components["schemas"]["uuid.NullUUID"];
-            base_price_pence?: number;
-            calendar_date?: components["schemas"]["pgtype.Date"];
-            created_at?: components["schemas"]["pgtype.Timestamptz"];
-            deleted_at?: components["schemas"]["pgtype.Timestamptz"];
-            final_price_pence?: number;
-            id?: string;
-            property_id?: string;
-            rate_plan_id?: components["schemas"]["uuid.NullUUID"];
-            reservation_item_id?: string;
-            updated_at?: components["schemas"]["pgtype.Timestamptz"];
-        };
         "internal_booking.AddItemInput": Record<string, never>;
-        /** @enum {string} */
-        "internal_booking.AdjustmentType": "percentage" | "fixed";
         "internal_booking.AssignRoomInput": {
             /** @example Guest insists on room 101 */
             override_dnm_reason?: string;
@@ -1883,10 +1496,6 @@ export interface components {
             refund_action?: components["schemas"]["internal_booking.RefundAction"];
             /** @example false */
             waive_fee?: boolean;
-        };
-        "internal_booking.CancellationQuoteResponse": {
-            fee_pence?: number;
-            status?: string;
         };
         "internal_booking.CreateItemInput": Record<string, never>;
         "internal_booking.CreateReservationInput": Record<string, never>;
@@ -1962,19 +1571,6 @@ export interface components {
         };
         /** @enum {string} */
         "internal_booking.ItemStatus": "booked" | "checked_in" | "checked_out" | "no_show" | "overstay" | "cancelled" | "archived";
-        "internal_booking.RateAdjustInput": {
-            adjustments?: components["schemas"]["internal_booking.RateAdjustment"][];
-        };
-        "internal_booking.RateAdjustment": {
-            /** @example 2026-06-01 */
-            calendar_date?: string;
-            /** @example Corp Rate */
-            reason?: string;
-            /** @example percentage */
-            type?: components["schemas"]["internal_booking.AdjustmentType"];
-            /** @example 10000 */
-            value?: number;
-        };
         /** @enum {string} */
         "internal_booking.RefundAction": "none" | "original" | "credit";
         "internal_booking.ReservationResponse": {
@@ -2022,26 +1618,6 @@ export interface components {
             primary_guest_id?: string;
             /** @example 00000000-0000-0000-0000-000000000000 */
             travel_agent_id?: string;
-        };
-        "pgtype.Date": {
-            infinityModifier?: components["schemas"]["pgtype.InfinityModifier"];
-            time?: string;
-            valid?: boolean;
-        };
-        /**
-         * Format: int32
-         * @enum {integer}
-         */
-        "pgtype.InfinityModifier": 1 | 0 | -1;
-        "pgtype.Timestamptz": {
-            infinityModifier?: components["schemas"]["pgtype.InfinityModifier"];
-            time?: string;
-            valid?: boolean;
-        };
-        "uuid.NullUUID": {
-            uuid?: string;
-            /** @description Valid is true if UUID is not NULL */
-            valid?: boolean;
         };
     };
     responses: never;
