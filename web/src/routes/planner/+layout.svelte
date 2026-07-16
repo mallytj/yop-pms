@@ -14,7 +14,7 @@
 
 	$effect(() => {
 		topBarStore.tabs = TAPE_CHART_TABS;
-		topBarStore.active = $page.url.pathname.split('/planner/')[1] ?? '';
+		topBarStore.active = $page.url.pathname.split('/')[2] ?? '';
 		topBarStore.onchange = (id: string) => goto(`/planner/${id}`);
 		return () => topBarStore.reset();
 	});
