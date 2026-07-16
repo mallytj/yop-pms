@@ -19,11 +19,7 @@ const config = {
 			$actions: 'src/lib/actions'
 		}
 	},
-	vitePlugin: {
-		dynamicCompileOptions: ({ filename }) => ({
-			runes: !filename.includes('node_modules')
-		})
-	}
+
 };
 
 export default config;
