@@ -96,27 +96,48 @@ Edit **source** (SQL, Go Swagger comments, live DB), re-run gen command.
 
 **Frontend: never define own API types** — all from generation.
 
-## Doc-Driven Development
-
-- Feature implementation MUST follow sequence diagrams (`docs/flows/`), RTMs
-  (`docs/requirements/`), ADRs (`docs/adr/`), guides (`docs/guides/`).
-- Use `doc-driven-development` skill to map plans to diagram steps.
-- Cite requirements + ADRs in file headers:
-  `// Core Requirements: [R-RES-XXX], [ADR-XXX]`
 - Use `validation.Struct(input, "schema.table")` for struct validation. Add
   `constraints:"schema.table"` tag on nested slice fields.
 
+## Self-Documenting Code
+
+Code must explain itself through names, types, boundaries, and component
+structure. Use these skills on every code change:
+
+- `/writing-comments` — write only high-signal comments: why, constraints,
+  business rules, and non-obvious contracts. Never use comments as section
+  headers or as a substitute for a component, function, or module.
+- `/writing-ts` — write type-safe TypeScript and Svelte 5. No `as unknown as X`,
+  no `any` to silence errors, no `var`, and no vague names. Validate and narrow
+  untrusted values at boundaries.
+- `/writing-tests` — use whenever writing or reviewing tests. Test names state
+  behavior; bodies show given/when/then in visually separated blocks; one
+  action and one behavior per test.
+
+Rules:
+
+- `// -- HERO SECTION --` is not acceptable. Extract a named component or
+  function.
+- Prefer domain names over generic names such as `data`, `value`, `item`,
+  `result`, and `helper`.
+- Name booleans with `is`, `has`, `can`, or `should`; name functions with verbs.
+- Comments must explain why, a non-obvious constraint, or an external contract.
+  Delete comments that restate code.
+- Never leave stale comments, dead-code comments, or TODOs without an issue link
+  or owner.
+- Fix the type or boundary adapter instead of hiding errors with casts.
+
 ## Agent Resources
 
-| Resource                | File                                   | Purpose                                                     |
-| ----------------------- | -------------------------------------- | ----------------------------------------------------------- |
-| Domain context          | `docs/CONTEXT.md`                      | Domain terms, doc tree, cheat sheet                         |
-| ADR index               | `docs/adr/README.md`                   | Architecture decisions (001-015)                            |
-| Issue tracker           | `docs/agents/issue-tracker.md`         | Linear CLI v2, branch naming, lifecycle                     |
-| Triage labels           | `docs/agents/triage-labels.md`         | 5 canonical label mapping                                   |
-| Domain docs consumption | `docs/agents/domain.md`                | How to explore domain docs                                  |
-| Workflow                | `docs/agentic-engineering-workflow.md` | 6-stage build process                                       |
-| Skills                  | `.pi/skills/`                          | Reusable procedures (ask-yop, run-audit, code-review, etc.) |
+| Resource                | File                                   | Purpose                                                                                   |
+| ----------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Domain context          | `docs/CONTEXT.md`                      | Domain terms, doc tree, cheat sheet                                                       |
+| ADR index               | `docs/adr/README.md`                   | Architecture decisions (001-015)                                                          |
+| Issue tracker           | `docs/agents/issue-tracker.md`         | Linear CLI v2, branch naming, lifecycle                                                   |
+| Triage labels           | `docs/agents/triage-labels.md`         | 5 canonical label mapping                                                                 |
+| Domain docs consumption | `docs/agents/domain.md`                | How to explore domain docs                                                                |
+| Workflow                | `docs/agentic-engineering-workflow.md` | 6-stage build process                                                                     |
+| Skills                  | `.pi/skills/`                          | Reusable procedures (writing-comments, writing-ts, writing-tests, ask-yop, run-audit, code-review, etc.) |
 
 Advisory agents (CTO, Boutique Director, Compliancy, UX Expert): invoke via
 `run-audit` skill. Fresh context each run — don't auto-read AGENTS.md or docs/.
