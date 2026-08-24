@@ -1,81 +1,126 @@
 <script lang="ts">
-	import { shellStore } from '$stores/shell.svelte';
-	import { topBarStore } from '$stores/topbar.svelte';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { topBar } from '$stores/topbar.svelte';
+	import { tapeChartView } from '$stores/tapeChartView.svelte';
+	import { goWithParams } from '$helpers/url.js';
+	import TapeChartDatePicker from './TapeChartDatePicker.svelte';
 
-	const tabs = $derived(topBarStore.tabs);
-	const active = $derived(topBarStore.active);
-	const onchange = $derived(topBarStore.onchange);
+	let urlFrom = $derived(page.url.searchParams.get('from') || '');
+	let hasTabs = $derived(topBar.tabs.length > 0);
+	let isTapeChart = $derived(page.url.pathname.startsWith('/tape-chart'));
+
+	function navigateWithParams(params: Record<string, string>) {
+		goto(goWithParams(page.url, params), { replaceState: true, keepFocus: true });
+	}
+
+	function tabHref(id: string): string {
+		return id ? `/tape-chart/${id}` : '/tape-chart';
+	}
 </script>
 
-<nav class="topbar">
-	<div class="topbar-left">
-		<span class="topbar-title">{shellStore.topLeft}</span>
+<header class="top-bar">
+	<div class="top-bar-left">
+		{#if hasTabs}
+			<h1 class="top-bar-title">Tape Chart</h1>
+		{/if}
+
+		{#if isTapeChart}
+			<TapeChartDatePicker
+				from={urlFrom}
+				onRangeChange={(from, to) => navigateWithParams({ from, to })}
+				onToday={() => tapeChartView.requestScrollToToday()}
+			/>
+		{/if}
 	</div>
 
-	{#if tabs.length > 0}
-		<div class="topbar-center">
-			{#each tabs as tab (tab.id)}
-				<button
-					class="role-tab"
-					class:active={active === tab.id}
-					onclick={() => onchange(tab.id)}
+	{#if topBar.tabs.length > 0}
+		<div class="top-bar-tabs" role="tablist" aria-label="Tape Chart tabs">
+			{#each topBar.tabs as tab}
+				<a
+					href={tabHref(tab.id)}
+					class="tab"
+					class:active={topBar.active === tab.id}
+					role="tab"
+					aria-selected={topBar.active === tab.id}
 				>
-					{tab.label}
-				</button>
+					<tab.icon size={16} />
+					<span>{tab.label}</span>
+				</a>
 			{/each}
 		</div>
 	{/if}
-
-	<div class="topbar-right">
-		<span>{shellStore.topRight}</span>
-	</div>
-</nav>
+</header>
 
 <style>
-	.topbar {
+	.top-bar {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		height: var(--topbar-height);
+		padding: 0 var(--spacing-lg);
+		background: var(--color-surface);
 		border-bottom: 1px solid var(--color-border);
-		padding: 0 var(--spacing-xl);
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
+		gap: var(--spacing-lg);
+		flex-shrink: 0;
 	}
 
-	.topbar-left {
-		font-weight: 600;
-		color: var(--color-text);
-		min-width: 120px;
-	}
-
-	.topbar-center {
+	.top-bar-left {
 		display: flex;
-		gap: var(--spacing-xs);
+		align-items: center;
+		gap: var(--spacing-lg);
+		min-width: 0;
+		flex: 1;
 	}
 
-	.topbar-right {
-		min-width: 120px;
-		text-align: right;
-	}
-
-	.role-tab {
-		all: unset;
-		padding: 6px var(--spacing-md);
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		transition: background var(--transition-fast), color var(--transition-fast);
-	}
-
-	.role-tab:hover {
-		background: var(--color-border-hover);
-	}
-
-	.role-tab.active {
-		background: var(--color-border);
+	.top-bar-title {
+		font-size: var(--font-size-lg);
+		font-weight: var(--font-weight-semibold);
 		color: var(--color-text);
-		font-weight: 500;
+		white-space: nowrap;
+		margin: 0;
+	}
+
+	.top-bar-tabs {
+		display: flex;
+		align-items: center;
+		height: 100%;
+		gap: 0;
+		flex-shrink: 0;
+	}
+
+	.tab {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		height: 100%;
+		padding: 0 var(--spacing-lg);
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-medium);
+		color: var(--color-text-secondary);
+		text-decoration: none;
+		border-bottom: 2px solid transparent;
+		cursor: pointer;
+		transition:
+			color 0.15s,
+			border-color 0.15s,
+			background 0.15s;
+		white-space: nowrap;
+		font-family: inherit;
+	}
+
+	.tab:hover {
+		color: var(--color-text);
+		background: var(--color-surface-raised-strong);
+	}
+
+	.tab.active {
+		color: var(--color-accent-strong);
+		border-bottom-color: var(--color-accent-strong);
+	}
+
+	.tab :global(svg) {
+		display: block;
+		flex-shrink: 0;
 	}
 </style>

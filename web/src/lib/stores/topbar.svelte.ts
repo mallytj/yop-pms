@@ -1,33 +1,22 @@
-import type { ComponentType } from 'svelte';
+import type { Component } from 'svelte';
 
-export interface Tab {
+export interface TabDef {
 	id: string;
 	label: string;
-	icon?: ComponentType<any>;
+	icon: Component;
 }
 
-interface TopBarState {
-	tabs: Tab[];
-	active: string;
-	onchange: (id: string) => void;
-}
-
-const state = $state<TopBarState>({
-	tabs: [],
+// Global reactive state for the app top bar.
+// TapeChart layout mutates properties; TopBar component reads them.
+// NOTE: must mutate properties, not reassign `topBar` itself
+// (Svelte 5 forbids export of reassignable $state from modules).
+export const topBar = $state({
+	tabs: [] as TabDef[],
 	active: '',
-	onchange: () => {}
-});
-
-export const topBarStore = {
-	get tabs() { return state.tabs; },
-	set tabs(value: Tab[]) { state.tabs = value; },
-	get active() { return state.active; },
-	set active(value: string) { state.active = value; },
-	get onchange() { return state.onchange; },
-	set onchange(value: (id: string) => void) { state.onchange = value; },
+	onchange: undefined as ((id: string) => void) | undefined,
 	reset() {
-		state.tabs = [];
-		state.active = '';
-		state.onchange = () => {};
+		this.tabs = [];
+		this.active = '';
+		this.onchange = undefined;
 	}
-};
+});
