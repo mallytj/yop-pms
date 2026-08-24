@@ -11,7 +11,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
 		"lint": "prettier --check .",
-		"test": "vitest run"
+		"test": "vitest run",
+		"test:mutation": "stryker run"
 	},
 	"files": [
 		"dist",
@@ -35,6 +36,8 @@
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.61.1",
+		"@stryker-mutator/core": "^9.2.0",
+		"@stryker-mutator/vitest-runner": "^9.2.0",
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/package": "^2.5.7",
@@ -54,6 +57,10 @@
 		"svelte"
 	],
 	"dependencies": {
-		"lucide-svelte": "^1.0.1"
+		"@internationalized/date": "^3.12.3",
+		"@lucide/svelte": "^1.33.0",
+		"@tanstack/svelte-virtual": "^3.13.32",
+		"bits-ui": "^2.19.0",
+		"openapi-fetch": "^0.17.0"
 	}
 }

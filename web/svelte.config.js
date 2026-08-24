@@ -18,8 +18,7 @@ const config = {
 			$types: 'src/lib/types',
 			$actions: 'src/lib/actions'
 		}
-	},
-
+	}
 };
 
 export default config;
