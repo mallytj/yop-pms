@@ -162,9 +162,9 @@ func TestReservationChangeHandler_TwoNightStay(t *testing.T) {
 	assertContains(t, patterns, "yop:availability:prop-1:*:2026-03-16")
 	assertContains(t, patterns, "yop:reservation:res-1")
 
-	// Planner scan was issued for the right property
-	if ifPattern != "yop:planner:prop-1:*" {
-		t.Errorf("planner pattern: got %q, want %q", ifPattern, "yop:planner:prop-1:*")
+	// TapeChart scan was issued for the right property
+	if ifPattern != "yop:tapechart:prop-1:*" {
+		t.Errorf("tape-chart pattern: got %q, want %q", ifPattern, "yop:tapechart:prop-1:*")
 	}
 }
 
@@ -192,11 +192,11 @@ func TestReservationChangeHandler_SingleNightStay(t *testing.T) {
 	assertContains(t, patterns, "yop:reservation:res-1")
 }
 
-func TestReservationChangeHandler_PlannerOverlap_IsDeleted(t *testing.T) {
+func TestReservationChangeHandler_TapeChartOverlap_IsDeleted(t *testing.T) {
 	mock := &mockCache{
 		keysToTest: []string{
-			"yop:planner:prop-1:2026-03-10:2026-03-20", // overlaps [15, 17)
-			"yop:planner:prop-1:2026-03-01:2026-03-10", // ends at check-in — no overlap
+			"yop:tapechart:prop-1:2026-03-10:2026-03-20", // overlaps [15, 17)
+			"yop:tapechart:prop-1:2026-03-01:2026-03-10", // ends at check-in — no overlap
 		},
 	}
 	handler := NewReservationChangeHandler(mock, invalidationLogger())
@@ -214,16 +214,16 @@ func TestReservationChangeHandler_PlannerOverlap_IsDeleted(t *testing.T) {
 	}
 
 	_, _, deleted := mock.snapshot()
-	if len(deleted) != 1 || deleted[0] != "yop:planner:prop-1:2026-03-10:2026-03-20" {
-		t.Errorf("deleted: got %v, want [yop:planner:prop-1:2026-03-10:2026-03-20]", deleted)
+	if len(deleted) != 1 || deleted[0] != "yop:tapechart:prop-1:2026-03-10:2026-03-20" {
+		t.Errorf("deleted: got %v, want [yop:tapechart:prop-1:2026-03-10:2026-03-20]", deleted)
 	}
 }
 
-func TestReservationChangeHandler_PlannerNoOverlap_NothingDeleted(t *testing.T) {
+func TestReservationChangeHandler_TapeChartNoOverlap_NothingDeleted(t *testing.T) {
 	mock := &mockCache{
 		keysToTest: []string{
-			"yop:planner:prop-1:2026-01-01:2026-02-01", // way before
-			"yop:planner:prop-1:2026-05-01:2026-06-01", // way after
+			"yop:tapechart:prop-1:2026-01-01:2026-02-01", // way before
+			"yop:tapechart:prop-1:2026-05-01:2026-06-01", // way after
 		},
 	}
 	handler := NewReservationChangeHandler(mock, invalidationLogger())
@@ -242,7 +242,7 @@ func TestReservationChangeHandler_PlannerNoOverlap_NothingDeleted(t *testing.T) 
 
 	_, _, deleted := mock.snapshot()
 	if len(deleted) != 0 {
-		t.Errorf("expected no planner keys deleted, got: %v", deleted)
+		t.Errorf("expected no tape chart keys deleted, got: %v", deleted)
 	}
 }
 

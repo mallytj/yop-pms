@@ -48,6 +48,12 @@ type Querier interface {
 	GetReservationItem(ctx context.Context, id uuid.UUID) (OperationsReservationItem, error)
 	GetReservationItems(ctx context.Context, arg *GetReservationItemsParams) ([]OperationsReservationItem, error)
 	GetRoomTypeOccupancy(ctx context.Context, arg *GetRoomTypeOccupancyParams) (GetRoomTypeOccupancyRow, error)
+	GetTapeChartInventory(ctx context.Context, arg *GetTapeChartInventoryParams) ([]GetTapeChartInventoryRow, error)
+	GetTapeChartMaintenanceBlocks(ctx context.Context, arg *GetTapeChartMaintenanceBlocksParams) ([]GetTapeChartMaintenanceBlocksRow, error)
+	GetTapeChartReservationItems(ctx context.Context, reservationIds []uuid.UUID) ([]GetTapeChartReservationItemsRow, error)
+	GetTapeChartReservations(ctx context.Context, arg *GetTapeChartReservationsParams) ([]GetTapeChartReservationsRow, error)
+	GetTapeChartRoomTypes(ctx context.Context, propertyID uuid.UUID) ([]GetTapeChartRoomTypesRow, error)
+	GetTapeChartRooms(ctx context.Context, propertyID uuid.UUID) ([]GetTapeChartRoomsRow, error)
 	InsertLedgerRow(ctx context.Context, arg *InsertLedgerRowParams) error
 	// Cursor pagination per ADR-008
 	ListReservations(ctx context.Context, arg *ListReservationsParams) ([]OperationsReservation, error)

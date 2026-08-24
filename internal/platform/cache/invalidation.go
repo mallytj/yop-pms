@@ -13,8 +13,7 @@ import (
 
 const dateLayout = "2006-01-02"
 
-// reservationChangePayload matches the JSON shape sent by the database triggers
-// in migrations/00005_planner_notifier.sql.
+// reservationChangePayload matches the JSON shape sent by database triggers.
 type reservationChangePayload struct {
 	Operation    string `json:"operation"`
 	PropertyID   string `json:"property_id"`
@@ -69,7 +68,7 @@ type reservationCacheInvalidator interface {
 // reservation_changes channel. On each notification it:
 //  1. Invalidates one availability key per night in the stay period
 //  2. Invalidates the specific reservation record key
-//  3. Evicts all planner cache keys whose date range overlaps the stay period
+//  3. Evicts all tape chart cache keys whose date range overlaps the stay period
 //
 // The event is parsed once and shared across both strategies.
 // Individual cache failures are logged but never fail the handler — a cache miss
@@ -82,7 +81,7 @@ func NewReservationChangeHandler(c reservationCacheInvalidator, logger *slog.Log
 		}
 
 		invalidateAvailability(ctx, c, logger, change)
-		invalidatePlanner(ctx, c, logger, change)
+		invalidateTapeChart(ctx, c, logger, change)
 
 		return nil
 	}
@@ -103,7 +102,8 @@ func invalidateAvailability(ctx context.Context, c reservationCacheInvalidator, 
 		logger.Warn("failed to invalidate reservation cache", "record_id", change.RecordID, "error", err)
 	}
 
-	logger.Debug("availability cache invalidated",
+	logger.Debug(
+		"availability cache invalidated",
 		"property_id", change.PropertyID,
 		"check_in", change.CheckInDate,
 		"check_out", change.CheckOutDate,
@@ -111,21 +111,22 @@ func invalidateAvailability(ctx context.Context, c reservationCacheInvalidator, 
 	)
 }
 
-func invalidatePlanner(ctx context.Context, c reservationCacheInvalidator, logger *slog.Logger, change parsedChange) {
-	pattern := fmt.Sprintf("yop:planner:%s:*", change.PropertyID)
+func invalidateTapeChart(ctx context.Context, c reservationCacheInvalidator, logger *slog.Logger, change parsedChange) {
+	pattern := fmt.Sprintf("yop:tapechart:%s:*", change.PropertyID)
 
 	if err := c.InvalidateIf(ctx, pattern, func(key string) bool {
-		overlaps, err := plannerKeyOverlaps(key, change.PropertyID, change.CheckIn, change.CheckOut)
+		overlaps, err := tapeChartKeyOverlaps(key, change.PropertyID, change.CheckIn, change.CheckOut)
 		if err != nil {
-			logger.Warn("skipping unparseable planner cache key", "key", key, "error", err)
+			logger.Warn("skipping unparseable tape chart cache key", "key", key, "error", err)
 			return false
 		}
 		return overlaps
 	}); err != nil {
-		logger.Warn("failed to invalidate planner cache", "property_id", change.PropertyID, "error", err)
+		logger.Warn("failed to invalidate tape chart cache", "property_id", change.PropertyID, "error", err)
 	}
 
-	logger.Debug("planner cache invalidated",
+	logger.Debug(
+		"tape chart cache invalidated",
 		"property_id", change.PropertyID,
 		"check_in", change.CheckInDate,
 		"check_out", change.CheckOutDate,
@@ -133,14 +134,14 @@ func invalidatePlanner(ctx context.Context, c reservationCacheInvalidator, logge
 	)
 }
 
-// plannerKeyOverlaps reports whether the planner cache key's date range overlaps
+// tapeChartKeyOverlaps reports whether the tape chart cache key's date range overlaps
 // with the reservation stay period [checkIn, checkOut).
 //
-// Expected key format: yop:planner:{propertyID}:{start_date}:{end_date}
+// Expected key format: yop:tapechart:{propertyID}:{start_date}:{end_date}
 // Both intervals are treated as half-open: [start, end).
 // Overlap condition: checkIn < keyEnd AND checkOut > keyStart
-func plannerKeyOverlaps(key, propertyID string, checkIn, checkOut time.Time) (bool, error) {
-	prefix := "yop:planner:" + propertyID + ":"
+func tapeChartKeyOverlaps(key, propertyID string, checkIn, checkOut time.Time) (bool, error) {
+	prefix := "yop:tapechart:" + propertyID + ":"
 	if !strings.HasPrefix(key, prefix) {
 		return false, nil
 	}
@@ -148,7 +149,7 @@ func plannerKeyOverlaps(key, propertyID string, checkIn, checkOut time.Time) (bo
 	rest := strings.TrimPrefix(key, prefix)
 	parts := strings.SplitN(rest, ":", 2)
 	if len(parts) != 2 {
-		return false, fmt.Errorf("invalid planner key format (expected start:end dates): %q", key)
+		return false, fmt.Errorf("invalid tape-chart key format (expected start:end dates): %q", key)
 	}
 
 	keyStart, err := time.Parse(dateLayout, parts[0])

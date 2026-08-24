@@ -1,5 +1,5 @@
 // Package cache provides a Redis-backed cache client with hierarchical keys
-// (colon-separated, e.g. "yop:planner:<property>:<date>") and pattern
+// (colon-separated, e.g. "yop:tapechart:<property>:<date>") and pattern
 // invalidation via "yop:foo:*" wildcards. Cache lives in the service layer —
 // handlers stay cache-unaware. See ADR-008 and ADR-010.
 package cache
@@ -104,7 +104,7 @@ func (c *Client) Invalidate(ctx context.Context, pattern string) error {
 
 // InvalidateIf removes all keys matching a pattern where shouldDelete returns true.
 // Uses SCAN + filter + DEL, so it never blocks on large key sets.
-// Pattern should include the full prefix (e.g., "yop:planner:prop-1:*").
+// Pattern should include the full prefix (e.g., "yop:tapechart:prop-1:*").
 func (c *Client) InvalidateIf(ctx context.Context, pattern string, shouldDelete func(key string) bool) error {
 	var cursor uint64
 	var deleteCount int64

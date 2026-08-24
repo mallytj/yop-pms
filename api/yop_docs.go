@@ -1256,6 +1256,64 @@ const docTemplateyop = `{
                     }
                 }
             }
+        },
+        "/v1/tape-chart": {
+            "get": {
+                "description": "Returns room availability grid data for a date range",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tape-chart"
+                ],
+                "summary": "Get tape chart data",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Range start (YYYY-MM-DD)",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Range end (YYYY-MM-DD)",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "shallow",
+                            "full"
+                        ],
+                        "type": "string",
+                        "description": "shallow or full",
+                        "name": "include",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_tapechart.TapeChartResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1780,6 +1838,155 @@ const docTemplateyop = `{
                 "travel_agent_id": {
                     "type": "string",
                     "example": "00000000-0000-0000-0000-000000000000"
+                }
+            }
+        },
+        "internal_tapechart.InventoryDay": {
+            "type": "object",
+            "properties": {
+                "calendar_date": {
+                    "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"
+                },
+                "room_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_tapechart.MaintenanceBlock": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "room_id": {
+                    "type": "string"
+                },
+                "start": {
+                    "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"
+                }
+            }
+        },
+        "internal_tapechart.ReservationBlock": {
+            "type": "object",
+            "properties": {
+                "accent_index": {
+                    "type": "integer"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "from": {
+                    "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"
+                },
+                "guest_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "price_pence": {
+                    "type": "integer"
+                },
+                "room_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "to": {
+                    "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"
+                }
+            }
+        },
+        "internal_tapechart.RoomNode": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "maintenance_blocks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_tapechart.MaintenanceBlock"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reservations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_tapechart.ReservationBlock"
+                    }
+                }
+            }
+        },
+        "internal_tapechart.RoomTypeNode": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "rooms": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_tapechart.RoomNode"
+                    }
+                }
+            }
+        },
+        "internal_tapechart.TapeChartData": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"
+                },
+                "inventory": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_tapechart.InventoryDay"
+                    }
+                },
+                "maintenance_blocks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_tapechart.MaintenanceBlock"
+                    }
+                },
+                "reservations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_tapechart.ReservationBlock"
+                    }
+                },
+                "room_types": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_tapechart.RoomTypeNode"
+                    }
+                },
+                "to": {
+                    "$ref": "#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"
+                }
+            }
+        },
+        "internal_tapechart.TapeChartResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/internal_tapechart.TapeChartData"
                 }
             }
         }

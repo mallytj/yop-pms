@@ -130,6 +130,9 @@ func backdateForCheckin(ctx context.Context, reservationID uuid.UUID, hoursBefor
 	if err != nil {
 		return err
 	}
+	// Rollback after a successful Commit returns pgx.ErrTxClosed, which carries
+	// no information on that path; a failed rollback on any other path is
+	// superseded by the error already being returned.
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	if _, err := tx.Exec(ctx,

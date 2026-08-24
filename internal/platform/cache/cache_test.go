@@ -295,13 +295,13 @@ func TestInvalidateIf_SelectiveDelete(t *testing.T) {
 
 	ctx := context.Background()
 
-	_ = c.Set(ctx, "planner:prop-1:2026-03-01:2026-03-10", "data1", time.Hour)
-	_ = c.Set(ctx, "planner:prop-1:2026-03-10:2026-03-20", "data2", time.Hour)
-	_ = c.Set(ctx, "planner:prop-1:2026-03-20:2026-03-30", "data3", time.Hour)
+	_ = c.Set(ctx, "tapechart:prop-1:2026-03-01:2026-03-10", "data1", time.Hour)
+	_ = c.Set(ctx, "tapechart:prop-1:2026-03-10:2026-03-20", "data2", time.Hour)
+	_ = c.Set(ctx, "tapechart:prop-1:2026-03-20:2026-03-30", "data3", time.Hour)
 
 	// Only delete the middle key
-	target := "test:planner:prop-1:2026-03-10:2026-03-20"
-	err := c.InvalidateIf(ctx, "test:planner:prop-1:*", func(key string) bool {
+	target := "test:tapechart:prop-1:2026-03-10:2026-03-20"
+	err := c.InvalidateIf(ctx, "test:tapechart:prop-1:*", func(key string) bool {
 		return key == target
 	})
 	if err != nil {
@@ -309,13 +309,13 @@ func TestInvalidateIf_SelectiveDelete(t *testing.T) {
 	}
 
 	var v string
-	if err := c.Get(ctx, "planner:prop-1:2026-03-01:2026-03-10", &v); err != nil {
+	if err := c.Get(ctx, "tapechart:prop-1:2026-03-01:2026-03-10", &v); err != nil {
 		t.Error("first key should still exist")
 	}
-	if err := c.Get(ctx, "planner:prop-1:2026-03-10:2026-03-20", &v); err != ErrCacheMiss {
+	if err := c.Get(ctx, "tapechart:prop-1:2026-03-10:2026-03-20", &v); err != ErrCacheMiss {
 		t.Error("middle key should have been deleted")
 	}
-	if err := c.Get(ctx, "planner:prop-1:2026-03-20:2026-03-30", &v); err != nil {
+	if err := c.Get(ctx, "tapechart:prop-1:2026-03-20:2026-03-30", &v); err != nil {
 		t.Error("last key should still exist")
 	}
 }

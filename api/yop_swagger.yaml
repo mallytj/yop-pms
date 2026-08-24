@@ -371,6 +371,103 @@ definitions:
         example: 00000000-0000-0000-0000-000000000000
         type: string
     type: object
+  internal_tapechart.InventoryDay:
+    properties:
+      calendar_date:
+        $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date'
+      room_id:
+        type: string
+      status:
+        type: string
+    type: object
+  internal_tapechart.MaintenanceBlock:
+    properties:
+      end:
+        $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date'
+      id:
+        type: string
+      reason:
+        type: string
+      room_id:
+        type: string
+      start:
+        $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date'
+    type: object
+  internal_tapechart.ReservationBlock:
+    properties:
+      accent_index:
+        type: integer
+      code:
+        type: string
+      from:
+        $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date'
+      guest_name:
+        type: string
+      id:
+        type: string
+      price_pence:
+        type: integer
+      room_id:
+        type: string
+      status:
+        type: string
+      to:
+        $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date'
+    type: object
+  internal_tapechart.RoomNode:
+    properties:
+      id:
+        type: string
+      maintenance_blocks:
+        items:
+          $ref: '#/definitions/internal_tapechart.MaintenanceBlock'
+        type: array
+      name:
+        type: string
+      reservations:
+        items:
+          $ref: '#/definitions/internal_tapechart.ReservationBlock'
+        type: array
+    type: object
+  internal_tapechart.RoomTypeNode:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      rooms:
+        items:
+          $ref: '#/definitions/internal_tapechart.RoomNode'
+        type: array
+    type: object
+  internal_tapechart.TapeChartData:
+    properties:
+      from:
+        $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date'
+      inventory:
+        items:
+          $ref: '#/definitions/internal_tapechart.InventoryDay'
+        type: array
+      maintenance_blocks:
+        items:
+          $ref: '#/definitions/internal_tapechart.MaintenanceBlock'
+        type: array
+      reservations:
+        items:
+          $ref: '#/definitions/internal_tapechart.ReservationBlock'
+        type: array
+      room_types:
+        items:
+          $ref: '#/definitions/internal_tapechart.RoomTypeNode'
+        type: array
+      to:
+        $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date'
+    type: object
+  internal_tapechart.TapeChartResponse:
+    properties:
+      data:
+        $ref: '#/definitions/internal_tapechart.TapeChartData'
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -1218,4 +1315,43 @@ paths:
       summary: Subscribe to real-time SSE events
       tags:
       - Realtime
+  /v1/tape-chart:
+    get:
+      description: Returns room availability grid data for a date range
+      parameters:
+      - description: Range start (YYYY-MM-DD)
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: Range end (YYYY-MM-DD)
+        in: query
+        name: to
+        required: true
+        type: string
+      - description: shallow or full
+        enum:
+        - shallow
+        - full
+        in: query
+        name: include
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_tapechart.TapeChartResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError'
+      summary: Get tape chart data
+      tags:
+      - tape-chart
 swagger: "2.0"

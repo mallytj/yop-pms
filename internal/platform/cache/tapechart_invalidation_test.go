@@ -14,12 +14,12 @@ func mustParse(t *testing.T, s string) time.Time {
 	return d
 }
 
-// --- plannerKeyOverlaps (pure function) ---
+// --- tapeChartKeyOverlaps (pure function) ---
 
-func TestPlannerKeyOverlaps_FullContainment(t *testing.T) {
+func TestTapeChartKeyOverlaps_FullContainment(t *testing.T) {
 	// Reservation fully contained within key range
-	overlaps, err := plannerKeyOverlaps(
-		"yop:planner:prop-1:2026-03-01:2026-03-30",
+	overlaps, err := tapeChartKeyOverlaps(
+		"yop:tapechart:prop-1:2026-03-01:2026-03-30",
 		"prop-1",
 		mustParse(t, "2026-03-10"),
 		mustParse(t, "2026-03-20"),
@@ -32,10 +32,10 @@ func TestPlannerKeyOverlaps_FullContainment(t *testing.T) {
 	}
 }
 
-func TestPlannerKeyOverlaps_ReservationContainsKey(t *testing.T) {
+func TestTapeChartKeyOverlaps_ReservationContainsKey(t *testing.T) {
 	// Reservation fully contains key range
-	overlaps, err := plannerKeyOverlaps(
-		"yop:planner:prop-1:2026-03-10:2026-03-20",
+	overlaps, err := tapeChartKeyOverlaps(
+		"yop:tapechart:prop-1:2026-03-10:2026-03-20",
 		"prop-1",
 		mustParse(t, "2026-03-01"),
 		mustParse(t, "2026-03-30"),
@@ -48,10 +48,10 @@ func TestPlannerKeyOverlaps_ReservationContainsKey(t *testing.T) {
 	}
 }
 
-func TestPlannerKeyOverlaps_PartialOverlapAtStart(t *testing.T) {
+func TestTapeChartKeyOverlaps_PartialOverlapAtStart(t *testing.T) {
 	// Reservation starts before key, ends inside
-	overlaps, err := plannerKeyOverlaps(
-		"yop:planner:prop-1:2026-03-10:2026-03-20",
+	overlaps, err := tapeChartKeyOverlaps(
+		"yop:tapechart:prop-1:2026-03-10:2026-03-20",
 		"prop-1",
 		mustParse(t, "2026-03-05"),
 		mustParse(t, "2026-03-15"),
@@ -64,10 +64,10 @@ func TestPlannerKeyOverlaps_PartialOverlapAtStart(t *testing.T) {
 	}
 }
 
-func TestPlannerKeyOverlaps_PartialOverlapAtEnd(t *testing.T) {
+func TestTapeChartKeyOverlaps_PartialOverlapAtEnd(t *testing.T) {
 	// Reservation starts inside key, ends after
-	overlaps, err := plannerKeyOverlaps(
-		"yop:planner:prop-1:2026-03-10:2026-03-20",
+	overlaps, err := tapeChartKeyOverlaps(
+		"yop:tapechart:prop-1:2026-03-10:2026-03-20",
 		"prop-1",
 		mustParse(t, "2026-03-15"),
 		mustParse(t, "2026-03-25"),
@@ -80,10 +80,10 @@ func TestPlannerKeyOverlaps_PartialOverlapAtEnd(t *testing.T) {
 	}
 }
 
-func TestPlannerKeyOverlaps_AdjacentBefore_NoOverlap(t *testing.T) {
+func TestTapeChartKeyOverlaps_AdjacentBefore_NoOverlap(t *testing.T) {
 	// Reservation checkout == key start — touching but not overlapping (exclusive)
-	overlaps, err := plannerKeyOverlaps(
-		"yop:planner:prop-1:2026-03-15:2026-03-20",
+	overlaps, err := tapeChartKeyOverlaps(
+		"yop:tapechart:prop-1:2026-03-15:2026-03-20",
 		"prop-1",
 		mustParse(t, "2026-03-10"),
 		mustParse(t, "2026-03-15"), // checkout == key_start
@@ -96,10 +96,10 @@ func TestPlannerKeyOverlaps_AdjacentBefore_NoOverlap(t *testing.T) {
 	}
 }
 
-func TestPlannerKeyOverlaps_AdjacentAfter_NoOverlap(t *testing.T) {
+func TestTapeChartKeyOverlaps_AdjacentAfter_NoOverlap(t *testing.T) {
 	// Reservation checkin == key end — touching but not overlapping (exclusive)
-	overlaps, err := plannerKeyOverlaps(
-		"yop:planner:prop-1:2026-03-10:2026-03-15",
+	overlaps, err := tapeChartKeyOverlaps(
+		"yop:tapechart:prop-1:2026-03-10:2026-03-15",
 		"prop-1",
 		mustParse(t, "2026-03-15"), // checkin == key_end
 		mustParse(t, "2026-03-20"),
@@ -112,9 +112,9 @@ func TestPlannerKeyOverlaps_AdjacentAfter_NoOverlap(t *testing.T) {
 	}
 }
 
-func TestPlannerKeyOverlaps_EntirelyBefore_NoOverlap(t *testing.T) {
-	overlaps, err := plannerKeyOverlaps(
-		"yop:planner:prop-1:2026-03-15:2026-03-20",
+func TestTapeChartKeyOverlaps_EntirelyBefore_NoOverlap(t *testing.T) {
+	overlaps, err := tapeChartKeyOverlaps(
+		"yop:tapechart:prop-1:2026-03-15:2026-03-20",
 		"prop-1",
 		mustParse(t, "2026-03-01"),
 		mustParse(t, "2026-03-10"),
@@ -127,9 +127,9 @@ func TestPlannerKeyOverlaps_EntirelyBefore_NoOverlap(t *testing.T) {
 	}
 }
 
-func TestPlannerKeyOverlaps_EntirelyAfter_NoOverlap(t *testing.T) {
-	overlaps, err := plannerKeyOverlaps(
-		"yop:planner:prop-1:2026-03-01:2026-03-10",
+func TestTapeChartKeyOverlaps_EntirelyAfter_NoOverlap(t *testing.T) {
+	overlaps, err := tapeChartKeyOverlaps(
+		"yop:tapechart:prop-1:2026-03-01:2026-03-10",
 		"prop-1",
 		mustParse(t, "2026-03-15"),
 		mustParse(t, "2026-03-20"),
@@ -142,10 +142,10 @@ func TestPlannerKeyOverlaps_EntirelyAfter_NoOverlap(t *testing.T) {
 	}
 }
 
-func TestPlannerKeyOverlaps_WrongPropertyID_NoOverlap(t *testing.T) {
+func TestTapeChartKeyOverlaps_WrongPropertyID_NoOverlap(t *testing.T) {
 	// Same dates, different property — must not match
-	overlaps, err := plannerKeyOverlaps(
-		"yop:planner:prop-OTHER:2026-03-10:2026-03-20",
+	overlaps, err := tapeChartKeyOverlaps(
+		"yop:tapechart:prop-OTHER:2026-03-10:2026-03-20",
 		"prop-1",
 		mustParse(t, "2026-03-10"),
 		mustParse(t, "2026-03-20"),
@@ -158,9 +158,9 @@ func TestPlannerKeyOverlaps_WrongPropertyID_NoOverlap(t *testing.T) {
 	}
 }
 
-func TestPlannerKeyOverlaps_InvalidStartDate_ReturnsError(t *testing.T) {
-	_, err := plannerKeyOverlaps(
-		"yop:planner:prop-1:not-a-date:2026-03-20",
+func TestTapeChartKeyOverlaps_InvalidStartDate_ReturnsError(t *testing.T) {
+	_, err := tapeChartKeyOverlaps(
+		"yop:tapechart:prop-1:not-a-date:2026-03-20",
 		"prop-1",
 		mustParse(t, "2026-03-10"),
 		mustParse(t, "2026-03-20"),
@@ -170,10 +170,10 @@ func TestPlannerKeyOverlaps_InvalidStartDate_ReturnsError(t *testing.T) {
 	}
 }
 
-func TestPlannerKeyOverlaps_MissingEndDate_ReturnsError(t *testing.T) {
+func TestTapeChartKeyOverlaps_MissingEndDate_ReturnsError(t *testing.T) {
 	// Key has only a start date, no end date after the colon
-	_, err := plannerKeyOverlaps(
-		"yop:planner:prop-1:2026-03-10",
+	_, err := tapeChartKeyOverlaps(
+		"yop:tapechart:prop-1:2026-03-10",
 		"prop-1",
 		mustParse(t, "2026-03-10"),
 		mustParse(t, "2026-03-20"),

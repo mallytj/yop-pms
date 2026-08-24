@@ -27,7 +27,7 @@ CREATE INDEX idx_room_types_property ON inventory.room_types (property_id) WHERE
 CREATE TABLE inventory.rooms (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
-    room_type_id UUID REFERENCES inventory.room_types (id) ON DELETE SET NULL,
+    room_type_id UUID NOT NULL REFERENCES inventory.room_types (id) ON DELETE RESTRICT,
     name TEXT NOT NULL CHECK (char_length(name) <= 75),
     housekeeping_status inventory.housekeeping_status NOT NULL DEFAULT 'clean',
     occupancy_status inventory.occupancy_status NOT NULL DEFAULT 'vacant',
@@ -35,7 +35,10 @@ CREATE TABLE inventory.rooms (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
     FOREIGN KEY (property_id, room_type_id) REFERENCES inventory.room_types (property_id, id),
-    UNIQUE (property_id, id)
+    UNIQUE (property_id, id),
+    -- Referenced by room_inventory_ledger's cascade FK so a room's type
+    -- reassignment propagates to every ledger row, including historical ones.
+    UNIQUE (property_id, id, room_type_id)
 );
 
 ALTER TABLE inventory.rooms ENABLE ROW LEVEL SECURITY;

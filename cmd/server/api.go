@@ -12,6 +12,7 @@ import (
 	platformjson "github.com/lexxcode1/yop-pms/internal/platform/json"
 	yopMw "github.com/lexxcode1/yop-pms/internal/platform/middleware"
 	"github.com/lexxcode1/yop-pms/internal/store"
+	"github.com/lexxcode1/yop-pms/internal/tapechart"
 	"github.com/riandyrn/otelchi"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -72,6 +73,10 @@ func (app *application) routes() http.Handler {
 		q := store.New(app.db)
 		bookingSvc := booking.NewService(app.db, q, app.rdb, app.logger)
 		r.Route("/reservations", booking.Routes(bookingSvc, yopMw.RequireIfMatch))
+
+		// Tape chart / tape-chart endpoints.
+		tapechartSvc := tapechart.NewService(app.db, q, app.logger)
+		r.Route("/tape-chart", tapechart.Routes(tapechartSvc))
 	})
 
 	return r

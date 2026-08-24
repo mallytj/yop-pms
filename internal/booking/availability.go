@@ -53,6 +53,7 @@ func (s *Service) CheckAvailability(
 		if val != nil {
 			if s, ok := val.(string); ok {
 				if n, err := strconv.ParseInt(s, 10, 32); err == nil {
+					// bitSize 32 above already guarantees n fits in int32.
 					cachedByDate[k] = int32(n) //nolint:gosec
 					continue
 				}
