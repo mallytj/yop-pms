@@ -134,10 +134,10 @@ Binary.
 | Route                   | View                             | Role         |
 | ----------------------- | -------------------------------- | ------------ |
 | `/`                     | Dashboard / overview             | All          |
-| `/planner/reservations` | Reception tape chart (main view) | Reception    |
+| `/tape-chart/reservations` | Reception tape chart (main view) | Reception    |
 | `/housekeeping`         | Housekeeping tape chart          | Housekeeping |
-| `/planner/rates`        | Manager occupancy view           | Manager      |
-| `/planner/maintenance`  | Maintenance tape chart           | Maintenance  |
+| `/tape-chart/rates`        | Manager Rates View               | Manager      |
+| `/tape-chart/maintenance`  | Maintenance tape chart           | Maintenance  |
 
 ### API — Tape chart endpoint
 
@@ -199,7 +199,7 @@ single response. Avoids separate fetch-and-merge logic on the client.
 **No pagination** — PoLP role filtering + date range sufficient. Cursor-based
 pagination can be added backward-compat later.
 
-**Internal Go package:** `internal/planner/` (same pattern as
+**Internal Go package:** `internal/tapechart/` (same pattern as
 `internal/booking/` with `/v1/reservations`).
 
 ### Maintenance CRUD
