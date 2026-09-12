@@ -46,10 +46,7 @@ func (s *Service) GetTapeChart(
 		return TapeChartData{}, err
 	}
 
-	accentByReservation := make(map[uuid.UUID]int, len(reservations))
-	for _, reservation := range reservations {
-		accentByReservation[reservation.ID] = accentIndex(reservation.ID)
-	}
+	accentByReservation := assignAccentsToReservations(reservations)
 
 	reservationBlocks := buildReservationBlocks(reservationItems, reservations, accentByReservation)
 	maintenanceBlockDTOs := buildMaintenanceBlocks(maintenanceBlocks)
@@ -127,7 +124,7 @@ func (s *Service) loadCoreData(
 	return inventory, reservations, reservationItems, maintenanceBlocks, nil
 }
 
-// logTapeChartError logs a load failure with a consistent "tape-chart:" prefix.
+// logTapeChartError logs a load failure with a consistent "tape-chart: " prefix.
 func (s *Service) logTapeChartError(msg string, err error, args ...any) {
 	s.log.Error("tape-chart: "+msg, append([]any{"err", err}, args...)...)
 }

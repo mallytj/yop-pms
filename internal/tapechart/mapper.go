@@ -17,6 +17,17 @@ func accentIndex(reservationID uuid.UUID) int {
 	return int(h.Sum32() % accentPaletteSize)
 }
 
+// assignAccentsToReservations pre-computes an accent index per reservation
+// so every block of the same reservation renders in the same colour, even
+// when it spans rooms or is split across nested grid sections.
+func assignAccentsToReservations(reservations []store.GetTapeChartReservationsRow) map[uuid.UUID]int {
+	accentByReservation := make(map[uuid.UUID]int, len(reservations))
+	for _, reservation := range reservations {
+		accentByReservation[reservation.ID] = accentIndex(reservation.ID)
+	}
+	return accentByReservation
+}
+
 // buildReservationBlocks maps each room-assigned reservation item to the
 // room-level block the grid renders, carrying its parent reservation's
 // status and accent colour.

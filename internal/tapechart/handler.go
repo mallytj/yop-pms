@@ -30,7 +30,8 @@ const maxTapeChartRangeDays = 90
 func (h *Handler) GetTapeChart(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	from, to, include, err := parseTapeChartQuery(r)
+	query := r.URL.Query()
+	from, to, include, err := parseTapeChartQuery(query.Get("from"), query.Get("to"), query.Get("include"))
 	if err != nil {
 		platformjson.WriteError(w, r, err)
 		return
@@ -46,11 +47,7 @@ func (h *Handler) GetTapeChart(w http.ResponseWriter, r *http.Request) {
 	platformjson.WriteJSON(w, http.StatusOK, TapeChartResponse{Data: data})
 }
 
-func parseTapeChartQuery(r *http.Request) (time.Time, time.Time, IncludeMode, error) {
-	fromStr := r.URL.Query().Get("from")
-	toStr := r.URL.Query().Get("to")
-	includeStr := r.URL.Query().Get("include")
-
+func parseTapeChartQuery(fromStr, toStr, includeStr string) (time.Time, time.Time, IncludeMode, error) {
 	if fromStr == "" || toStr == "" {
 		return time.Time{}, time.Time{}, "", apierror.ErrBadRequest.WithMessage("from and to query parameters are required")
 	}
