@@ -74,10 +74,7 @@ func (w *Workers) cancelHoldTx(ctx context.Context, res store.OperationsReservat
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	// Rollback after a successful Commit returns pgx.ErrTxClosed, which carries
-	// no information on that path; a failed rollback on any other path is
-	// superseded by the error already being returned.
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer tx.Rollback(ctx)
 
 	qtx := w.q.WithTx(tx)
 
@@ -220,10 +217,7 @@ func (w *Workers) markOverstayTx(ctx context.Context, item store.OperationsReser
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	// Rollback after a successful Commit returns pgx.ErrTxClosed, which carries
-	// no information on that path; a failed rollback on any other path is
-	// superseded by the error already being returned.
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer tx.Rollback(ctx)
 
 	qtx := w.q.WithTx(tx)
 
@@ -337,10 +331,7 @@ func (w *Workers) archiveReservationTx(ctx context.Context, res store.Operations
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	// Rollback after a successful Commit returns pgx.ErrTxClosed, which carries
-	// no information on that path; a failed rollback on any other path is
-	// superseded by the error already being returned.
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer tx.Rollback(ctx)
 
 	qtx := w.q.WithTx(tx)
 
