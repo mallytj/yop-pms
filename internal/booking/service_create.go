@@ -393,7 +393,7 @@ func insertSingleItem(
 		}
 		pinned, err := qtx.SelectRoomForAutoPin(ctx, &store.SelectRoomForAutoPinParams{
 			PropertyID: propertyID,
-			RoomTypeID: uuid.NullUUID{UUID: item.RoomTypeID, Valid: true},
+			RoomTypeID: item.RoomTypeID,
 			Dates:      pgDates,
 		})
 		if err != nil {

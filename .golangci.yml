@@ -13,3 +13,9 @@ linters:
     - unused
     - revive # Modern replacement for golint
     - gocritic # Catches common micro-optimizations
+  settings:
+    errcheck:
+      exclude-functions:
+        # Deferred rollback after Commit returns pgx.ErrTxClosed, which is
+        # unactionable; a failed rollback is superseded by the returned error.
+        - (github.com/jackc/pgx/v5.Tx).Rollback

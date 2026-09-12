@@ -26,10 +26,10 @@ ORDER BY ril.calendar_date
 `
 
 type BlockedCountByTypeParams struct {
-	PropertyID uuid.UUID     `json:"property_id"`
-	RoomTypeID uuid.NullUUID `json:"room_type_id"`
-	StartDate  pgtype.Date   `json:"start_date"`
-	EndDate    pgtype.Date   `json:"end_date"`
+	PropertyID uuid.UUID   `json:"property_id"`
+	RoomTypeID uuid.UUID   `json:"room_type_id"`
+	StartDate  pgtype.Date `json:"start_date"`
+	EndDate    pgtype.Date `json:"end_date"`
 }
 
 type BlockedCountByTypeRow struct {
@@ -63,15 +63,28 @@ func (q *Queries) BlockedCountByType(ctx context.Context, arg *BlockedCountByTyp
 }
 
 const bulkInsertLedgerRows = `-- name: BulkInsertLedgerRows :exec
+WITH ledger_rows AS (
+    SELECT
+        unnest($1::uuid[]) AS property_id,
+        unnest($2::uuid[]) AS room_id,
+        unnest($3::uuid[]) AS reservation_id,
+        unnest($4::uuid[]) AS reservation_item_id,
+        unnest($5::date[]) AS calendar_date,
+        unnest($6::text[])::inventory.inventory_status AS status
+)
 INSERT INTO inventory.room_inventory_ledger (
-    property_id, room_id, reservation_id, reservation_item_id, calendar_date, status
-) SELECT 
-    unnest($1::uuid[]),
-    unnest($2::uuid[]),
-    unnest($3::uuid[]),
-    unnest($4::uuid[]),
-    unnest($5::date[]),
-    unnest($6::text[])::inventory.inventory_status
+    property_id, room_id, room_type_id, reservation_id, reservation_item_id, calendar_date, status
+)
+SELECT
+    rows.property_id,
+    rows.room_id,
+    r.room_type_id,
+    rows.reservation_id,
+    rows.reservation_item_id,
+    rows.calendar_date,
+    rows.status
+FROM ledger_rows rows
+JOIN inventory.rooms r ON r.id = rows.room_id AND r.property_id = rows.property_id
 `
 
 type BulkInsertLedgerRowsParams struct {
@@ -169,8 +182,8 @@ WHERE property_id = $1 AND room_type_id = $2
 `
 
 type CountRoomsByTypeParams struct {
-	PropertyID uuid.UUID     `json:"property_id"`
-	RoomTypeID uuid.NullUUID `json:"room_type_id"`
+	PropertyID uuid.UUID `json:"property_id"`
+	RoomTypeID uuid.UUID `json:"room_type_id"`
 }
 
 func (q *Queries) CountRoomsByType(ctx context.Context, arg *CountRoomsByTypeParams) (int32, error) {
@@ -337,29 +350,38 @@ func (q *Queries) GetRoomTypeOccupancy(ctx context.Context, arg *GetRoomTypeOccu
 
 const insertLedgerRow = `-- name: InsertLedgerRow :exec
 INSERT INTO inventory.room_inventory_ledger (
-    property_id, room_id, reservation_id, reservation_item_id, calendar_date, status
-) VALUES (
-    $1, $2, $3, $4, $5, $6
+    property_id, room_id, room_type_id, reservation_id, reservation_item_id, calendar_date, status
 )
+SELECT
+    $1,
+    r.id,
+    r.room_type_id,
+    $2,
+    $3,
+    $4,
+    $5
+FROM inventory.rooms r
+WHERE r.id = $6
+  AND r.property_id = $1
 `
 
 type InsertLedgerRowParams struct {
 	PropertyID        uuid.UUID                `json:"property_id"`
-	RoomID            uuid.UUID                `json:"room_id"`
 	ReservationID     uuid.NullUUID            `json:"reservation_id"`
 	ReservationItemID uuid.NullUUID            `json:"reservation_item_id"`
 	CalendarDate      pgtype.Date              `json:"calendar_date"`
 	Status            InventoryInventoryStatus `json:"status"`
+	RoomID            uuid.UUID                `json:"room_id"`
 }
 
 func (q *Queries) InsertLedgerRow(ctx context.Context, arg *InsertLedgerRowParams) error {
 	_, err := q.db.Exec(ctx, insertLedgerRow,
 		arg.PropertyID,
-		arg.RoomID,
 		arg.ReservationID,
 		arg.ReservationItemID,
 		arg.CalendarDate,
 		arg.Status,
+		arg.RoomID,
 	)
 	return err
 }
@@ -424,7 +446,7 @@ LIMIT 1 FOR UPDATE SKIP LOCKED
 
 type SelectRoomForAutoPinParams struct {
 	PropertyID uuid.UUID     `json:"property_id"`
-	RoomTypeID uuid.NullUUID `json:"room_type_id"`
+	RoomTypeID uuid.UUID     `json:"room_type_id"`
 	Dates      []pgtype.Date `json:"dates"`
 }
 
@@ -438,10 +460,14 @@ func (q *Queries) SelectRoomForAutoPin(ctx context.Context, arg *SelectRoomForAu
 }
 
 const updateLedgerRowRoom = `-- name: UpdateLedgerRowRoom :exec
-UPDATE inventory.room_inventory_ledger
-SET room_id = $1
-WHERE reservation_item_id = $2
-AND property_id = $3
+UPDATE inventory.room_inventory_ledger ledger
+SET room_id = $1,
+    room_type_id = r.room_type_id
+FROM inventory.rooms r
+WHERE ledger.reservation_item_id = $2
+  AND ledger.property_id = $3
+  AND r.id = $1
+  AND r.property_id = $3
 `
 
 type UpdateLedgerRowRoomParams struct {

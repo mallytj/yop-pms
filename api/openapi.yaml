@@ -1052,6 +1052,54 @@ paths:
               schema:
                 $ref: "#/components/schemas/github_com_lexxcode1_yop-pms_internal_platform_apie\
                   rror.APIError"
+  /v1/tape-chart:
+    get:
+      description: Returns room availability grid data for a date range
+      tags:
+        - tape-chart
+      summary: Get tape chart data
+      parameters:
+        - description: Range start (YYYY-MM-DD)
+          name: from
+          in: query
+          required: true
+          schema:
+            type: string
+        - description: Range end (YYYY-MM-DD)
+          name: to
+          in: query
+          required: true
+          schema:
+            type: string
+        - description: shallow or full
+          name: include
+          in: query
+          schema:
+            type: string
+            enum:
+              - shallow
+              - full
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/internal_tapechart.TapeChartResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/github_com_lexxcode1_yop-pms_internal_platform_apie\
+                  rror.APIError"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/github_com_lexxcode1_yop-pms_internal_platform_apie\
+                  rror.APIError"
 servers:
   - url: //localhost:8080/v1
 components:
@@ -1436,3 +1484,107 @@ components:
         travel_agent_id:
           type: string
           example: 00000000-0000-0000-0000-000000000000
+    internal_tapechart.InventoryDay:
+      type: object
+      properties:
+        calendar_date:
+          $ref: "#/components/schemas/github_com_lexxcode1_yop-pms_internal_platform_type\
+            s.ISO8601Date"
+        room_id:
+          type: string
+        status:
+          type: string
+    internal_tapechart.MaintenanceBlock:
+      type: object
+      properties:
+        end:
+          $ref: "#/components/schemas/github_com_lexxcode1_yop-pms_internal_platform_type\
+            s.ISO8601Date"
+        id:
+          type: string
+        reason:
+          type: string
+        room_id:
+          type: string
+        start:
+          $ref: "#/components/schemas/github_com_lexxcode1_yop-pms_internal_platform_type\
+            s.ISO8601Date"
+    internal_tapechart.ReservationBlock:
+      type: object
+      properties:
+        accent_index:
+          type: integer
+        code:
+          type: string
+        from:
+          $ref: "#/components/schemas/github_com_lexxcode1_yop-pms_internal_platform_type\
+            s.ISO8601Date"
+        guest_name:
+          type: string
+        id:
+          type: string
+        price_pence:
+          type: integer
+        room_id:
+          type: string
+        status:
+          type: string
+        to:
+          $ref: "#/components/schemas/github_com_lexxcode1_yop-pms_internal_platform_type\
+            s.ISO8601Date"
+    internal_tapechart.RoomNode:
+      type: object
+      properties:
+        id:
+          type: string
+        maintenance_blocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/internal_tapechart.MaintenanceBlock"
+        name:
+          type: string
+        reservations:
+          type: array
+          items:
+            $ref: "#/components/schemas/internal_tapechart.ReservationBlock"
+    internal_tapechart.RoomTypeNode:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        rooms:
+          type: array
+          items:
+            $ref: "#/components/schemas/internal_tapechart.RoomNode"
+    internal_tapechart.TapeChartData:
+      type: object
+      properties:
+        from:
+          $ref: "#/components/schemas/github_com_lexxcode1_yop-pms_internal_platform_type\
+            s.ISO8601Date"
+        inventory:
+          type: array
+          items:
+            $ref: "#/components/schemas/internal_tapechart.InventoryDay"
+        maintenance_blocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/internal_tapechart.MaintenanceBlock"
+        reservations:
+          type: array
+          items:
+            $ref: "#/components/schemas/internal_tapechart.ReservationBlock"
+        room_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/internal_tapechart.RoomTypeNode"
+        to:
+          $ref: "#/components/schemas/github_com_lexxcode1_yop-pms_internal_platform_type\
+            s.ISO8601Date"
+    internal_tapechart.TapeChartResponse:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/internal_tapechart.TapeChartData"

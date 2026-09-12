@@ -6,18 +6,26 @@
 	let { children } = $props();
 </script>
 
-<TopBar />
+<div class="app-shell">
+	<div class="layout">
+		<AppSidebar />
+		<main class="body">
+			{@render children()}
+		</main>
+	</div>
 
-<div class="layout">
-	<AppSidebar />
-	<main class="body">
-		{@render children()}
-	</main>
+	<!--
+		Rendered after `.layout` (so nested route layouts — which push tab
+		config into the shared topBar store — run first during SSR) and
+		reordered to the top visually with `order`. Rendering it first in
+		markup would read the store before a route had a chance to set it,
+		leaving the header title/tabs blank until client-side hydration.
+	-->
+	<TopBar />
 </div>
 
 <style>
 	:global(body) {
-		margin: 0;
 		background: var(--color-bg);
 		color: var(--color-text);
 		font-family: var(--font-sans);
@@ -25,16 +33,28 @@
 		-webkit-font-smoothing: antialiased;
 	}
 
+	.app-shell {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+	}
+
+	.app-shell > :global(.top-bar) {
+		order: -1;
+	}
+
 	.layout {
 		flex: 1;
+		min-height: 0;
 		display: flex;
 	}
 
 	.body {
 		flex: 1;
-		padding: var(--spacing-xl) var(--spacing-2xl);
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-lg);
+		overflow: hidden;
+		min-height: 0;
 	}
 </style>

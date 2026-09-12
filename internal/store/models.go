@@ -516,7 +516,7 @@ type InventoryMaintenanceBlock struct {
 type InventoryRoom struct {
 	ID                 uuid.UUID                   `json:"id"`
 	PropertyID         uuid.UUID                   `json:"property_id"`
-	RoomTypeID         uuid.NullUUID               `json:"room_type_id"`
+	RoomTypeID         uuid.UUID                   `json:"room_type_id"`
 	Name               string                      `json:"name"`
 	HousekeepingStatus InventoryHousekeepingStatus `json:"housekeeping_status"`
 	OccupancyStatus    InventoryOccupancyStatus    `json:"occupancy_status"`
@@ -529,6 +529,7 @@ type InventoryRoomInventoryLedger struct {
 	ID                 uuid.UUID                `json:"id"`
 	PropertyID         uuid.UUID                `json:"property_id"`
 	RoomID             uuid.UUID                `json:"room_id"`
+	RoomTypeID         uuid.UUID                `json:"room_type_id"`
 	ReservationID      uuid.NullUUID            `json:"reservation_id"`
 	ReservationItemID  uuid.NullUUID            `json:"reservation_item_id"`
 	MaintenanceBlockID uuid.NullUUID            `json:"maintenance_block_id"`

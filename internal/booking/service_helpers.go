@@ -200,7 +200,7 @@ func reactivateItemInventory(
 		}
 		pinned, err := qtx.SelectRoomForAutoPin(ctx, &store.SelectRoomForAutoPinParams{
 			PropertyID: propertyID,
-			RoomTypeID: uuid.NullUUID{UUID: item.BookedRoomTypeID, Valid: true},
+			RoomTypeID: item.BookedRoomTypeID,
 			Dates:      pgDates,
 		})
 		if err != nil {

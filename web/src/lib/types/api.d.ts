@@ -1409,6 +1409,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tape-chart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get tape chart data
+         * @description Returns room availability grid data for a date range
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Range start (YYYY-MM-DD) */
+                    from: string;
+                    /** @description Range end (YYYY-MM-DD) */
+                    to: string;
+                    /** @description shallow or full */
+                    include?: "shallow" | "full";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["internal_tapechart.TapeChartResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_apierror.APIError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1618,6 +1682,51 @@ export interface components {
             primary_guest_id?: string;
             /** @example 00000000-0000-0000-0000-000000000000 */
             travel_agent_id?: string;
+        };
+        "internal_tapechart.InventoryDay": {
+            calendar_date?: components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"];
+            room_id?: string;
+            status?: string;
+        };
+        "internal_tapechart.MaintenanceBlock": {
+            end?: components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"];
+            id?: string;
+            reason?: string;
+            room_id?: string;
+            start?: components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"];
+        };
+        "internal_tapechart.ReservationBlock": {
+            accent_index?: number;
+            code?: string;
+            from?: components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"];
+            guest_name?: string;
+            id?: string;
+            price_pence?: number;
+            room_id?: string;
+            status?: string;
+            to?: components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"];
+        };
+        "internal_tapechart.RoomNode": {
+            id?: string;
+            maintenance_blocks?: components["schemas"]["internal_tapechart.MaintenanceBlock"][];
+            name?: string;
+            reservations?: components["schemas"]["internal_tapechart.ReservationBlock"][];
+        };
+        "internal_tapechart.RoomTypeNode": {
+            id?: string;
+            name?: string;
+            rooms?: components["schemas"]["internal_tapechart.RoomNode"][];
+        };
+        "internal_tapechart.TapeChartData": {
+            from?: components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"];
+            inventory?: components["schemas"]["internal_tapechart.InventoryDay"][];
+            maintenance_blocks?: components["schemas"]["internal_tapechart.MaintenanceBlock"][];
+            reservations?: components["schemas"]["internal_tapechart.ReservationBlock"][];
+            room_types?: components["schemas"]["internal_tapechart.RoomTypeNode"][];
+            to?: components["schemas"]["github_com_lexxcode1_yop-pms_internal_platform_types.ISO8601Date"];
+        };
+        "internal_tapechart.TapeChartResponse": {
+            data?: components["schemas"]["internal_tapechart.TapeChartData"];
         };
     };
     responses: never;

@@ -128,6 +128,7 @@ CREATE TABLE inventory.room_inventory_ledger (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
     property_id UUID NOT NULL REFERENCES operations.properties (id) ON DELETE RESTRICT,
     room_id UUID NOT NULL REFERENCES inventory.rooms (id) ON DELETE RESTRICT,
+    room_type_id UUID NOT NULL,
     reservation_id UUID REFERENCES operations.reservations (id) ON DELETE SET NULL,
     reservation_item_id UUID REFERENCES operations.reservation_items (id) ON DELETE SET NULL,
     maintenance_block_id UUID REFERENCES inventory.maintenance_blocks (id) ON DELETE SET NULL,
@@ -138,6 +139,9 @@ CREATE TABLE inventory.room_inventory_ledger (
     deleted_at TIMESTAMPTZ,
     UNIQUE (room_id, calendar_date),
     FOREIGN KEY (property_id, room_id) REFERENCES inventory.rooms (property_id, id),
+    -- Targets rooms (not room_types): a room's room_type_id changing is what
+    -- must cascade to every ledger row, including historical ones.
+    FOREIGN KEY (property_id, room_id, room_type_id) REFERENCES inventory.rooms (property_id, id, room_type_id) ON UPDATE CASCADE ON DELETE RESTRICT,
     FOREIGN KEY (property_id, reservation_id) REFERENCES operations.reservations (property_id, id),
     CONSTRAINT inv_ledger_status_consistency CHECK (
         (status IN ('sold', 'on_hold') AND reservation_id IS NOT NULL) OR
@@ -163,6 +167,10 @@ INCLUDE (status, reservation_id);
 CREATE INDEX idx_inv_ledger_availability_check
 ON inventory.room_inventory_ledger (property_id, calendar_date)
 WHERE (status IN ('sold', 'on_hold') AND deleted_at IS NULL);
+CREATE INDEX idx_inv_ledger_tape_chart
+    ON inventory.room_inventory_ledger (property_id, room_type_id, calendar_date)
+    INCLUDE (status, reservation_id, room_id, maintenance_block_id)
+    WHERE (deleted_at IS NULL);
 
 -- +goose Down
 DROP TRIGGER IF EXISTS trg_assign_reservation_code ON operations.reservations;

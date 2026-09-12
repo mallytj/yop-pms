@@ -1,53 +1,66 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, cleanup } from '@testing-library/svelte/svelte5';
-import { topBarStore } from '$stores/topbar.svelte';
-import { shellStore } from '$stores/shell.svelte';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { render, cleanup, fireEvent } from '@testing-library/svelte/svelte5';
+
+vi.mock('$app/state', () => ({
+	page: {
+		url: new URL('http://localhost/tape-chart')
+	}
+}));
+import { topBar } from '$stores/topbar.svelte';
+import { tapeChartView } from '$stores/tapeChartView.svelte';
 import TopBar from './TopBar.svelte';
+
+function givenTabs(tabs: { id: string; label: string }[]) {
+	topBar.tabs = tabs.map((tab) => ({ ...tab, icon: (() => null) as never }));
+}
 
 describe('TopBar', () => {
 	afterEach(() => {
 		cleanup();
-		topBarStore.reset();
+		topBar.reset();
 	});
 
-	it('displays the topLeft text from shell store', () => {
-		shellStore.topLeft = 'Dashboard';
-		render(TopBar);
-		const topbar = document.querySelector('.topbar');
-		expect(topbar?.textContent).toContain('Dashboard');
-	});
-
-	it('renders tabs from topBarStore', () => {
-		topBarStore.tabs = [
-			{ id: 'reservations', label: 'Reservations' },
-			{ id: 'maintenance', label: 'Maintenance' },
-			{ id: 'rates', label: 'Rates' }
-		];
-		render(TopBar);
-		expect(document.querySelectorAll('.role-tab').length).toBe(3);
-	});
-
-	it('highlights the active tab', () => {
-		topBarStore.tabs = [
-			{ id: 'reservations', label: 'Reservations' },
-			{ id: 'maintenance', label: 'Maintenance' },
-			{ id: 'rates', label: 'Rates' }
-		];
-		topBarStore.active = 'maintenance';
-		render(TopBar);
-		const active = document.querySelector('.role-tab.active');
-		expect(active?.textContent).toContain('Maintenance');
-	});
-
-	it('calls store onchange when tab is clicked', async () => {
-		let changed = '';
-		topBarStore.tabs = [
+	it('renders one tab per entry in shared tape-chart tab state', () => {
+		givenTabs([
 			{ id: 'reservations', label: 'Reservations' },
 			{ id: 'maintenance', label: 'Maintenance' }
-		];
-		topBarStore.onchange = (id: string) => (changed = id);
+		]);
+
 		render(TopBar);
-		(document.querySelectorAll('.role-tab')[1] as HTMLElement).click();
-		expect(changed).toBe('maintenance');
+
+		expect(document.querySelectorAll('[role="tab"]').length).toBe(2);
+	});
+
+	it('marks the active tab as selected', () => {
+		givenTabs([
+			{ id: 'reservations', label: 'Reservations' },
+			{ id: 'maintenance', label: 'Maintenance' }
+		]);
+		topBar.active = 'maintenance';
+
+		render(TopBar);
+
+		expect(document.querySelector('[aria-selected="true"]')?.textContent).toContain('Maintenance');
+	});
+
+	it('shows date range controls on the tape-chart route', () => {
+		givenTabs([{ id: '', label: 'Reservations' }]);
+
+		render(TopBar);
+
+		expect(document.querySelector('[aria-label="Tape Chart dates"]')).toBeTruthy();
+		expect(document.querySelector('[aria-label="Tape Chart start date"]')).toBeTruthy();
+	});
+
+	it('requests a scroll-to-today when the Today button is clicked, so an already-scrolled grid snaps back', async () => {
+		givenTabs([{ id: '', label: 'Reservations' }]);
+		render(TopBar);
+		const before = tapeChartView.scrollToTodayRequestId;
+		const todayButton = document.querySelector('button.today') as HTMLButtonElement;
+
+		expect(todayButton).toBeTruthy();
+		await fireEvent.click(todayButton);
+
+		expect(tapeChartView.scrollToTodayRequestId).toBe(before + 1);
 	});
 });

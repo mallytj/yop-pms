@@ -32,3 +32,7 @@ assets/
 skills-lock.json
 /node_modules
 /web/test-results
+/.svelte-kit
+/cmd/tools/.DS_Store
+/seed-tape-chart
+/web/reports/mutation

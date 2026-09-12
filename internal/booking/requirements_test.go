@@ -264,8 +264,9 @@ func TestAvail_012_MaintenanceLedger(t *testing.T) {
 	// Insert a maintenance ledger row directly (admin path).
 	if _, err := testPool.Exec(ctx,
 		`INSERT INTO inventory.room_inventory_ledger
-		   (id, property_id, room_id, calendar_date, status, maintenance_block_id)
-		 VALUES ($1, $2, $3, $4, 'maintenance', $5)`,
+		   (id, property_id, room_id, room_type_id, calendar_date, status, maintenance_block_id)
+		 SELECT $1, $2, $3, r.room_type_id, $4, 'maintenance', $5
+		 FROM inventory.rooms r WHERE r.id = $3`,
 		uuid.New(), testPropertyID, roomID, day, blockID); err != nil {
 		t.Fatalf("maintenance ledger insert failed — enum may not be wired: %v", err)
 	}
@@ -684,8 +685,9 @@ func TestEdge_008_MaintenanceOverlapSoldRejected(t *testing.T) {
 	}
 
 	_, err := testPool.Exec(ctx,
-		`INSERT INTO inventory.room_inventory_ledger (id, property_id, room_id, calendar_date, status)
-		 VALUES ($1, $2, $3, $4, 'maintenance')`,
+		`INSERT INTO inventory.room_inventory_ledger (id, property_id, room_id, room_type_id, calendar_date, status)
+		 SELECT $1, $2, $3, r.room_type_id, $4, 'maintenance'
+		 FROM inventory.rooms r WHERE r.id = $3`,
 		uuid.New(), testPropertyID, roomID, arrival)
 	if err == nil {
 		t.Fatal("expected UNIQUE/EXCLUDE violation on maintenance over sold, got nil")
@@ -758,8 +760,9 @@ func TestEdge_009_LedgerStatusConsistency(t *testing.T) {
 
 			_, err := testPool.Exec(ctx,
 				`INSERT INTO inventory.room_inventory_ledger
-					(id, property_id, room_id, calendar_date, status, reservation_id, maintenance_block_id)
-				 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+					(id, property_id, room_id, room_type_id, calendar_date, status, reservation_id, maintenance_block_id)
+				 SELECT $1, $2, $3, r.room_type_id, $4, $5, $6, $7
+				 FROM inventory.rooms r WHERE r.id = $3`,
 				uuid.New(), testPropertyID, roomID, testDay, tt.status, resArg, blockArg)
 
 			if tt.wantErr {

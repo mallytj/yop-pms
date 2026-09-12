@@ -67,27 +67,53 @@ ORDER BY ril.calendar_date;
 
 -- name: InsertLedgerRow :exec
 INSERT INTO inventory.room_inventory_ledger (
-    property_id, room_id, reservation_id, reservation_item_id, calendar_date, status
-) VALUES (
-    @property_id, @room_id, @reservation_id, @reservation_item_id, @calendar_date, @status
-);
+    property_id, room_id, room_type_id, reservation_id, reservation_item_id, calendar_date, status
+)
+SELECT
+    @property_id,
+    r.id,
+    r.room_type_id,
+    @reservation_id,
+    @reservation_item_id,
+    @calendar_date,
+    @status
+FROM inventory.rooms r
+WHERE r.id = @room_id
+  AND r.property_id = @property_id;
 
 -- name: BulkInsertLedgerRows :exec
+WITH ledger_rows AS (
+    SELECT
+        unnest(@property_ids::uuid[]) AS property_id,
+        unnest(@room_ids::uuid[]) AS room_id,
+        unnest(@reservation_ids::uuid[]) AS reservation_id,
+        unnest(@reservation_item_ids::uuid[]) AS reservation_item_id,
+        unnest(@calendar_dates::date[]) AS calendar_date,
+        unnest(@statuses::text[])::inventory.inventory_status AS status
+)
 INSERT INTO inventory.room_inventory_ledger (
-    property_id, room_id, reservation_id, reservation_item_id, calendar_date, status
-) SELECT 
-    unnest(@property_ids::uuid[]),
-    unnest(@room_ids::uuid[]),
-    unnest(@reservation_ids::uuid[]),
-    unnest(@reservation_item_ids::uuid[]),
-    unnest(@calendar_dates::date[]),
-    unnest(@statuses::text[])::inventory.inventory_status;
+    property_id, room_id, room_type_id, reservation_id, reservation_item_id, calendar_date, status
+)
+SELECT
+    rows.property_id,
+    rows.room_id,
+    r.room_type_id,
+    rows.reservation_id,
+    rows.reservation_item_id,
+    rows.calendar_date,
+    rows.status
+FROM ledger_rows rows
+JOIN inventory.rooms r ON r.id = rows.room_id AND r.property_id = rows.property_id;
 
 -- name: UpdateLedgerRowRoom :exec
-UPDATE inventory.room_inventory_ledger
-SET room_id = @new_room_id
-WHERE reservation_item_id = @reservation_item_id
-AND property_id = @property_id;
+UPDATE inventory.room_inventory_ledger ledger
+SET room_id = @new_room_id,
+    room_type_id = r.room_type_id
+FROM inventory.rooms r
+WHERE ledger.reservation_item_id = @reservation_item_id
+  AND ledger.property_id = @property_id
+  AND r.id = @new_room_id
+  AND r.property_id = @property_id;
 
 -- name: DeleteLedgerRowsByItem :exec
 DELETE FROM inventory.room_inventory_ledger

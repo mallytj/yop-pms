@@ -130,7 +130,7 @@ func backdateForCheckin(ctx context.Context, reservationID uuid.UUID, hoursBefor
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+	defer tx.Rollback(ctx)
 
 	if _, err := tx.Exec(ctx,
 		`SELECT set_config('app.current_property_id', $1, true)`,

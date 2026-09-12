@@ -1,0 +1,38 @@
+/* Tape-chart-only tokens: scoped to .tape-chart-root (not :root) because
+   these colors have no meaning outside the tape chart's calendar grid and
+   reservation blocks. Applied via the tape-chart route layout. */
+
+.tape-chart-root {
+	--color-booking-border: var(--palette-blue-600);
+	--color-highlight-weekend: var(--palette-stone-50);
+	--color-highlight-today: var(--palette-blue-50);
+
+	/* Reservation accent cycle — one hue per index (0-7), assigned
+	   deterministically per reservation server-side (accent_index) so every
+	   block belonging to the same reservation shares a colour. */
+	--color-reservation-accent-0: #2563eb;
+	--color-reservation-accent-1: #059669;
+	--color-reservation-accent-2: #d97706;
+	--color-reservation-accent-3: #db2777;
+	--color-reservation-accent-4: #7c3aed;
+	--color-reservation-accent-5: #0891b2;
+	--color-reservation-accent-6: #ca8a04;
+	--color-reservation-accent-7: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+	.tape-chart-root {
+		--color-booking-border: var(--palette-violet-600);
+		--color-highlight-weekend: var(--palette-ink-900);
+		--color-highlight-today: color-mix(in oklch, var(--palette-violet-500) 10%, transparent);
+
+		--color-reservation-accent-0: #5b8def;
+		--color-reservation-accent-1: #34d399;
+		--color-reservation-accent-2: #e5a13a;
+		--color-reservation-accent-3: #f472b6;
+		--color-reservation-accent-4: #a78bfa;
+		--color-reservation-accent-5: #22d3ee;
+		--color-reservation-accent-6: #facc15;
+		--color-reservation-accent-7: #e5484d;
+	}
+}

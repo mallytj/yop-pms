@@ -8,7 +8,7 @@ export default defineConfig({
 		conditions: ['browser'],
 		alias: [
 			{ find: '$app/navigation', replacement: path.resolve('./__mocks__/$app/navigation.ts') },
-			{ find: '$app/stores', replacement: path.resolve('./__mocks__/$app/stores.ts') },
+			{ find: '$app/state', replacement: path.resolve('./__mocks__/$app/state.ts') },
 			{ find: '$lib', replacement: path.resolve('./src/lib') },
 			{ find: '$components', replacement: path.resolve('./src/lib/components') },
 			{ find: '$helpers', replacement: path.resolve('./src/lib/helpers') },
