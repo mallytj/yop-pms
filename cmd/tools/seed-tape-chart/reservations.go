@@ -18,6 +18,10 @@ const (
 	maxStayNights   = 7
 	doNotMoveEveryN = 4
 	holdEveryN      = 5
+
+	// reservationRandomSeed fixes the generated stay pattern so reseeds
+	// produce comparable occupancy shapes.
+	reservationRandomSeed = 42
 )
 
 // nightlyRatePenceByTypeIndex mirrors the roomTypeSeeds order in roomtypes.go.
@@ -42,22 +46,28 @@ type reservationSeed struct {
 	doNotMove     bool
 }
 
-func seedReservations(
-	ctx context.Context,
-	conn *pgx.Conn,
-	propertyID string,
-	roomTypeIDs []string,
-	roomIDs []string,
-	roomsPerType int,
-	guestIDs []string,
-	ratePlanID string,
-	blockedRanges map[int][2]time.Time,
-) (int, error) {
+// SeedReservationsParams bundles every dependency the reservation generator
+// needs, so new fixture dimensions extend this struct instead of every
+// signature in the call chain.
+type SeedReservationsParams struct {
+	PropertyID    string
+	RoomTypeIDs   []string
+	RoomIDs       []string
+	RoomsPerType  int
+	GuestIDs      []string
+	RatePlanID    string
+	BlockedRanges map[int][2]time.Time
+	// Rand drives gap and stay-length selection; the caller picks the seed
+	// so the generator cannot hide how deterministic a run is.
+	Rand *rand.Rand
+}
+
+func seedReservations(ctx context.Context, conn *pgx.Conn, params SeedReservationsParams) (int, error) {
 	today := time.Now().UTC().Truncate(24 * time.Hour)
-	seeds := generateReservationSeeds(roomIDs, roomsPerType, guestIDs, today, blockedRanges)
+	seeds := generateReservationSeeds(params, today)
 
 	for _, seed := range seeds {
-		if err := insertReservation(ctx, conn, propertyID, roomTypeIDs, roomIDs, guestIDs, ratePlanID, seed); err != nil {
+		if err := insertReservation(ctx, conn, params, seed); err != nil {
 			return 0, err
 		}
 	}
@@ -69,27 +79,20 @@ func seedReservations(
 // nights), which averages to roughly 80% occupancy while still leaving
 // visible gaps on the tape chart. Rooms with a maintenance block (see
 // maintenanceBlockedRanges) stay bookable outside their blocked days.
-func generateReservationSeeds(
-	roomIDs []string,
-	roomsPerType int,
-	guestIDs []string,
-	today time.Time,
-	blockedRanges map[int][2]time.Time,
-) []reservationSeed {
+func generateReservationSeeds(params SeedReservationsParams, today time.Time) []reservationSeed {
 	windowStart := today.AddDate(0, 0, ledgerStartOffset)
 	windowEnd := today.AddDate(0, 0, ledgerStartOffset+ledgerDays)
 
-	rng := rand.New(rand.NewSource(42))
-	seeds := make([]reservationSeed, 0, len(roomIDs)*4)
+	seeds := make([]reservationSeed, 0, len(params.RoomIDs)*4)
 
-	for roomIndex := range roomIDs {
-		roomTypeIndex := roomIndex / roomsPerType
-		blocked, hasBlock := blockedRanges[roomIndex]
+	for roomIndex := range params.RoomIDs {
+		roomTypeIndex := roomIndex / params.RoomsPerType
+		blocked, hasBlock := params.BlockedRanges[roomIndex]
 
 		cursor := windowStart
 		stayIndex := 0
 		for cursor.Before(windowEnd) {
-			gap := minGapDays + rng.Intn(maxGapDays-minGapDays+1)
+			gap := minGapDays + params.Rand.Intn(maxGapDays-minGapDays+1)
 			cursor = cursor.AddDate(0, 0, gap)
 			if !cursor.Before(windowEnd) {
 				break
@@ -100,7 +103,7 @@ func generateReservationSeeds(
 				continue
 			}
 
-			nights := minStayNights + rng.Intn(maxStayNights-minStayNights+1)
+			nights := minStayNights + params.Rand.Intn(maxStayNights-minStayNights+1)
 			checkOutDay := cursor.AddDate(0, 0, nights)
 			if checkOutDay.After(windowEnd) {
 				checkOutDay = windowEnd
@@ -112,7 +115,7 @@ func generateReservationSeeds(
 				break
 			}
 
-			seeds = append(seeds, buildReservationSeed(roomIndex, roomTypeIndex, stayIndex, cursor, checkOutDay, today, guestIDs))
+			seeds = append(seeds, buildReservationSeed(params, roomIndex, roomTypeIndex, stayIndex, cursor, checkOutDay, today))
 
 			cursor = checkOutDay
 			stayIndex++
@@ -122,15 +125,15 @@ func generateReservationSeeds(
 }
 
 func buildReservationSeed(
+	params SeedReservationsParams,
 	roomIndex, roomTypeIndex, stayIndex int,
 	stayStart, stayEnd, today time.Time,
-	guestIDs []string,
 ) reservationSeed {
 	status, itemStatus, expiresAt := deriveReservationStatus(stayStart, stayEnd, today, stayIndex)
 	roomType := roomTypeSeeds[roomTypeIndex]
 
 	return reservationSeed{
-		guestIndex:    (roomIndex*7 + stayIndex) % len(guestIDs),
+		guestIndex:    (roomIndex*7 + stayIndex) % len(params.GuestIDs),
 		source:        reservationSources[stayIndex%len(reservationSources)],
 		status:        status,
 		notes:         "",
@@ -160,16 +163,7 @@ func deriveReservationStatus(stayStart, stayEnd, today time.Time, stayIndex int)
 	}
 }
 
-func insertReservation(
-	ctx context.Context,
-	conn *pgx.Conn,
-	propertyID string,
-	roomTypeIDs []string,
-	roomIDs []string,
-	guestIDs []string,
-	ratePlanID string,
-	seed reservationSeed,
-) error {
+func insertReservation(ctx context.Context, conn *pgx.Conn, params SeedReservationsParams, seed reservationSeed) error {
 	nights := int(seed.checkOut.Truncate(24*time.Hour).Sub(seed.checkIn.Truncate(24*time.Hour)).Hours() / 24)
 	if nights <= 0 {
 		nights = 1
@@ -183,7 +177,7 @@ func insertReservation(
 		VALUES ($1, $2, tstzrange($3::timestamptz, $4::timestamptz, '[)'),
 		        $5, NULLIF($6, ''), $7::operations.reservation_status, 1, $8)
 		RETURNING id
-	`, propertyID, guestIDs[seed.guestIndex], seed.checkIn, seed.checkOut,
+	`, params.PropertyID, params.GuestIDs[seed.guestIndex], seed.checkIn, seed.checkOut,
 		seed.source, seed.notes, seed.status, seed.expiresAt).Scan(&reservationID)
 	if err != nil {
 		return fmt.Errorf("reservation insert: %w", err)
@@ -199,8 +193,8 @@ func insertReservation(
 		        tstzrange($7::timestamptz, $8::timestamptz, '[)'),
 		        $9, $10, $11, $12::operations.reservation_item_status, 1, $13)
 		RETURNING id
-	`, propertyID, reservationID, roomTypeIDs[seed.roomTypeIndex], roomIDs[seed.roomIndex],
-		guestIDs[seed.guestIndex], ratePlanID, seed.checkIn, seed.checkOut,
+	`, params.PropertyID, reservationID, params.RoomTypeIDs[seed.roomTypeIndex], params.RoomIDs[seed.roomIndex],
+		params.GuestIDs[seed.guestIndex], params.RatePlanID, seed.checkIn, seed.checkOut,
 		totalPence, seed.adultsCount, seed.childrenCount, seed.itemStatus, seed.doNotMove).Scan(&itemID)
 	if err != nil {
 		return fmt.Errorf("reservation_item insert: %w", err)
@@ -215,7 +209,7 @@ func insertReservation(
 			UPDATE inventory.room_inventory_ledger
 			SET status = $1, reservation_id = $2, reservation_item_id = $3, updated_at = NOW()
 			WHERE room_id = $4 AND calendar_date = $5 AND property_id = $6 AND deleted_at IS NULL
-		`, inventoryStatus, reservationID, itemID, roomIDs[seed.roomIndex], day.Format("2006-01-02"), propertyID)
+		`, inventoryStatus, reservationID, itemID, params.RoomIDs[seed.roomIndex], day.Format("2006-01-02"), params.PropertyID)
 		if err != nil {
 			return fmt.Errorf("inventory ledger update: %w", err)
 		}

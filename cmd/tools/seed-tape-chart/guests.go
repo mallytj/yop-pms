@@ -18,19 +18,32 @@ func seedGuests(ctx context.Context, conn *pgx.Conn, propertyID string) ([]strin
 
 	guestIDs := make([]string, guestCount)
 	for i := range guestCount {
-		firstName := faker.FirstName()
-		lastName := faker.LastName()
-		email := fmt.Sprintf("%s.%s.%d@example.com", strings.ToLower(firstName), strings.ToLower(lastName), i)
-		phone := faker.Phone()
-
-		err := conn.QueryRow(ctx, `
-			INSERT INTO identity.guests (property_id, first_name, last_name, email, phone_number)
-			VALUES ($1, $2, $3, $4, $5)
-			RETURNING id
-		`, propertyID, firstName, lastName, email, phone).Scan(&guestIDs[i])
+		// @AI - This is less clean
+		guestID, err := insertGuest(ctx, conn, propertyID, faker, i)
 		if err != nil {
-			return nil, fmt.Errorf("guest %s %s: %w", firstName, lastName, err)
+			return nil, err
 		}
+		guestIDs[i] = guestID
 	}
 	return guestIDs, nil
+}
+
+// insertGuest seeds one fake guest; the index suffix keeps emails unique
+// across reseeds regardless of faker output.
+func insertGuest(ctx context.Context, conn *pgx.Conn, propertyID string, faker *gofakeit.Faker, index int) (string, error) {
+	firstName := faker.FirstName()
+	lastName := faker.LastName()
+	email := fmt.Sprintf("%s.%s.%d@example.com", strings.ToLower(firstName), strings.ToLower(lastName), index)
+	phone := faker.Phone()
+
+	var guestID string
+	err := conn.QueryRow(ctx, `
+		INSERT INTO identity.guests (property_id, first_name, last_name, email, phone_number)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id
+	`, propertyID, firstName, lastName, email, phone).Scan(&guestID)
+	if err != nil {
+		return "", fmt.Errorf("guest %s %s: %w", firstName, lastName, err)
+	}
+	return guestID, nil
 }
