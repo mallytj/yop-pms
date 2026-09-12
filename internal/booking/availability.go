@@ -19,6 +19,10 @@ import (
 
 const (
 	availabilityCacheTTL = 60 * time.Second
+
+	// int32BitSize bounds strconv.ParseInt so the parsed availability count
+	// always fits in the int32 columns it is stored in.
+	int32BitSize = 32
 )
 
 // CheckAvailability returns per-night availability for a room type over a date range.
@@ -52,9 +56,8 @@ func (s *Service) CheckAvailability(
 		k := nights[i].Format("2006-01-02")
 		if val != nil {
 			if s, ok := val.(string); ok {
-				if n, err := strconv.ParseInt(s, 10, 32); err == nil {
-					// bitSize 32 above already guarantees n fits in int32.
-					cachedByDate[k] = int32(n) //nolint:gosec
+				if n, err := strconv.ParseInt(s, 10, int32BitSize); err == nil {
+					cachedByDate[k] = int32(n) //nolint:gosec // int32BitSize guarantees n fits
 					continue
 				}
 			}
