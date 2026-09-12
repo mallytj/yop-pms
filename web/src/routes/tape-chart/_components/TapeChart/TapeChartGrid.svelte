@@ -287,7 +287,7 @@
 	// Landing at scrollLeft 0 pins the scrollbar thumb to its track minimum —
 	// physically impossible to drag further left — even though the initial
 	// fetch already includes a lookback buffer of past days (see
-	// DEFAULT_LOOKBACK_DAYS in ../../_utils/date.ts). Positioning at `today`
+	// DEFAULT_LOOKBACK_DAYS in $lib/api/tape-chart.ts). Positioning at `today`
 	// instead puts that buffer to the left of the viewport as real scroll
 	// headroom. Runs once: a plain variable (not $state) so writing it here
 	// doesn't retrigger this same effect.

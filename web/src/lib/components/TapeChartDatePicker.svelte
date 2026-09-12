@@ -3,6 +3,7 @@
 	import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from '@lucide/svelte';
 	import { type DateValue, getLocalTimeZone, parseDate, today } from '@internationalized/date';
 	import { addDays } from '$helpers/dates.js';
+	import { DEFAULT_LOOKBACK_DAYS, TAPE_CHART_WINDOW_DAYS } from '$lib/api/tape-chart.js';
 
 	interface Props {
 		from: string;
@@ -11,22 +12,16 @@
 		onToday?: () => void;
 	}
 
-	const WINDOW_DAYS = 50;
-	// Matches DEFAULT_LOOKBACK_DAYS in src/routes/tape-chart/_utils/date.ts —
-	// jumping to "today" must anchor the request the same number of days
-	// before today as a fresh page load does, or today lands at the very
-	// start of the fetched range with no scroll headroom to the left.
-	const TODAY_LOOKBACK_DAYS = 20;
 	let { from, onRangeChange, onToday }: Props = $props();
 
-	function changeStart(nextFrom: string) {
-		if (!nextFrom) return;
-		onRangeChange(nextFrom, addDays(nextFrom, WINDOW_DAYS));
+	function changeStart(newFrom: string) {
+		if (!newFrom) return;
+		onRangeChange(newFrom, addDays(newFrom, TAPE_CHART_WINDOW_DAYS));
 	}
 
-	function jumpToday() {
+	function jumpToToday() {
 		const todayKey = today(getLocalTimeZone()).toString();
-		changeStart(addDays(todayKey, -TODAY_LOOKBACK_DAYS));
+		changeStart(addDays(todayKey, -DEFAULT_LOOKBACK_DAYS));
 		onToday?.();
 	}
 
@@ -105,7 +100,7 @@
 		</DatePicker.Content>
 	</DatePicker.Root>
 	<div class="presets" aria-label="Shift date range">
-		<button class="today" type="button" onclick={jumpToday}>Today</button>
+		<button class="today" type="button" onclick={jumpToToday}>Today</button>
 	</div>
 </div>
 

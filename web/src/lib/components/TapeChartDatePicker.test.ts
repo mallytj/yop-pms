@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/svelte/svelte5';
+import { daysBetween } from '$helpers/dates.js';
 import TapeChartDatePicker from './TapeChartDatePicker.svelte';
 
 const FIXED_TODAY = new Date('2026-08-24T12:00:00Z');
@@ -15,12 +16,6 @@ async function givenTodayClicked(props: {
 	await fireEvent.click(todayButton);
 
 	return todayButton;
-}
-
-function daysBetween(from: string, to: string): number {
-	const fromDate = new Date(`${from}T00:00:00Z`);
-	const toDate = new Date(`${to}T00:00:00Z`);
-	return (toDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24);
 }
 
 describe('TapeChartDatePicker', () => {

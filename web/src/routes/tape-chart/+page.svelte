@@ -3,6 +3,7 @@
 	import TapeChartGrid from './_components/TapeChart/TapeChartGrid.svelte';
 	import TapeChartEmptyState from './_components/TapeChart/_components/TapeChartEmptyState.svelte';
 	import { fetchTapeChart } from '$lib/api/tape-chart.js';
+	import { asISO8601Date } from '$helpers/dates.js';
 	import { mergeTapeData } from './_components/TapeChart/_utils/mergeTapeData.js';
 	import {
 		normalizeTapeData,
@@ -44,7 +45,7 @@
 		loading = true;
 
 		try {
-			const result = await fetchTapeChart(from, to, 'shallow');
+			const result = await fetchTapeChart(asISO8601Date(from), asISO8601Date(to), 'shallow');
 			const incoming = result.data;
 			if (!incoming) return;
 

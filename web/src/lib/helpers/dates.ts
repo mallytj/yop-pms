@@ -1,3 +1,28 @@
+declare const iso8601DateBrand: unique symbol;
+
+/** A YYYY-MM-DD calendar date that has passed validation. */
+export type ISO8601Date = string & { readonly [iso8601DateBrand]: true };
+
+const ISO8601_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const MS_PER_DAY = 86_400_000;
+
+export function isISO8601Date(value: string): value is ISO8601Date {
+	if (!ISO8601_DATE_PATTERN.test(value)) return false;
+	const date = new Date(`${value}T00:00:00.000Z`);
+	// V8 rolls out-of-range days into the next month instead of returning
+	// NaN, so only the round-trip rejects impossible dates like 2026-02-29.
+	return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+}
+
+/** Brand a YYYY-MM-DD string, throwing on anything else so bad dates fail early. */
+export function asISO8601Date(value: string): ISO8601Date {
+	if (!isISO8601Date(value)) {
+		throw new Error(`Expected YYYY-MM-DD date, got: ${value}`);
+	}
+	return value;
+}
+
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const;
 const MONTHS = [
 	'Jan',
@@ -15,11 +40,11 @@ const MONTHS = [
 ] as const;
 
 /** Local calendar YYYY-MM-DD (operator wall clock). */
-export function localDateKey(date = new Date()): string {
+export function localDateKey(date = new Date()): ISO8601Date {
 	const year = date.getFullYear();
 	const month = String(date.getMonth() + 1).padStart(2, '0');
 	const day = String(date.getDate()).padStart(2, '0');
-	return `${year}-${month}-${day}`;
+	return asISO8601Date(`${year}-${month}-${day}`);
 }
 
 /**
@@ -59,13 +84,13 @@ export function toDateKey(value: unknown): string {
 }
 
 /** Calendar-date arithmetic via UTC midnight (DST-safe for YYYY-MM-DD keys). */
-export function addDays(dateStr: string, days: number): string {
+export function addDays(dateStr: string, days: number): ISO8601Date {
 	// Equivalent to daysBetween's suffix above — a bare YYYY-MM-DD already
 	// parses as UTC midnight without it.
 	// Stryker disable next-line StringLiteral
-	const date = new Date(dateStr + 'T00:00:00.000Z');
+	const date = new Date(asISO8601Date(dateStr) + 'T00:00:00.000Z');
 	date.setUTCDate(date.getUTCDate() + days);
-	return date.toISOString().slice(0, 10);
+	return asISO8601Date(date.toISOString().slice(0, 10));
 }
 
 export function parseUTC(dateStr: string): Date {
@@ -105,13 +130,15 @@ export function isWeekend(dateStr: string): boolean {
 	return weekday === 0 || weekday === 6;
 }
 
-export function buildDateRange(from: string, to: string, maxDays = 400): string[] {
+export function buildDateRange(from: string, to: string, maxDays = 400): ISO8601Date[] {
 	if (!from || !to) return [];
-	const result: string[] = [];
-	let current = from;
+	const start = asISO8601Date(from);
+	const end = asISO8601Date(to);
+	const result: ISO8601Date[] = [];
+	let current = start;
 	for (let index = 0; index < maxDays; index++) {
 		result.push(current);
-		if (current >= to) break;
+		if (current >= end) break;
 		current = addDays(current, 1);
 	}
 	return result;
@@ -126,7 +153,7 @@ export function daysBetween(from: string, to: string): number {
 	const fromMs = new Date(from + 'T00:00:00.000Z').getTime();
 	// Stryker disable next-line StringLiteral
 	const toMs = new Date(to + 'T00:00:00.000Z').getTime();
-	return Math.round((toMs - fromMs) / 86_400_000);
+	return Math.round((toMs - fromMs) / MS_PER_DAY);
 }
 
 export function minDateKey(left: unknown, right: unknown): string {

@@ -1,16 +1,17 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types.js';
-import { fetchTapeChart } from '$lib/api/tape-chart.js';
+import { fetchTapeChart, TAPE_CHART_WINDOW_DAYS } from '$lib/api/tape-chart.js';
 import { addDays } from '$helpers/dates.js';
-import { isValidDateKey, normalizeDateRange, TAPE_CHART_WINDOW_DAYS } from './_utils/date.js';
+import { isValidDateKey, normalizeDateRange } from './_utils/date.js';
 
 export const load: PageServerLoad = ({ fetch, url }) => {
 	const defaults = normalizeDateRange(null);
 	const requestedFrom = url.searchParams.get('from');
 	const requestedTo = url.searchParams.get('to');
 	const from = isValidDateKey(requestedFrom) ? requestedFrom : defaults.from;
-	const expectedTo = addDays(from, TAPE_CHART_WINDOW_DAYS);
-	const to = requestedTo === expectedTo ? requestedTo : expectedTo;
+	// `to` is derived, never taken from the URL — a matching requestedTo just
+	// means no redirect is needed to normalize the URL.
+	const to = addDays(from, TAPE_CHART_WINDOW_DAYS);
 
 	if (requestedFrom !== from || requestedTo !== to) {
 		const next = new URL(url);

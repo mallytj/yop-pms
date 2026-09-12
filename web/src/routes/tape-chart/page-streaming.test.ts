@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup, waitFor } from '@testing-library/svelte/svelte5';
 import TapeChartPage from './+page.svelte';
 import type { TapeChartData } from '$types/tape-chart.js';
+import { asISO8601Date } from '$helpers/dates.js';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
@@ -20,7 +21,9 @@ describe('tape-chart +page.svelte', () => {
 
 	function renderWithStream(tapeChart: Promise<TapeChartData>) {
 		return render(TapeChartPage, {
-			props: { data: { from: '2026-08-20', to: '2026-10-09', tapeChart } }
+			props: {
+				data: { from: asISO8601Date('2026-08-20'), to: asISO8601Date('2026-10-09'), tapeChart }
+			}
 		});
 	}
 
